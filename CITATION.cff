@@ -28,6 +28,7 @@ authors:
 version: 0.1.0
 date-released: 2026-10-10
 license: CC-BY-SA-4.0
+doi: "10.5281/zenodo.23285664"
 repository-code: "https://github.com/edelahozuah/computer-networks-visualizations"
 url: "https://edelahozuah.github.io/computer-networks-visualizations/"
 keywords:

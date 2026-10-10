@@ -107,7 +107,7 @@ footer{{margin-top:48px;border-top:1px solid var(--line);padding-top:14px;font-s
     parts.append("""</main>
 <footer>
 <p>Problems and figures referenced in the visualizations are from Kurose &amp; Ross, <em>Computer Networking: A Top-Down Approach</em>. The visualizations themselves are original work licensed under CC BY-SA 4.0: reuse, adapt and share them, crediting the author and keeping the same license.</p>
-<p>To cite or get a persistent DOI, see <a href="https://github.com/edelahozuah/computer-networks-visualizations#citing">the README</a>.</p>
+<p>Cite the collection with its DOI <a href="https://doi.org/10.5281/zenodo.23285664">10.5281/zenodo.23285664</a> (see <a href="https://github.com/edelahozuah/computer-networks-visualizations#citing">the README</a>).</p>
 </footer>
 </div>
 </body>

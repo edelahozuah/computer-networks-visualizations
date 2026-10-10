@@ -4,8 +4,7 @@
 
 [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 [![Catalogue](https://img.shields.io/badge/catalogue-GitHub_Pages-1D66A8)](https://edelahozuah.github.io/computer-networks-visualizations/)
-<!-- DOI badge: replace with the Zenodo concept DOI once the first release is archived
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) -->
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23285664.svg)](https://doi.org/10.5281/zenodo.23285664)
 
 Self-contained, interactive HTML visualizations for teaching computer networks
 at undergraduate level. Each one is **a single HTML file with no dependencies**:
@@ -103,15 +102,15 @@ pieces share (common CSS and the `RT` helper object).
 
 ## Citing
 
-If you use these materials in teaching or research, please cite them. The
-`CITATION.cff` file has the metadata GitHub and Zenodo read; once the first
-release is archived, each version gets a DOI on Zenodo and the concept DOI
-(which always resolves to the latest version) will be shown at the top of
-this README.
+If you use these materials in teaching or research, please cite them. Every
+release is archived on Zenodo with its own DOI; the concept DOI
+[10.5281/zenodo.23285664](https://doi.org/10.5281/zenodo.23285664) always
+resolves to the latest version. `CITATION.cff` has the metadata GitHub and
+Zenodo read.
 
 > de la Hoz, E., de la Cruz Piris, L., & Machado Zurita, S. (2026). *Interactive visualizations for computer networks
 > courses* (Version 0.1.0) [Computer software]. University of Alcalá.
-> https://github.com/edelahozuah/computer-networks-visualizations
+> https://doi.org/10.5281/zenodo.23285664
 
 ## License
 
@@ -149,7 +148,7 @@ computadoras: un enfoque descendente*, y se usan en
 - **Para añadir una visualización:** un fichero por idioma (`<id>.es.html`,
   `<id>.en.html`), su entrada en `catalog.yml`, la miniatura con
   `scripts/thumbnails.sh`, y `scripts/check.py` y `scripts/build_index.py`.
-- **Cita y DOI:** véase [Citing](#citing). Cada versión publicada se archiva en
-  Zenodo con su DOI.
+- **Cita y DOI:** véase [Citing](#citing). Cada versión se archiva en Zenodo;
+  el DOI de concepto es [10.5281/zenodo.23285664](https://doi.org/10.5281/zenodo.23285664).
 - **Licencia:** [CC BY-SA 4.0](LICENSE). Reutiliza, adapta y comparte citando
   al autor y manteniendo la licencia.
