@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consultas DNS: decide tú quién es recursivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEF0F2; --surface:#FFFFFF; --surface2:#F6F7F8; --ink:#1B2129; --muted:#5E6873; --line:#D5DAE0;
+  --rust:#B5541F;           /* barra de las diapositivas UAH */
+  --q:#B5541F;              /* consulta */
+  --ref:#9A6E00;            /* referencia */
+  --ans:#1D66A8;            /* respuesta */
+  --node:#46505C; --nodefill:#E3E7EB; --owe:#B5541F;
+  --f-disp:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+    --rust:#E27B45; --q:#E27B45; --ref:#E0B03C; --ans:#5DA9EC; --node:#B7C0CA; --nodefill:#26303A; --owe:#E27B45;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+  --rust:#E27B45; --q:#E27B45; --ref:#E0B03C; --ans:#5DA9EC; --node:#B7C0CA; --nodefill:#26303A; --owe:#E27B45;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);margin:0;padding-inline:16px;padding-block:0 40px}
+.wrap{max-width:1280px;margin:0 auto}
+header{border-top:6px solid var(--rust);padding-block:18px 10px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:end;justify-content:space-between}
+h1{font:800 clamp(22px,3vw,30px)/1.1 var(--f-disp);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.rule{font-size:14px;color:var(--muted);max-width:52ch;margin:0}
+.rule b{color:var(--ink)}
+
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding-block:10px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:600 14px var(--f-body);border:0;background:transparent;color:var(--ink);padding:8px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ctrls{display:inline-flex;gap:6px;align-items:center}
+.btn{font:600 14px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:42px}
+.btn.primary{background:var(--rust);border-color:var(--rust);color:#fff;min-width:150px}
+.btn:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--ans);outline-offset:2px}
+.opt{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.opt input[type=range]{width:90px;accent-color:var(--rust)}
+.opt input[type=checkbox]{accent-color:var(--rust);width:16px;height:16px}
+.counter{font:500 14px var(--f-mono);color:var(--muted);margin-left:auto}
+.counter b{color:var(--ink);font-size:18px}
+
+.stages{display:grid;gap:18px}
+.stages.compare{grid-template-columns:1fr 1fr}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:14px;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);align-items:start}
+.stages.compare .stage{grid-template-columns:1fr}
+.stage h2{font:700 18px/1.2 var(--f-disp);margin:0 0 2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.stage h2 small{font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.svgbox{overflow-x:auto}
+svg.net{width:100%;height:auto;display:block;min-width:0}
+.side{display:grid;gap:12px}
+
+.card{border:1px solid var(--line);border-radius:8px;background:var(--surface2);padding:12px 14px;min-height:170px}
+.card .kind{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;display:inline-flex;gap:8px;align-items:center}
+.card .kind i{width:18px;height:3px;border-radius:2px;background:currentColor;display:inline-block}
+.card h3{font:700 17px/1.25 var(--f-disp);margin:6px 0 8px}
+.say{font-size:15px;margin:0 0 10px;padding-left:10px;border-left:3px solid var(--line)}
+.fields{display:flex;flex-wrap:wrap;gap:6px}
+.fields span{font:500 12.5px/1.2 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:4px 7px}
+.note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.k-q{color:var(--q)} .k-ref{color:var(--ref)} .k-ans{color:var(--ans)}
+.ask{font:700 17px/1.3 var(--f-disp)}
+
+ol.msgs{list-style:none;margin:0;padding:0;display:grid;gap:3px;counter-reset:m}
+ol.msgs li button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13.5px;color:var(--muted)}
+ol.msgs li button:hover{background:var(--surface2)}
+ol.msgs li button:focus-visible{outline:2px solid var(--ans)}
+ol.msgs li .n{font:600 12px var(--f-mono);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line)}
+ol.msgs li .t{font:500 11.5px var(--f-mono);text-transform:uppercase;letter-spacing:.04em}
+ol.msgs li.done button{color:var(--ink)}
+ol.msgs li.done .n{color:#fff;border-color:transparent}
+ol.msgs li.done.q .n{background:var(--q)} ol.msgs li.done.ref .n{background:var(--ref)} ol.msgs li.done.ans .n{background:var(--ans)}
+ol.msgs li.cur button{background:var(--surface2);box-shadow:inset 3px 0 0 var(--rust)}
+
+table.load{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:8px;font-variant-numeric:tabular-nums}
+table.load td,table.load th{padding:3px 6px;text-align:left;border-bottom:1px solid var(--line)}
+table.load th{font:600 11.5px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.bar{height:8px;border-radius:4px;background:var(--rust);display:inline-block;vertical-align:middle;margin-right:6px}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:14px}
+.legend span{display:inline-flex;gap:7px;align-items:center}
+.legend i{width:22px;height:3px;border-radius:2px;display:inline-block}
+.legend .ring{width:14px;height:14px;border-radius:50%;border:2px dashed var(--owe)}
+footer{font-size:12.5px;color:var(--muted);margin-top:14px;max-width:90ch}
+
+/* SVG */
+.nd .ico{fill:var(--nodefill);stroke:var(--node);stroke-width:1.6}
+.nd .slot{stroke:var(--node);stroke-width:1.4}
+.nd .led{fill:var(--ans)}
+.nd .role{font:700 17px var(--f-disp);fill:var(--ink)}
+.nd .host{font:400 13.5px var(--f-mono);fill:var(--muted)}
+.nd .tag{font:600 13.5px var(--f-body);fill:var(--owe)}
+.nd .ringc{fill:none;stroke:var(--owe);stroke-width:2.2;stroke-dasharray:6 5;opacity:0;transition:opacity .3s}
+.nd.owe .ringc{opacity:1;animation:spin 3s linear infinite}
+.nd.flash .ico{stroke:var(--ans);stroke-width:2.6}
+@keyframes spin{to{stroke-dashoffset:-66}}
+.arr{fill:none;stroke-width:2.6;stroke-linecap:round}
+.arr.q{stroke:var(--q)} .arr.ref{stroke:var(--ref)} .arr.ans{stroke:var(--ans)}
+.arr.old{opacity:.5;stroke-width:2.2}
+.arr:not(.old){stroke-width:3.4}
+.mk-q{fill:var(--q)} .mk-ref{fill:var(--ref)} .mk-ans{fill:var(--ans)}
+.badge circle{stroke:var(--surface);stroke-width:2}
+.badge.q circle{fill:var(--q)} .badge.ref circle{fill:var(--ref)} .badge.ans circle{fill:var(--ans)}
+.badge text,.pkt text{font:600 12px var(--f-mono);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.pkt rect{stroke:var(--surface);stroke-width:2}
+.pkt.q rect{fill:var(--q)} .pkt.ref rect{fill:var(--ref)} .pkt.ans rect{fill:var(--ans)}
+.warn{font:600 14px var(--f-body);fill:var(--muted)}
+
+@media (max-width:980px){
+  .stage{grid-template-columns:1fr}
+  .stages.compare{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .counter{margin-left:0}
+  .btn.primary{min-width:0;flex:1}
+}
+@media (prefers-reduced-motion:reduce){ .nd.owe .ringc{animation:none} }
+
+/* Configuración por servidor */
+.cfg{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:grid;gap:10px}
+.cfg-head{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cfg-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px}
+.cfg-item{display:grid;gap:5px}
+.cfg-name{font:700 15px/1.2 var(--f-disp)}
+.cfg-name small{font:400 12.5px var(--f-mono);color:var(--muted);display:block;margin-top:2px}
+.seg.sm button{font-size:13.5px;padding:6px 11px;flex:1}
+.seg.sm{display:flex}
+.cfg-item .seg button[data-v="rec"][aria-pressed="true"]{background:var(--owe);color:#fff}
+.presets{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:13.5px;color:var(--muted)}
+.presets button{font:600 13px var(--f-body);border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer}
+.presets button:hover{border-color:var(--muted)}
+.presets button[aria-pressed="true"]{border-color:var(--rust);box-shadow:inset 0 0 0 1px var(--rust)}
+.warns{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:3px}
+.warns li{font-size:13.5px;color:var(--muted)}
+.warns li::before{content:"⚠ ";color:var(--ref)}
+.nd .chip{cursor:pointer}
+.nd .chip rect{fill:var(--surface);stroke:var(--node);stroke-width:1.3}
+.nd .chip text{font:600 11px var(--f-mono);letter-spacing:.05em;fill:var(--node);dominant-baseline:central}
+.nd .chip.rec rect{fill:var(--owe);stroke:var(--owe)}
+.nd .chip.rec text{fill:#fff}
+.nd .chip:hover rect{stroke-width:2.2}
+.nd .chip:focus{outline:none}
+.nd .chip:focus-visible rect{stroke:var(--ans);stroke-width:3}
+.yes{color:var(--owe);font-weight:600}
+table.load td:nth-child(2){white-space:nowrap}
+@media (max-width:860px){ .cfg-row{grid-template-columns:repeat(2,minmax(0,1fr))} }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Tema 2 · GG21 · DNS</div>
+      <h1>Consultas DNS: decide tú quién es recursivo</h1>
+    </div>
+    <p class="rule">El host pregunta por <b>gaia.cs.umass.edu</b> con todas las cachés vacías. Como dice el Kurose, <b>en teoría cualquier consulta puede ser iterativa o recursiva</b>: elige cómo atiende cada servidor las consultas que recibe y mira qué cambia.</p>
+  </header>
+
+  <section class="cfg" aria-label="Comportamiento de cada servidor">
+    <div class="cfg-head">Cómo atiende cada servidor las consultas que recibe</div>
+    <div class="cfg-row" id="cfg-row"></div>
+    <div class="presets" id="presets">Ejemplos:</div>
+  </section>
+
+  <div class="toolbar" role="toolbar" aria-label="Controles de la animación">
+    <div class="ctrls">
+      <button class="btn" id="b-reset" title="Volver al inicio (Inicio)" aria-label="Volver al inicio">⏮</button>
+      <button class="btn" id="b-prev" title="Mensaje anterior (←)" aria-label="Mensaje anterior">◀</button>
+      <button class="btn primary" id="b-next" title="Siguiente mensaje (→)">Siguiente mensaje ▶</button>
+      <button class="btn" id="b-play" title="Reproducir / pausar (espacio)" aria-label="Reproducir">▶▶</button>
+    </div>
+    <label class="opt" for="o-speed">Velocidad <input type="range" id="o-speed" min="0.5" max="2.5" step="0.25" value="1"></label>
+    <label class="opt" for="o-ask"><input type="checkbox" id="o-ask"> Pausa para predecir</label>
+    <div class="counter" aria-live="polite">mensaje <b id="c-k">0</b> / <span id="c-n">8</span></div>
+  </div>
+
+  <div class="stages" id="stages"></div>
+
+  <div class="legend">
+    <span><i style="background:var(--q)"></i>Consulta</span>
+    <span><i style="background:var(--ref)"></i>Referencia (“no lo sé, pregunta a…”)</span>
+    <span><i style="background:var(--ans)"></i>Respuesta con la dirección</span>
+    <span><span class="ring"></span>Servidor con una consulta ajena pendiente (tiene que recordarla y esperar)</span>
+  </div>
+  <footer>Ampliación de las figuras 2.19 y 2.20 de Kurose y Ross. Modelo simplificado: un servidor «recursivo» resuelve por su cuenta lo que le preguntan (RD = 1 y RA = 1); uno «iterativo» contesta solo con lo que sabe, normalmente una referencia. También puedes cambiar el modo pulsando la etiqueta junto a cada servidor del dibujo. La configuración queda en la dirección de la página, para compartirla. Las direcciones IP de los servidores de .edu y de umass.edu son ilustrativas. Teclado: → siguiente, ← anterior, espacio reproducir/pausar, Inicio reiniciar.</footer>
+</div>
+
+<script>
+(() => {
+const NODES = {
+  host:  {x:190, y:452, kind:'pc',  role:'Host',            name:'cis.poly.edu',       side:'left'},
+  local: {x:190, y:250, kind:'srv', role:'Servidor local',  name:'dns.poly.edu',       side:'left'},
+  root:  {x:410, y:82,  kind:'srv', role:'Raíz',            name:'a.root-servers.net', side:'right'},
+  tld:   {x:610, y:250, kind:'srv', role:'TLD .edu',        name:'a.edu-servers.net',  side:'right'},
+  auth:  {x:610, y:440, kind:'srv', role:'Autoritativo',    name:'dns.cs.umass.edu',   side:'right'},
+};
+const LBL = {host:'Host', local:'Servidor local', root:'Raíz', tld:'TLD .edu', auth:'Autoritativo'};
+const ART = {host:'el host', local:'el servidor local', root:'la raíz', tld:'el TLD', auth:'el autoritativo'};
+const CHAIN = ['local','root','tld','auth'];
+const Q = 'gaia.cs.umass.edu';
+const IP = '128.119.245.12';
+
+const CE = {
+  a:     `${Q} A ${IP} · TTL 3600`,
+  rt:    '. NS a.root-servers.net · TTL 518400',
+  rtG:   'a.root-servers.net A 198.41.0.4 · TTL 518400',
+  edu:   'edu NS a.edu-servers.net · TTL 172800',
+  eduG:  'a.edu-servers.net A 192.5.6.30 · TTL 172800',
+  um:    'umass.edu NS dns.cs.umass.edu · TTL 172800',
+  umG:   'dns.cs.umass.edu A 128.119.240.1 · TTL 172800',
+};
+// Lo que contesta cada servidor iterativo: a quién preguntar a continuación
+const REF = {
+  local: {zone:'.',         to:'la raíz',                     name:'a.root-servers.net', ip:'198.41.0.4',    cache:['rt','rtG']},
+  root:  {zone:'edu',       to:'los servidores de .edu',      name:'a.edu-servers.net',  ip:'192.5.6.30',    cache:['edu','eduG']},
+  tld:   {zone:'umass.edu', to:'el autoritativo de umass.edu', name:'dns.cs.umass.edu',  ip:'128.119.240.1', cache:['um','umG']},
+};
+
+const PRESETS = [
+  {label:'Fig. 2.19: iterativa (la habitual)', cfg:{local:'rec', root:'it',  tld:'it',  auth:'it'}},
+  {label:'Fig. 2.20: todo recursivo',          cfg:{local:'rec', root:'rec', tld:'rec', auth:'rec'}},
+  {label:'Todo iterativo',                     cfg:{local:'it',  root:'it',  tld:'it',  auth:'it'}},
+  {label:'Raíz iterativa, TLD recursivo',      cfg:{local:'rec', root:'it',  tld:'rec', auth:'it'}},
+];
+
+// Genera la secuencia de mensajes a partir de la configuración
+function buildMsgs(cfg){
+  const msgs = [], pending = new Set();
+  const query = (f, t) => {
+    const rec = cfg[t] === 'rec', n = msgs.length + 1;
+    let note;
+    if (t === 'auth') note = rec
+      ? `${cap(ART[f])} pide recursión, pero da igual: el autoritativo tiene la zona umass.edu y conoce la respuesta.`
+      : `${cap(ART[f])} pregunta al servidor que tiene la zona umass.edu.`;
+    else if (rec && f === 'host') note = `El host delega todo el trabajo en ${ART[t]}, que queda encargado de traerle la respuesta.`;
+    else if (rec) note = `${cap(ART[f])} delega: ${ART[t]} queda encargado de resolver el nombre y tiene que recordar la consulta hasta tener la respuesta.`;
+    else note = `${cap(ART[f])} solo espera una contestación inmediata con lo que ${ART[t]} sepa. Si no es la dirección, ${ART[f]} tendrá que seguir preguntando.`;
+    const m = {f, t, k:'q', type: rec ? 'Consulta recursiva' : 'Consulta iterativa',
+      say: rec ? `«¿Cuál es la dirección de ${Q}? Tráemela tú.»` : `«¿Cuál es la dirección de ${Q}?»`,
+      fields:[rec ? 'RD = 1' : 'RD = 0', `Pregunta: ${Q} A`], note};
+    if (rec && t !== 'auth'){
+      m.owe = t; pending.add(t);
+      if (pending.size > 1) m.note += ` Ahora hay ${pending.size} servidores esperando a la vez, cada uno con la consulta de otro en memoria.`;
+    }
+    msgs.push(m); return n;
+  };
+  // D pregunta a CHAIN[i], CHAIN[i+1]... hasta tener la dirección
+  const drive = (D, i) => {
+    for (;;){
+      const s = CHAIN[i];
+      const qn = query(D, s);
+      if (s === 'auth'){
+        msgs.push({f:'auth', t:D, k:'ans', type:'Respuesta autoritativa', say:`«${Q} está en ${IP}.»`,
+          fields:['AA = 1', `${Q} A ${IP}`, 'TTL 3600'],
+          note:'El autoritativo sí conoce el nombre y fija el TTL: cuánto tiempo se puede guardar en caché.', cache:{[D]:['a']}});
+        return;
+      }
+      if (cfg[s] === 'rec'){
+        drive(s, i+1);
+        pending.delete(s);
+        msgs.push({f:s, t:D, k:'ans', type:'Respuesta', say:`«${Q} está en ${IP}.»`,
+          fields:['AA = 0', 'RA = 1', `${Q} A ${IP}`, 'TTL 3600'],
+          note:`${cap(ART[s])} cumple el encargo del mensaje ${qn} y libera su consulta pendiente. AA = 0 porque no es autoritativo.` + (D === 'host' ? ' Fin: el host tiene la dirección.' : ''),
+          pay:s, cache:{[D]:['a']}});
+        return;
+      }
+      const r = REF[s];
+      msgs.push({f:s, t:D, k:'ref', type:'Referencia',
+        say:`«No lo sé. Pregunta a ${r.to}: ${r.name}, en ${r.ip}.»`,
+        fields:['Respuesta: vacía', `NS ${r.zone} → ${r.name}`, `pegamento: ${r.ip}`],
+        note:`${cap(ART[s])} es iterativo: contesta al momento con lo que sabe y se olvida de la consulta. ${cap(ART[D])} tendrá que preguntar ${D === 'host' ? 'él' : 'él mismo'} a ${r.to}.` +
+          (s === 'local' ? ' En la práctica el host no sabría: su software DNS (stub resolver) depende de que el servidor local sea recursivo.' : ''),
+        cache:{[D]:r.cache}});
+      i++;
+    }
+  };
+  drive('host', 0);
+  return msgs;
+}
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (n, a={}, p) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function geom(a, b){
+  const A = NODES[a], B = NODES[b];
+  const dx = B.x-A.x, dy = B.y-A.y, L = Math.hypot(dx,dy), ux = dx/L, uy = dy/L;
+  const nx = -uy, ny = ux, off = 9, r = 46;
+  const x1 = A.x+ux*r+nx*off, y1 = A.y+uy*r+ny*off, x2 = B.x-ux*(r+4)+nx*off, y2 = B.y-uy*(r+4)+ny*off;
+  return {x1,y1,x2,y2,len:Math.hypot(x2-x1,y2-y1), bx:(x1+x2)/2+nx*16, by:(y1+y2)/2+ny*16};
+}
+
+class Stage {
+  constructor(cfg, host){
+    this.cfg = cfg; this.msgs = buildMsgs(cfg); this.key = 'mx'; this.k = 0; this.anim = null;
+    const s = h('section','stage'); s.setAttribute('aria-label', 'Resolución con la configuración elegida');
+    const left = h('div');
+    const name = PRESETS.find(p => sameCfg(p.cfg, cfg));
+    left.appendChild(h('h2', null, `Resolución paso a paso <small>${name ? name.label : 'configuración propia'}</small>`));
+    const warns = [];
+    if (cfg.local === 'it') warns.push('Un host real no sabe iterar: su servidor local siempre le atiende en modo recursivo.');
+    const big = ['root','tld'].filter(n => cfg[n] === 'rec').map(n => ART[n]);
+    if (big.length) warns.push(`Hoy ${big.join(' y ')} no ${big.length > 1 ? 'aceptan' : 'acepta'} consultas recursivas: ${big.length > 1 ? 'ignoran RD y contestan' : 'ignora RD y contesta'} con referencias.`);
+    if (warns.length){ const ul = h('ul','warns'); warns.forEach(w => ul.appendChild(h('li', null, w))); left.appendChild(ul); }
+    const box = h('div','svgbox'); left.appendChild(box);
+    this.svg = el('svg', {class:'net', viewBox:'0 0 820 540', role:'img', 'aria-label':'Diagrama de la resolución'}, box);
+    this.buildSvg();
+    const side = h('div','side');
+    this.card = h('div','card'); this.card.setAttribute('aria-live','polite');
+    this.list = h('ol','msgs');
+    this.msgs.forEach((m,i) => {
+      const li = h('li', m.k);
+      const b = h('button', null, `<span class="n">${i+1}</span><span>${LBL[m.f]} → ${LBL[m.t]}</span><span class="t">${m.type.split(' ')[0]}${m.type.includes('recursiva')?' rec.':m.type.includes('iterativa')?' it.':''}</span>`);
+      b.addEventListener('click', () => app.jump(i+1));
+      li.appendChild(b); this.list.appendChild(li);
+    });
+    side.append(this.card, this.list);
+    s.append(left, side); host.appendChild(s);
+    this.render(0, null);
+  }
+  buildSvg(){
+    const svg = this.svg, defs = el('defs', {}, svg);
+    for (const k of ['q','ref','ans']){
+      const m = el('marker', {id:`mk-${this.key}-${k}`, viewBox:'0 0 10 10', refX:'8', refY:'5', markerWidth:'7', markerHeight:'7', orient:'auto-start-reverse'}, defs);
+      el('path', {d:'M0,0 L10,5 L0,10 z', class:`mk-${k}`}, m);
+    }
+    this.gArr = el('g', {}, svg);
+    this.gNodes = el('g', {}, svg);
+    this.gTop = el('g', {}, svg);
+    this.nodeEls = {};
+    for (const [id, n] of Object.entries(NODES)){
+      const g = el('g', {class:'nd', transform:`translate(${n.x},${n.y})`}, this.gNodes);
+      el('circle', {class:'ringc', r:44}, g);
+      if (n.kind === 'srv'){
+        el('rect', {class:'ico', x:-17, y:-26, width:34, height:52, rx:4}, g);
+        for (const y of [-15,-5,5]) el('line', {class:'slot', x1:-10, x2:10, y1:y, y2:y}, g);
+        el('circle', {class:'led', cx:9, cy:17, r:2.6}, g);
+      } else {
+        el('rect', {class:'ico', x:-25, y:-24, width:50, height:34, rx:3}, g);
+        el('rect', {class:'ico', x:-5, y:10, width:10, height:8}, g);
+        el('rect', {class:'ico', x:-16, y:18, width:32, height:5, rx:2}, g);
+      }
+      const L = n.side === 'left', tx = L ? -54 : 54, anchor = L ? 'end' : 'start';
+      if (this.cfg[id]){
+        const rec = this.cfg[id] === 'rec', w = 96, label = rec ? 'RECURSIVO' : 'ITERATIVO';
+        const c = el('g', {class:`chip ${rec ? 'rec' : 'it'}`, tabindex:0, role:'button',
+          'aria-label':`${LBL[id]}: ${rec ? 'recursivo' : 'iterativo'}. Pulsa para cambiar`}, g);
+        el('title', {}, c).textContent = 'Pulsa para cambiar el modo';
+        el('rect', {x: L ? tx-w : tx, y:-45, width:w, height:20, rx:10}, c);
+        el('text', {x: (L ? tx-w : tx) + w/2, y:-35, 'text-anchor':'middle'}, c).textContent = label;
+        const toggle = () => app.setNode(id, rec ? 'it' : 'rec');
+        c.addEventListener('click', toggle);
+        c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); e.stopPropagation(); toggle(); } });
+      }
+      const r1 = el('text', {class:'role', x:tx, y:-6, 'text-anchor':anchor}, g); r1.textContent = n.role;
+      const r2 = el('text', {class:'host', x:tx, y:13, 'text-anchor':anchor}, g); r2.textContent = n.name;
+      const tg = el('text', {class:'tag', x:tx, y:33, 'text-anchor':anchor}, g);
+      this.nodeEls[id] = {g, tag:tg};
+    }
+  }
+  stateAt(k){
+    const z = () => ({host:0,local:0,root:0,tld:0,auth:0});
+    const owe = {}, cache = {host:[],local:[],root:[],tld:[],auth:[]}, handled = z(), asked = z(), waited = {};
+    let peak = 0;
+    for (let i=0;i<k;i++){
+      const m = this.msgs[i];
+      handled[m.f]++; handled[m.t]++;
+      if (m.k === 'q') asked[m.f]++;
+      if (m.owe){ owe[m.owe] = m.f; waited[m.owe] = true; }
+      if (m.pay) delete owe[m.pay];
+      if (m.cache) for (const n in m.cache) cache[n].push(...m.cache[n]);
+      peak = Math.max(peak, Object.keys(owe).length);
+    }
+    return {owe, cache, handled, asked, waited, peak};
+  }
+  drawArrow(i, final){
+    const m = this.msgs[i], g = geom(m.f, m.t);
+    const line = el('line', {class:`arr ${m.k}`, x1:g.x1, y1:g.y1, x2:g.x2, y2:g.y2}, this.gArr);
+    if (final) line.setAttribute('marker-end', `url(#mk-${this.key}-${m.k})`);
+    return {line, g, m};
+  }
+  badge(i, g, m){
+    const b = el('g', {class:`badge ${m.k}`, transform:`translate(${g.bx},${g.by})`}, this.gArr);
+    el('circle', {r:11}, b); el('text', {}, b).textContent = i+1;
+  }
+  render(k, asking){
+    this.cancel();
+    this.k = k;
+    this.gArr.innerHTML = ''; this.gTop.innerHTML = '';
+    for (let i=0;i<k;i++){ const a = this.drawArrow(i, true); if (i < k-1) a.line.classList.add('old'); this.badge(i, a.g, a.m); }
+    this.paintNodes(k);
+    this.paintSide(k, asking);
+  }
+  paintNodes(k){
+    const st = this.stateAt(k);
+    for (const [id, o] of Object.entries(this.nodeEls)){
+      const who = st.owe[id];
+      o.g.classList.toggle('owe', !!who);
+      o.tag.textContent = '';
+      if (who){
+        const x = o.tag.getAttribute('x');
+        el('tspan', {x, dy:0}, o.tag).textContent = 'debe responder a:';
+        el('tspan', {x, dy:17}, o.tag).textContent = LBL[who];
+      }
+    }
+  }
+  summary(st){
+    const N = this.msgs.length;
+    const list = a => a.length < 2 ? a.join('') : a.slice(0,-1).join(', ') + ' y ' + a.at(-1);
+    const waited = Object.keys(st.waited).map(n => ART[n]);
+    const askers = Object.keys(st.asked).filter(n => st.asked[n]).map(n => ART[n]);
+    const cached = Object.keys(st.cache).filter(n => st.cache[n].includes('a')).map(n => ART[n]);
+    let s = `${N} mensajes, como en cualquier otra configuración: cada servidor recibe una consulta y envía una contestación. Lo que cambia es quién trabaja. `;
+    s += waited.length
+      ? `Han tenido que recordar una consulta ajena: ${list(waited)}${st.peak > 1 ? ` (hasta ${st.peak} a la vez)` : ''}. `
+      : 'Ningún servidor ha tenido que recordar una consulta ajena: el host ha hecho todo el trabajo. ';
+    s += `Han enviado consultas: ${list(askers)}. La dirección queda en la caché ${('de ' + list(cached)).replace(/\bde el /g, 'del ')}.`;
+    if (this.cfg.root === 'rec' || this.cfg.tld === 'rec')
+      s += ' Con millones de resolutores preguntando, un servidor raíz o TLD recursivo no daría abasto: por eso en la práctica contestan siempre con referencias.';
+    return s;
+  }
+  paintSide(k, asking){
+    const msgs = this.msgs;
+    [...this.list.children].forEach((li,i) => { li.classList.toggle('done', i<k); li.classList.toggle('cur', i===k-1); });
+    let html;
+    if (asking){
+      html = `<div class="kind" style="color:var(--muted)">Antes de seguir</div><h3 class="ask">¿Cuál es el mensaje ${k+1}?</h3><p class="say">¿Quién lo envía, a quién, y es una consulta, una referencia o una respuesta? Fíjate en el modo de cada servidor.</p><p class="note">Pulsa «Siguiente mensaje» para comprobarlo.</p>`;
+    } else if (k === 0){
+      html = `<div class="kind" style="color:var(--muted)">Situación inicial</div><h3>Todas las cachés vacías</h3><p class="say">El host necesita la dirección de <b>${Q}</b> y solo conoce a su servidor local. Cada servidor sabe a quién preguntar después: el local, a la raíz; la raíz, al TLD; el TLD, al autoritativo.</p><p class="note">Un servidor <b style="color:var(--owe)">recursivo</b> resuelve él mismo lo que le preguntan; uno <b>iterativo</b> contesta al momento con una referencia. Cambia los modos arriba o en el dibujo y pulsa «Siguiente mensaje».</p>`;
+    } else {
+      const m = msgs[k-1];
+      html = `<div class="kind k-${m.k}"><i></i>${m.type}</div>
+        <h3>${k}. ${LBL[m.f]} → ${LBL[m.t]}</h3>
+        <p class="say">${m.say}</p>
+        <div class="fields">${m.fields.map(f=>`<span>${f}</span>`).join('')}</div>
+        <p class="note">${m.note}</p>`;
+      const st = this.stateAt(k);
+      if (m.cache){
+        html += `<p class="note"><b style="color:var(--ink)">Se guarda en caché</b> (${Object.keys(m.cache).map(n=>LBL[n]).join(', ')}):</p><div class="fields">${Object.values(m.cache).flat().map(c=>`<span>${CE[c]}</span>`).join('')}</div>`;
+      }
+      if (k === msgs.length){
+        const max = Math.max(...Object.values(st.handled));
+        html += `<p class="note" style="color:var(--ink)"><b>Resultado.</b> ${this.summary(st)}</p>
+          <table class="load"><thead><tr><th>Equipo</th><th>Mensajes</th><th>Consultas enviadas</th><th>¿Esperó?</th></tr></thead><tbody>${
+          ['host','local','root','tld','auth'].map(n=>`<tr><td>${LBL[n]}</td><td><span class="bar" style="width:${st.handled[n]/max*44}px"></span>${st.handled[n]}</td><td>${st.asked[n]}</td><td>${st.waited[n] ? '<span class="yes">sí</span>' : 'no'}</td></tr>`).join('')}</tbody></table>`;
+      }
+    }
+    this.card.innerHTML = html;
+  }
+  cancel(){ if (this.anim){ cancelAnimationFrame(this.anim.raf); this.anim = null; } }
+  animateTo(k, dur){
+    return new Promise(res => {
+      this.render(k-1, false);
+      [...this.gArr.querySelectorAll('.arr')].forEach(l => l.classList.add('old'));
+      const i = k-1, a = this.drawArrow(i, false), {line, g, m} = a;
+      line.setAttribute('stroke-dasharray', g.len); line.setAttribute('stroke-dashoffset', g.len);
+      const pkt = el('g', {class:`pkt ${m.k}`}, this.gTop);
+      el('rect', {x:-15, y:-11, width:30, height:22, rx:5}, pkt); el('text', {}, pkt).textContent = k;
+      this.paintSide(k, false);
+      this.nodeEls[m.f].g.classList.add('flash');
+      const t0 = performance.now();
+      const step = now => {
+        let p = Math.min(1, (now-t0)/dur); const e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+        pkt.setAttribute('transform', `translate(${g.x1+(g.x2-g.x1)*e},${g.y1+(g.y2-g.y1)*e})`);
+        line.setAttribute('stroke-dashoffset', g.len*(1-e));
+        if (p < 1){ this.anim.raf = requestAnimationFrame(step); return; }
+        this.anim = null;
+        this.nodeEls[m.f].g.classList.remove('flash');
+        this.render(k, false);
+        res();
+      };
+      this.anim = {raf: requestAnimationFrame(step)};
+      if (dur === 0){ cancelAnimationFrame(this.anim.raf); step(t0); }
+    });
+  }
+}
+
+const sameCfg = (a, b) => CHAIN.every(n => a[n] === b[n]);
+
+// La configuración viaja en la dirección: #local=rec&root=it&tld=it&auth=it
+function readHash(){
+  const p = new URLSearchParams(location.hash.slice(1)), cfg = {...PRESETS[0].cfg};
+  for (const n of CHAIN){ const v = p.get(n); if (v === 'rec' || v === 'it') cfg[n] = v; }
+  return cfg;
+}
+
+const app = {
+  cfg: readHash(), k:0, asking:false, playing:false, busy:false, stages:[], timer:null, gen:0,
+  $: id => document.getElementById(id),
+  get N(){ return this.stages[0] ? this.stages[0].msgs.length : 0; },
+  buildCfg(){
+    const row = this.$('cfg-row');
+    const SUB = {local:'dns.poly.edu', root:'a.root-servers.net', tld:'a.edu-servers.net', auth:'dns.cs.umass.edu · tiene la respuesta'};
+    for (const n of CHAIN){
+      const it = h('div','cfg-item');
+      it.appendChild(h('div','cfg-name', `${LBL[n]}<small>${SUB[n]}</small>`));
+      const seg = h('div','seg sm'); seg.setAttribute('role','group'); seg.setAttribute('aria-label', `Modo de ${LBL[n]}`);
+      for (const [v, t] of [['rec','Recursivo'],['it','Iterativo']]){
+        const b = h('button', null, t); b.dataset.n = n; b.dataset.v = v;
+        b.addEventListener('click', () => this.setNode(n, v));
+        seg.appendChild(b);
+      }
+      it.appendChild(seg); row.appendChild(it);
+    }
+    const pr = this.$('presets');
+    PRESETS.forEach(p => {
+      const b = h('button', null, p.label); b.addEventListener('click', () => this.setCfg({...p.cfg}));
+      b._cfg = p.cfg; pr.appendChild(b);
+    });
+  },
+  paintCfg(){
+    document.querySelectorAll('#cfg-row button').forEach(b => b.setAttribute('aria-pressed', this.cfg[b.dataset.n] === b.dataset.v));
+    document.querySelectorAll('#presets button').forEach(b => b.setAttribute('aria-pressed', sameCfg(b._cfg, this.cfg)));
+  },
+  setNode(n, v){ if (this.cfg[n] !== v) this.setCfg({...this.cfg, [n]:v}, n); },
+  setCfg(cfg, focusNode){
+    this.cfg = cfg;
+    history.replaceState(null, '', '#' + CHAIN.map(n => `${n}=${cfg[n]}`).join('&'));
+    this.build();
+    // Si el cambio vino del dibujo, devolver el foco a la etiqueta del mismo servidor
+    if (focusNode && document.activeElement === document.body){
+      const c = this.stages[0].nodeEls[focusNode].g.querySelector('.chip'); if (c) c.focus();
+    }
+  },
+  build(){
+    this.stop(); this.gen++; this.busy = false;
+    const host = this.$('stages'); host.innerHTML = '';
+    this.stages = [new Stage(this.cfg, host)];
+    this.k = 0; this.asking = false; this.paintCfg(); this.sync();
+  },
+  dur(){ return reduce ? 0 : 1500 / +this.$('o-speed').value; },
+  sync(){
+    this.$('c-k').textContent = this.k;
+    this.$('c-n').textContent = this.N;
+    this.$('b-prev').disabled = this.k === 0 && !this.asking;
+    this.$('b-next').disabled = this.k >= this.N;
+    this.$('b-play').textContent = this.playing ? '❚❚' : '▶▶';
+    this.$('b-play').setAttribute('aria-label', this.playing ? 'Pausar' : 'Reproducir');
+  },
+  async next(){
+    if (this.busy || this.k >= this.N) return;
+    if (this.$('o-ask').checked && !this.asking){
+      this.asking = true; this.stages.forEach(s => s.render(this.k, true)); this.sync(); return;
+    }
+    const gen = this.gen;
+    this.asking = false; this.busy = true; this.k++; this.sync();
+    await Promise.all(this.stages.map(s => s.animateTo(this.k, this.dur())));
+    if (gen !== this.gen) return;
+    this.busy = false; this.sync();
+  },
+  prev(){
+    this.stop(); this.busy = false;
+    if (this.asking){ this.asking = false; } else if (this.k > 0) this.k--;
+    this.stages.forEach(s => s.render(this.k, false)); this.sync();
+  },
+  jump(k){ this.stop(); this.busy = false; this.asking = false; this.k = k; this.stages.forEach(s => s.render(k, false)); this.sync(); },
+  reset(){ this.jump(0); },
+  stop(){ this.playing = false; clearTimeout(this.timer); this.sync(); },
+  play(){
+    if (this.playing){ this.stop(); return; }
+    if (this.k >= this.N) this.jump(0);
+    this.playing = true; this.sync();
+    const loop = async () => {
+      if (!this.playing) return;
+      await this.next();
+      if (!this.playing) return;
+      if (this.k >= this.N && !this.asking){ this.stop(); return; }
+      this.timer = setTimeout(loop, (this.asking ? 2600 : 1100) / +this.$('o-speed').value);
+    };
+    loop();
+  },
+};
+window.app = app;
+
+app.$('b-next').addEventListener('click', () => { app.stop(); app.next(); });
+app.$('b-prev').addEventListener('click', () => app.prev());
+app.$('b-reset').addEventListener('click', () => app.reset());
+app.$('b-play').addEventListener('click', () => app.play());
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea') && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); app.stop(); app.next(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); app.prev(); }
+  else if (e.key === ' ' && !e.target.closest('button,[role=button]')){ e.preventDefault(); app.play(); }
+  else if (e.key === 'Home'){ e.preventDefault(); app.reset(); }
+});
+window.addEventListener('hashchange', () => { const c = readHash(); if (!sameCfg(c, app.cfg)){ app.cfg = c; app.build(); } });
+app.buildCfg();
+app.build();
+})();
+</script>

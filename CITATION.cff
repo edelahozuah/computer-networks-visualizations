@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use these visualizations, please cite them as below."
+type: software
+title: "Interactive visualizations for computer networks courses"
+abstract: >-
+  Self-contained, interactive HTML visualizations for teaching computer
+  networks at undergraduate level: line coding and bit time, transmission and
+  propagation delays, space-time and timing diagrams, layering and
+  encapsulation, queueing and packet drops in a router, DNS names, zone
+  delegation and query resolution, and persistent HTTP with and without
+  pipelining. Every visualization is one HTML file with no dependencies that
+  works offline, and is available in Spanish and English. Developed for the
+  course Network Architecture I (Arquitectura de Redes I) at the University of
+  Alcalá, Spain.
+authors:
+  - family-names: "de la Hoz"
+    given-names: "Enrique"
+    orcid: "https://orcid.org/0000-0003-4837-3837"
+    affiliation: "Departamento de Automática, Universidad de Alcalá"
+version: 0.1.0
+date-released: 2026-10-10
+license: CC-BY-SA-4.0
+repository-code: "https://github.com/edelahozuah/computer-networks-visualizations"
+url: "https://edelahozuah.github.io/computer-networks-visualizations/"
+keywords:
+  - computer networks
+  - networking education
+  - interactive visualization
+  - open educational resources
+  - transmission delay
+  - propagation delay
+  - packet switching
+  - queueing
+  - DNS
+  - HTTP

@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zone delegation: handing over a branch of the tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#EEF0F2; --surface:#FFFFFF; --surface2:#F6F7F8; --ink:#1B2129; --muted:#5E6873; --line:#D5DAE0;
+  --rust:#B5541F; --ans:#1D66A8; --add:#1F8A4C; --del:#B3261E;
+  /* one ink per zone */
+  --z-root:#6F7B88; --z-com:#7E5FB0; --z-edu:#2C8686; --z-umass:#A8457A; --z-es:#B5541F;
+  --z-upm:#857314; --z-uah:#1D66A8; --z-aut:#2E8B4A; --z-cc:#C07A00;
+  --z-x0:#0F7C99; --z-x1:#B33A5B; --z-x2:#5B7F1A; --z-x3:#6C4FD8; --z-x4:#8B5E3C; --z-x5:#4A6B8A;
+  --f-disp:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+    --rust:#E27B45; --ans:#5DA9EC; --add:#4CC27E; --del:#F07A70;
+    --z-root:#9AA5B1; --z-com:#A98BDB; --z-edu:#4FC0C0; --z-umass:#E07BB0; --z-es:#E27B45;
+    --z-upm:#C9B545; --z-uah:#5DA9EC; --z-aut:#5CC77F; --z-cc:#EBA83A;
+    --z-x0:#45B5D3; --z-x1:#E6708F; --z-x2:#9BC45A; --z-x3:#A08BFF; --z-x4:#C99772; --z-x5:#8FA9C4;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+  --rust:#E27B45; --ans:#5DA9EC; --add:#4CC27E; --del:#F07A70;
+  --z-root:#9AA5B1; --z-com:#A98BDB; --z-edu:#4FC0C0; --z-umass:#E07BB0; --z-es:#E27B45;
+  --z-upm:#C9B545; --z-uah:#5DA9EC; --z-aut:#5CC77F; --z-cc:#EBA83A;
+  --z-x0:#45B5D3; --z-x1:#E6708F; --z-x2:#9BC45A; --z-x3:#A08BFF; --z-x4:#C99772; --z-x5:#8FA9C4;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);margin:0;padding-inline:16px;padding-block:0 40px}
+.wrap{max-width:1320px;margin:0 auto}
+header{border-top:6px solid var(--rust);padding-block:18px 10px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:end;justify-content:space-between}
+h1{font:800 clamp(22px,3vw,30px)/1.1 var(--f-disp);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.rule{font-size:14px;color:var(--muted);max-width:56ch;margin:0}
+.rule b{color:var(--ink)}
+
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding-block:10px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:600 14px var(--f-body);border:0;background:transparent;color:var(--ink);padding:8px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ctrls{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btn{font:600 14px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:42px}
+.btn.primary{background:var(--rust);border-color:var(--rust);color:#fff;min-width:150px}
+.btn:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible,.node:focus-visible{outline:3px solid var(--ans);outline-offset:2px}
+.opt{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.opt input[type=checkbox]{accent-color:var(--rust);width:16px;height:16px}
+.counter{font:500 14px var(--f-mono);color:var(--muted);margin-left:auto}
+.counter b{color:var(--ink);font-size:18px}
+.actors{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.actors > span{font-size:14px;color:var(--muted);margin-right:2px}
+.chip{font:600 13px var(--f-body);border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 11px 5px 8px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.chip i{width:11px;height:11px;border-radius:50%;background:var(--zc)}
+.chip[aria-pressed="true"]{border-color:var(--zc);box-shadow:inset 0 0 0 1.5px var(--zc)}
+[hidden]{display:none !important}
+
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:16px;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);align-items:start}
+.stage > div:first-child{position:sticky;top:calc(var(--tbh,60px) + 8px)}
+@media (max-width:1020px){ .stage > div:first-child{position:static} }
+.stage h2{font:700 18px/1.2 var(--f-disp);margin:0 0 2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.stage h2 small{font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.svgbox{overflow-x:auto}
+svg.tree{width:100%;height:auto;display:block;min-width:560px}
+.side{display:grid;gap:12px}
+
+.card{border:1px solid var(--line);border-radius:8px;background:var(--surface2);padding:12px 14px}
+.card .kind{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;display:inline-flex;gap:8px;align-items:center;color:var(--muted)}
+.card .kind i{width:18px;height:3px;border-radius:2px;background:currentColor;display:inline-block}
+.card h3{font:700 17px/1.25 var(--f-disp);margin:6px 0 8px}
+.say{font-size:15px;margin:0 0 10px;padding-left:10px;border-left:3px solid var(--line)}
+.note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.note b{color:var(--ink)}
+.chg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chg > span{font:500 12.5px/1.2 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--zc);border-radius:5px;padding:4px 7px}
+.chg .p{color:var(--add);font-weight:600} .chg .m{color:var(--del);font-weight:600}
+.ask{font:700 17px/1.3 var(--f-disp)}
+code,.mono{font-family:var(--f-mono);font-size:.92em}
+
+ol.chain{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+ol.chain li{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:start;font-size:13.5px}
+ol.chain .n{font:600 12px var(--f-mono);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--zc)}
+ol.chain .srv{font:600 13px var(--f-mono)}
+ol.chain .rr{font:500 12.5px var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 6px;display:inline-block;margin-top:2px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.acts .btn{border-color:var(--zc);color:var(--ink);box-shadow:inset 3px 0 0 var(--zc)}
+.no{border-left:3px solid var(--del);padding-left:10px}
+
+ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+ol.steps li button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13.5px;color:var(--muted)}
+ol.steps li button:hover{background:var(--surface2)}
+ol.steps li button:focus-visible{outline:2px solid var(--ans)}
+ol.steps li .n{font:600 12px var(--f-mono);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line)}
+ol.steps li.done button{color:var(--ink)}
+ol.steps li.done .n{color:#fff;border-color:transparent;background:var(--rust)}
+ol.steps li.cur button{background:var(--surface2);box-shadow:inset 3px 0 0 var(--rust)}
+
+details.act{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
+details.act summary{cursor:pointer;font:600 14px var(--f-body);color:var(--ink);list-style:none;display:flex;gap:8px;align-items:center}
+details.act summary::-webkit-details-marker{display:none}
+details.act summary::before{content:"+";font:600 13px/1 var(--f-mono);width:18px;height:18px;border-radius:4px;display:grid;place-items:center;background:var(--zc);color:#fff;flex:none}
+details.act[open] summary::before{content:"−"}
+details.act form{display:grid;gap:8px;margin-top:8px}
+details.act label{display:grid;gap:3px;font-size:13px;color:var(--muted)}
+details.act input[type=text]{font:500 14px var(--f-mono);padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);width:100%}
+details.act .chk{display:flex;gap:8px;align-items:flex-start;color:var(--ink);font-size:13.5px}
+details.act .chk input{accent-color:var(--zc);width:16px;height:16px;margin-top:2px}
+details.act .btn{justify-self:start;border-color:var(--zc);box-shadow:inset 3px 0 0 var(--zc)}
+.pv{font-size:13px;color:var(--muted);margin:0}
+.pv .mono{color:var(--ink)}
+.err{color:var(--del);font-size:13.5px;margin:0;font-weight:500}
+.err:empty{display:none}
+ol.how{margin:6px 0 0;padding-left:20px;font-size:14px;display:grid;gap:4px}
+.card .btn.inl{margin-top:10px}
+.zfh{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:4px 0 -4px}
+details.zf{border:1px solid var(--line);border-left:5px solid var(--zc);border-radius:8px;background:var(--surface)}
+details.zf summary{cursor:pointer;padding:8px 10px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;list-style:none}
+details.zf summary::-webkit-details-marker{display:none}
+details.zf summary::before{content:"▸";color:var(--muted);font-size:12px;width:10px}
+details.zf[open] summary::before{content:"▾"}
+details.zf summary b{font:700 15px var(--f-disp)}
+details.zf summary .who{font:500 12.5px var(--f-mono);color:var(--muted)}
+details.zf summary .d{font:600 12.5px var(--f-mono);margin-left:auto}
+details.zf summary .d .p{color:var(--add)} details.zf summary .d .m{color:var(--del)}
+details.zf.gone{opacity:.7}
+.rrs{padding:0 10px 10px;display:grid;gap:1px}
+.rrl{display:grid;grid-template-columns:14px minmax(0,1.5fr) 42px minmax(0,1.3fr);gap:6px;font:400 12.5px/1.55 var(--f-mono);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
+.rrl .t{font-weight:600}
+.rrl.c{grid-template-columns:14px 1fr;color:var(--muted);font-style:italic}
+.rrl .g{color:var(--muted);font-style:italic}
+.rrl.add{background:color-mix(in srgb,var(--add) 15%,transparent)}
+.rrl.add .s{color:var(--add);font-weight:600}
+.rrl.mod{background:color-mix(in srgb,var(--ans) 12%,transparent)}
+.rrl.mod .s{color:var(--ans);font-weight:600}
+.rrl.del{color:var(--muted);text-decoration:line-through;background:color-mix(in srgb,var(--del) 10%,transparent)}
+.rrl.del .s{color:var(--del);font-weight:600;text-decoration:none}
+.rrl.sel{box-shadow:inset 0 0 0 1.5px var(--ans)}
+
+.zlegend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);margin-top:8px}
+.zlegend span{display:inline-flex;gap:6px;align-items:center}
+.zlegend i{width:12px;height:12px;border-radius:50%;background:var(--zc);opacity:.85}
+.zlegend b{color:var(--ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:14px}
+.legend span{display:inline-flex;gap:7px;align-items:center}
+.legend svg{overflow:visible}
+footer{font-size:12.5px;color:var(--muted);margin-top:14px;max-width:95ch}
+
+/* SVG */
+.blob{opacity:.17;transition:opacity .3s}
+.lab .blob{opacity:.09}
+.lab .blob.mine{opacity:.3}
+.blob.fresh{animation:grow .8s ease-out}
+@keyframes grow{from{opacity:0}}
+.halo{opacity:.09}
+.halo-t{font:600 14px var(--f-body);fill:var(--muted)}
+.edge{stroke:var(--muted);stroke-width:1.6;fill:none}
+.edge.cut{stroke-dasharray:5 5}
+.edge.path{stroke:var(--ink);stroke-width:3}
+.nsb rect{stroke:var(--surface);stroke-width:2}
+.nsb text{font:600 11px var(--f-mono);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.nsb .num circle{fill:var(--ink);stroke:var(--surface);stroke-width:2}
+.nsb .num text{fill:var(--bg);font-size:12px}
+.node{cursor:pointer}
+.node .pill{fill:var(--surface);stroke-width:2}
+.node.apex .pill{stroke-width:3.2}
+.node .lb{font:700 15px var(--f-disp);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.node.host .lb{font:500 13.5px var(--f-mono)}
+.node .more{font:500 12px var(--f-mono);fill:var(--muted);text-anchor:middle}
+.node.born .pill{animation:grow .8s ease-out}
+.node:hover .pill{fill:var(--surface2)}
+.node.sel .pill{stroke:var(--ink) !important;stroke-width:3.5}
+.node.onpath .pill{fill:var(--surface2)}
+@media (max-width:1020px){ .stage{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:700px){ .toolbar{position:static} }
+@media (max-width:560px){ .counter{margin-left:0} .btn.primary{min-width:0;flex:1} }
+@media (prefers-reduced-motion:reduce){ .blob.fresh{animation:none} .blob{transition:none} }
+</style><div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Unit 2 · GG21 · DNS</div>
+      <h1>Zone delegation: handing over a branch of the tree</h1>
+    </div>
+    <p class="rule">Whoever controls a zone can hand over any branch that hangs from it. <b>Delegating means writing two records in your zone</b> (an NS and its glue) and no longer answering for anything below.</p>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="Controls">
+    <div class="seg" role="group" aria-label="Mode">
+      <button data-mode="guide" aria-pressed="true">Step by step</button>
+      <button data-mode="lab" aria-pressed="false">Your turn</button>
+    </div>
+    <div class="ctrls" id="t-guide">
+      <button class="btn" id="b-reset" title="Back to the start (Home)" aria-label="Back to the start">⏮</button>
+      <button class="btn" id="b-prev" title="Previous step (←)" aria-label="Previous step">◀</button>
+      <button class="btn primary" id="b-next" title="Next step (→)">Next step ▶</button>
+      <label class="opt" for="o-ask"><input type="checkbox" id="o-ask"> Pause to predict</label>
+    </div>
+    <div class="counter" id="t-count" aria-live="polite">step <b id="c-k">0</b> / 5</div>
+    <div class="actors" id="t-actors" hidden></div>
+    <div class="ctrls" id="t-lab" hidden>
+      <button class="btn" id="b-full">Reset: final state of the steps</button>
+      <button class="btn" id="b-none">Reset: no delegations</button>
+    </div>
+  </div>
+
+  <section class="stage">
+    <div>
+      <h2>Name tree and zones <small id="h2s">each colour is a zone: what one authoritative server answers for</small></h2>
+      <div class="svgbox"><svg class="tree" id="tree" viewBox="0 0 880 512" role="img" aria-label="Domain name tree coloured by zone"></svg></div>
+      <div class="zlegend" id="zlegend"></div>
+    </div>
+    <div class="side">
+      <div class="card" id="card" aria-live="polite"></div>
+      <div class="card" id="insp" hidden></div>
+      <ol class="steps" id="steps"></ol>
+      <div class="zfh">Zone files</div>
+      <div class="side" id="zones" style="gap:8px"></div>
+    </div>
+  </section>
+
+  <div class="legend">
+    <span><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="var(--muted)" stroke-width="1.6"/></svg>Inside a single zone</span>
+    <span><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/></svg>Zone cut: the parent keeps an NS and its glue</span>
+    <span><svg width="22" height="16"><rect x="1" y="1" width="20" height="14" rx="7" fill="none" stroke="var(--muted)" stroke-width="3"/></svg>Zone apex (where its SOA and NS live)</span>
+    <span><svg width="22" height="16"><rect x="1" y="1" width="20" height="14" rx="3" fill="none" stroke="var(--muted)" stroke-width="1.6"/></svg>Host (A record)</span>
+  </div>
+  <footer>Same names as in class (the chain IANA → Red.es → UAH → department). The servers dns.uah.es, dns.aut.uah.es, dns.cc.uah.es and dns.upm.es and every host address are illustrative; the zone files are simplified (no TTL or class, abbreviated SOA, a single NS per zone where real zones have at least two). In “Your turn” you can create new domains and hosts: the addresses the page suggests are made up. Keyboard: → next, ← previous, Home restart.</footer>
+</div>
+
+<script>
+(() => {
+/* ---------- Model ---------- */
+// Children are drawn in the order they appear here
+const BASE_NODES = {
+  root:  {p:null,   l:'.',        t:'dom'},
+  com:   {p:'root', l:'com',      t:'dom', more:1},
+  edu:   {p:'root', l:'edu',      t:'dom'},
+  umass: {p:'edu',  l:'umass',    t:'dom', more:1},
+  es:    {p:'root', l:'es',       t:'dom'},
+  upm:   {p:'es',   l:'upm',      t:'dom', more:1},
+  uah:   {p:'es',   l:'uah',      t:'dom'},
+  aut:   {p:'uah',  l:'aut',      t:'dom'},
+  cis:   {p:'aut',  l:'cisneros', t:'host', ip:'193.146.60.15'},
+  dnsaut:{p:'aut',  l:'dns',      t:'host', ip:'193.146.60.2'},
+  labaut:{p:'aut',  l:'lab',      t:'host', ip:'193.146.60.40'},
+  www:   {p:'uah',  l:'www',      t:'host', ip:'193.146.57.20'},
+  dnsuah:{p:'uah',  l:'dns',      t:'host', ip:'193.146.57.10'},
+  cc:    {p:'uah',  l:'cc',       t:'dom'},
+  labcc: {p:'cc',   l:'lab',      t:'host', ip:'193.146.62.40'},
+  webcc: {p:'cc',   l:'web',      t:'host', ip:'193.146.62.20'},
+};
+// Who takes charge of each domain if it is delegated
+const BASE_DEL = {
+  root: {srv:'a.root-servers.net', ip:'198.41.0.4',    op:'IANA', glue:true},
+  com:  {srv:'b.gtld-servers.net', ip:'192.33.14.30',  op:'Verisign', glue:true},
+  edu:  {srv:'a.edu-servers.net',  ip:'192.5.6.30',    op:'EDUCAUSE', glue:true},
+  umass:{srv:'dns.cs.umass.edu',   ip:'128.119.240.1', op:'UMass', glue:true},
+  es:   {srv:'a.nic.es',           ip:'194.69.254.1',  op:'Red.es', glue:true},
+  upm:  {srv:'dns.upm.es',         ip:'138.100.4.8',   op:'UPM', glue:true},
+  uah:  {srv:'dns.uah.es',         ip:'193.146.57.10', op:'UAH', glue:true},
+  aut:  {srv:'dns.aut.uah.es',     ip:'193.146.60.2',  op:'Automation Dept.', art:'the Automation Dept.', glue:true},
+  cc:   {srv:'dns.cc.uah.es',      ip:'193.146.62.2',  op:'Computer Science Dept.', art:'the Computer Science Dept.', glue:true},
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+
+// Active tree: the step-by-step one is fixed; the “Your turn” one can be modified
+let NODES, DEL, ORDER, FQ, KIDS;
+const guideT = {nodes:clone(BASE_NODES), del:clone(BASE_DEL)};
+let labT;
+
+const who = a => DEL[a].art || DEL[a].op;
+const Who = a => who(a)[0].toUpperCase() + who(a).slice(1);
+const zc = a => (DEL[a] && DEL[a].c) || `var(--z-${a})`;
+const zname = a => a === 'root' ? 'root (.)' : FQ[a];
+
+const zoneOf = (id, D) => { let c = id; while (c !== 'root' && !D.has(c)) c = NODES[c].p; return c; };
+const apexes = D => ORDER.filter(id => id === 'root' || D.has(id));
+const isDesc = (a, b) => { for (let c = a; c; c = NODES[c].p) if (c === b) return true; return false; };
+const pathTo = id => { const p = []; for (let c = id; c; c = NODES[c].p) p.unshift(c); return p; };
+const inside = (name, dom) => dom === '.' || name === dom || name.endsWith('.' + dom);
+
+/* ---------- Automatic tree layout ---------- */
+const GAP = 30, MINSEP = 110, LEVEL = 100, TOP = 48, MARGIN = 30;
+const pillW = n => Math.max(n.t === 'host' ? 38 : 40, n.l.length * (n.t === 'host' ? 8.4 : 9.5) + 22);
+let VBW = 880, VBH = 512;
+
+function useTree(T){ NODES = T.nodes; DEL = T.del; refresh(); }
+function refresh(){
+  KIDS = {}; for (const id in NODES) KIDS[id] = [];
+  for (const id in NODES) if (NODES[id].p) KIDS[NODES[id].p].push(id);
+  ORDER = []; (function walk(id){ ORDER.push(id); KIDS[id].forEach(walk); })('root');
+  FQ = {};
+  for (const id of ORDER){ const n = NODES[id]; FQ[id] = !n.p ? '.' : n.p === 'root' ? n.l : `${n.l}.${FQ[n.p]}`; }
+  layout();
+}
+// Each subtree is placed next to the previous one as tightly as its contour allows, level by level
+function layout(){
+  const rel = {};
+  function place(id, dep = 0){
+    const w = pillW(NODES[id]), ch = KIDS[id];
+    rel[id] = 0;
+    if (!ch.length) return [[-w/2, w/2]];
+    let acc = null; const offs = [];
+    for (const c of ch){
+      const ct = place(c, dep + 1);
+      if (!acc){ offs.push(0); acc = ct.map(x => [...x]); continue; }
+      let s = -Infinity;
+      for (let d = 0; d < Math.min(acc.length, ct.length); d++) s = Math.max(s, acc[d][1] + GAP - ct[d][0]);
+      s = Math.max(s, offs[offs.length-1] + (dep === 0 ? 190 : dep === 1 ? 160 : MINSEP));
+      offs.push(s);
+      ct.forEach(([l, r], d) => { if (d < acc.length){ acc[d][0] = Math.min(acc[d][0], l+s); acc[d][1] = Math.max(acc[d][1], r+s); } else acc.push([l+s, r+s]); });
+    }
+    const mid = (offs[0] + offs[offs.length-1]) / 2;
+    ch.forEach((c, i) => rel[c] = offs[i] - mid);
+    return [[-w/2, w/2], ...acc.map(([l, r]) => [l-mid, r-mid])];
+  }
+  place('root');
+  let minX = Infinity, maxX = -Infinity, maxD = 0;
+  for (const id of ORDER){
+    const n = NODES[id], p = n.p ? NODES[n.p] : null;
+    n.d = p ? p.d + 1 : 0; n.x = p ? p.x + rel[id] : 0; n.y = TOP + n.d * LEVEL;
+    const w = pillW(n); minX = Math.min(minX, n.x - w/2); maxX = Math.max(maxX, n.x + w/2); maxD = Math.max(maxD, n.d);
+  }
+  const W = maxX - minX + 2*MARGIN;
+  VBW = Math.max(880, W);
+  const shift = MARGIN - minX + (VBW - W)/2;
+  for (const id of ORDER) NODES[id].x += shift;
+  VBH = TOP + maxD * LEVEL + 64;
+}
+
+/* ---------- Zone files ---------- */
+function zoneFile(A, D){
+  const Z = DEL[A], nm = FQ[A], L = [];
+  L.push({n:nm, t:'SOA', v:`${Z.srv} (…)`});
+  L.push({n:nm, t:'NS', v:Z.srv});
+  if (NODES[A].more) L.push({c:`… and every name under ${nm}`});
+  const inZone = new Set();
+  for (const id of ORDER){
+    if (id === A || zoneOf(id, D) !== A) continue;
+    const n = NODES[id];
+    if (n.t === 'host'){ L.push({n:FQ[id], t:'A', v:n.ip}); inZone.add(FQ[id]); }
+    else if (n.more) L.push({c:`… and every name under ${FQ[id]}`});
+  }
+  if (A !== 'root' && inside(Z.srv, nm) && !inZone.has(Z.srv)) L.splice(2, 0, {n:Z.srv, t:'A', v:Z.ip});
+  const dl = ORDER.filter(C => D.has(C) && zoneOf(NODES[C].p, D) === A);
+  if (dl.length) L.push({c:'delegations: what this zone has handed over'});
+  for (const C of dl){
+    L.push({n:FQ[C], t:'NS', v:DEL[C].srv, d:C});
+    if (DEL[C].glue) L.push({n:DEL[C].srv, t:'A', v:DEL[C].ip, g:C});
+  }
+  for (const r of L) r.key = r.c ? 'c:'+r.c : `${r.n}|${r.t}|${r.v}`;
+  return L;
+}
+function zoneFiles(D){ const m = new Map(); for (const A of apexes(D)) m.set(A, zoneFile(A, D)); return m; }
+// Compares against an earlier snapshot (the tree may have changed in between)
+function diff(prev, D){
+  const cur = zoneFiles(D);
+  const keys = [...cur.keys(), ...[...prev.keys()].filter(k => !cur.has(k) && NODES[k] && DEL[k])];
+  return keys.map(A => {
+    const now = cur.get(A) || [], was = prev.get(A) || [];
+    const wk = new Set(was.map(r => r.key)), nk = new Set(now.map(r => r.key));
+    const wasGlue = new Set(was.filter(r => r.g).map(r => r.key));
+    return {A, lines: now.map(r => ({...r, st: !wk.has(r.key) ? 'add' : (r.g && !wasGlue.has(r.key)) ? 'mod' : ''})), removed: was.filter(r => !nk.has(r.key)),
+      isNew: !was.length, gone: !now.length, nAdd: now.filter(r => !wk.has(r.key) && !r.c).length, nDel: was.filter(r => !nk.has(r.key) && !r.c).length};
+  });
+}
+
+/* ---------- Step by step ---------- */
+const STEPS = [
+  {add:[], kind:'Starting point', title:'Nobody has delegated anything',
+   say:'Imagine that IANA, which runs the root, had to keep every name in the tree by itself. There would be a single zone and a single file, with one record for every name on the Internet.',
+   note:'That is the centralized database we ruled out earlier: a single point of failure, an impossible volume, and every time UAH set up a new server it would have to ask IANA.'},
+  {add:['es'], kind:'Delegation', title:'IANA delegates es to Red.es',
+   say:'“Red.es is in charge of everything ending in .es. Its server is a.nic.es, at 194.69.254.1.”',
+   note:'Delegating means writing two records in your zone: an <b>NS</b> with the name of the server in charge of the subdomain, and an <b>A</b> with its address, the <b>glue</b>. Everything below .es disappears from the root file: it is no longer IANA’s business.',
+   ask:'IANA is about to hand .es over to Red.es. What must it add to its zone file, and what can it delete?'},
+  {add:['com','edu'], kind:'Delegation', title:'The same for every TLD',
+   say:'“Verisign is in charge of .com (b.gtld-servers.net); EDUCAUSE of .edu (a.edu-servers.net).”',
+   note:'The root zone shrinks to one NS and one glue record per TLD. The root no longer knows anything about uah.es: if you ask it, it answers with a <b>referral</b>, which is exactly that pair of records.',
+   ask:'How many records will the root zone have left once it has handed over all three TLDs?'},
+  {add:['upm','uah','umass'], kind:'Delegation', title:'Each TLD delegates to the organizations',
+   say:'“UAH is in charge of uah.es: its server is dns.uah.es, at 193.146.57.10.”',
+   note:'UAH gets it through a registrar accredited by Red.es (about €10 a year). Red.es only keeps the delegation; UAH decides the names inside without asking anyone. Red.es does the same with upm.es, and EDUCAUSE with umass.edu.',
+   ask:'After this step, which file holds the A record for www.uah.es? Who can change it?'},
+  {add:['aut'], kind:'Delegation', title:'UAH delegates aut.uah.es to the Automation Department',
+   say:'“The Automation Department is in charge of aut.uah.es: its server is dns.aut.uah.es, at 193.146.60.2.”',
+   note:'Here the glue is essential: dns.aut.uah.es is <b>inside</b> the branch being handed over. Without its address in the uah.es zone, finding it would mean asking… the server itself. UAH does not hand over cc.uah.es: it keeps managing that branch.',
+   ask:'UAH is about to hand over aut.uah.es. Which records does it add to its zone, which does it delete, and which will the new zone hold?'},
+  {add:[], final:true, halo:'uah', sel:'cis', kind:'Result', title:'Domain and zone are not the same thing',
+   say:'The <b>domain</b> uah.es is the whole branch (shaded grey). The <b>zone</b> uah.es is only the part UAH has not handed over: aut.uah.es has its own zone and its own server.',
+   note:'Every zone cut between the root and a name is one referral during resolution. For cisneros.aut.uah.es there are three cuts: three referrals and one answer, just like in the queries animation. Click any name in the tree to see its path.',
+   ask:'With an empty cache, how many referrals does the local DNS server get when resolving cisneros.aut.uah.es? And lab.cc.uah.es?'},
+];
+const NSTEP = STEPS.length - 1;
+const delegAt = k => new Set(STEPS.slice(0, k+1).flatMap(s => s.add));
+const FULL = delegAt(NSTEP);
+
+/* ---------- DOM helpers ---------- */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (n, a={}, p) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const svg = $('tree');
+
+/* ---------- State ---------- */
+const app = {
+  mode:'guide', k:0, asking:false, sel:null, D:new Set(), prev:new Map(), fresh:new Set(), halo:null,
+  actor:'uah', msg:null, openF:null,
+};
+window.app = app;
+function newLab(D){ labT = {nodes:clone(BASE_NODES), del:clone(BASE_DEL), D:new Set(D), seq:0, col:0}; }
+newLab(FULL);
+
+function setGuide(k, animate){
+  useTree(guideT);
+  app.k = k; app.asking = false;
+  app.D = delegAt(k); app.prev = zoneFiles(k ? delegAt(k-1) : app.D);
+  app.fresh = animate ? new Set(STEPS[k].add) : new Set();
+  app.halo = STEPS[k].halo || null;
+  app.sel = STEPS[k].sel || null;
+  render();
+}
+
+/* ---------- Tree ---------- */
+function drawTree(){
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox', `0 0 ${VBW} ${VBH}`);
+  svg.style.minWidth = Math.round(VBW * 0.64) + 'px';
+  svg.classList.toggle('lab', app.mode === 'lab');
+  const D = app.D, zs = apexes(D);
+  const path = app.sel ? new Set(pathTo(app.sel)) : new Set();
+
+  if (app.halo){
+    const g = el('g', {class:'halo', style:'fill:var(--ink);stroke:var(--ink)'}, svg);
+    for (const id of ORDER) if (isDesc(id, app.halo)){
+      const n = NODES[id];
+      el('circle', {cx:n.x, cy:n.y, r:40, stroke:'none'}, g);
+      if (id !== app.halo){ const p = NODES[n.p]; el('line', {x1:p.x, y1:p.y, x2:n.x, y2:n.y, 'stroke-width':80, 'stroke-linecap':'round'}, g); }
+    }
+    const t = el('text', {class:'halo-t', x:NODES[app.halo].x - 80, y:VBH - 8, 'text-anchor':'middle'}, svg);
+    t.textContent = `domain ${FQ[app.halo]}: the whole branch`;
+  }
+  for (const A of zs){
+    const cls = ['blob']; if (app.fresh.has(A)) cls.push('fresh'); if (app.mode === 'lab' && A === app.actor) cls.push('mine');
+    const g = el('g', {class:cls.join(' '), style:`fill:${zc(A)};stroke:${zc(A)}`}, svg);
+    for (const id of ORDER){
+      if (zoneOf(id, D) !== A) continue;
+      const n = NODES[id];
+      el('circle', {cx:n.x, cy:n.y, r:27, stroke:'none'}, g);
+      if (id !== A){ const p = NODES[n.p]; el('line', {x1:p.x, y1:p.y, x2:n.x, y2:n.y, 'stroke-width':54, 'stroke-linecap':'round'}, g); }
+    }
+  }
+  for (const id of ORDER){
+    const n = NODES[id]; if (!n.p) continue;
+    const p = NODES[n.p], cut = D.has(id), on = path.has(id);
+    el('line', {class:`edge${cut?' cut':''}${on?' path':''}`, x1:p.x, y1:p.y, x2:n.x, y2:n.y}, svg);
+  }
+  // NS labels on each cut (in the colour of the parent's zone, which is the one holding the NS)
+  let ref = 0;
+  for (const id of ORDER){
+    if (!D.has(id)) continue;
+    const n = NODES[id], p = NODES[n.p], mx = (n.x+p.x)/2, my = (n.y+p.y)/2;
+    const g = el('g', {class:'nsb', transform:`translate(${mx},${my})`}, svg);
+    el('rect', {x:-15, y:-10, width:30, height:20, rx:5, style:`fill:${zc(zoneOf(n.p, D))}`}, g);
+    el('text', {}, g).textContent = 'NS';
+    if (path.has(id)){
+      const q = el('g', {class:'num', transform:'translate(-26,0)'}, g);
+      el('circle', {r:10}, q); el('text', {}, q).textContent = ++ref;
+    }
+  }
+  for (const id of ORDER){
+    const n = NODES[id], A = zoneOf(id, D), apex = id === A;
+    const cls = ['node', n.t]; if (apex) cls.push('apex'); if (id === app.sel) cls.push('sel'); else if (path.has(id)) cls.push('onpath');
+    if (app.fresh.has(id)) cls.push('born');
+    const g = el('g', {class:cls.join(' '), transform:`translate(${n.x},${n.y})`, tabindex:0, role:'button', 'aria-label':`${FQ[id]}, zone ${zname(A)}`}, svg);
+    const w = pillW(n);
+    el('rect', {class:'pill', x:-w/2, y:-14, width:w, height:28, rx:n.t === 'host' ? 5 : 14, style:`stroke:${zc(A)}`}, g);
+    el('text', {class:'lb', y:1}, g).textContent = n.l;
+    if (n.more){ const t = el('text', {class:'more', y:32}, g); t.textContent = '…'; }
+    g.addEventListener('click', e => { e.stopPropagation(); select(id); });
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); e.stopPropagation(); select(id); } });
+  }
+  $('zlegend').innerHTML = zs.map(A => `<span style="--zc:${zc(A)}"><i></i><b>${zname(A)}</b> ${esc(DEL[A].op)} · <span class="mono">${DEL[A].srv}</span></span>`).join('');
+}
+svg.addEventListener('click', () => select(null));
+
+/* ---------- Side panel ---------- */
+function changesHtml(dd){
+  const parts = dd.filter(z => z.nAdd || z.nDel).map(z => {
+    const lab = z.isNew ? `new zone ${zname(z.A)}` : z.gone ? `zone ${zname(z.A)} disappears` : `zone ${zname(z.A)}`;
+    return `<span style="--zc:${zc(z.A)}">${lab} ${z.nAdd ? `<span class="p">+${z.nAdd}</span>` : ''} ${z.nDel ? `<span class="m">−${z.nDel}</span>` : ''}</span>`;
+  });
+  return parts.length ? `<p class="note"><b>Changes in the zone files</b> (records added and deleted):</p><div class="chg">${parts.join('')}</div>` : '';
+}
+
+function drawCard(dd){
+  const c = $('card');
+  if (app.mode === 'guide'){
+    const s = STEPS[app.k];
+    if (app.asking){
+      const nx = STEPS[app.k+1];
+      c.innerHTML = `<div class="kind">Before moving on</div><h3 class="ask">${nx.ask}</h3><p class="note">Think about it, then press “Next step” to check.</p>`;
+      return;
+    }
+    const col = s.add.length ? zc(s.add[0]) : 'var(--muted)';
+    c.innerHTML = `<div class="kind" style="color:${col}"><i></i>${s.kind}</div><h3>${app.k ? app.k+'. ' : ''}${s.title}</h3><p class="say">${s.say}</p><p class="note">${s.note}</p>${changesHtml(dd)}`;
+    return;
+  }
+  c.innerHTML = app.msg ? app.msg + changesHtml(dd) :
+    `<div class="kind">Your turn</div><h3>You are <span style="color:${zc(app.actor)}">${esc(DEL[app.actor].op)}</span>: you control the zone ${zname(app.actor)}</h3>
+    <ol class="how">
+      <li>Click the apex of your zone (or a domain inside it) and <b>create a subdomain</b>.</li>
+      <li><b>Add hosts</b> to it: each one is an A record in your zone.</li>
+      <li><b>Hand it over</b>: say who will be in charge, what their server is called and what its address is. Your zone keeps an NS and, if needed, the glue.</li>
+      <li>Switch to the new owner’s role (buttons at the top) and repeat inside their zone.</li>
+    </ol>
+    <p class="note"><b>Challenge.</b> As the Automation Dept., create redes.aut.uah.es with a host www and hand it over to the Networks Group with the server ns.redes.aut.uah.es. What changes in each file? How many referrals are now needed to reach www.redes.aut.uah.es? Then do it again with a server outside the branch, such as dns.uah.es: is the glue still needed?</p>`;
+  c.querySelectorAll('[data-actor]').forEach(b => b.addEventListener('click', () => setActor(b.dataset.actor)));
+}
+
+function chainHtml(id){
+  const D = app.D, p = pathTo(id), z = zoneOf(id, D), n = NODES[id];
+  const cuts = p.filter(x => D.has(x));
+  const zonesOnPath = ['root', ...cuts];
+  let i = 0;
+  const items = [];
+  for (const cz of cuts){
+    const from = zonesOnPath[i];
+    items.push(`<li style="--zc:${zc(from)}"><span class="n">${++i}</span><div><span class="srv">${DEL[from].srv}</span> (zone ${zname(from)}) → <b>referral</b><br><span class="rr">${FQ[cz]} NS ${DEL[cz].srv}</span>${DEL[cz].glue ? ` <span class="rr">${DEL[cz].srv} A ${DEL[cz].ip}</span>` : ' <span class="note">(no glue: the resolver will have to find the server’s address separately)</span>'}</div></li>`);
+  }
+  let last;
+  if (id === 'root') last = 'It is the root: nobody delegates it. Resolvers ship with the addresses of its servers built in (<i>root hints</i>).';
+  else if (n.t === 'host') last = `→ <b>authoritative answer</b> (AA = 1)<br><span class="rr">${FQ[id]} A ${n.ip}</span>`;
+  else if (id === z) last = `→ it is the apex of its zone: it answers authoritatively for all of ${FQ[id]} except what it has handed over.`;
+  else last = `→ also answers authoritatively for ${FQ[id]}: there is no cut, so there is no referral.`;
+  items.push(`<li style="--zc:${zc(z)}"><span class="n">${++i}</span><div><span class="srv">${DEL[z].srv}</span> (zone ${zname(z)}) ${last}</div></li>`);
+  const nref = cuts.length;
+  return `<ol class="chain">${items.join('')}</ol><p class="note">${nref === 0 ? 'No zone cut on the path: the root answers directly.' : `${nref} ${nref === 1 ? 'zone cut' : 'zone cuts'} on the path → ${nref} ${nref === 1 ? 'referral' : 'referrals'} with an empty cache.`}</p>`;
+}
+
+/* ---------- Your turn: what you can do with the selected name ---------- */
+const LABEL_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const HOST_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const isIP = s => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) && s.split('.').every(x => +x <= 255);
+const childFq = (pid, l) => pid === 'root' ? l : `${l}.${FQ[pid]}`;
+function suggestIP(id){
+  const used = new Set([...ORDER.map(x => NODES[x].ip), ...Object.values(DEL).map(d => d.ip)]);
+  const base = DEL[zoneOf(id, app.D)].ip.split('.').slice(0, 3).join('.');
+  for (let i = 50; i < 255; i++) if (!used.has(`${base}.${i}`)) return `${base}.${i}`;
+  return `${base}.254`;
+}
+function checkLabel(pid, l){
+  if (!l) return 'Type a label.';
+  if (!LABEL_RE.test(l)) return 'A label may only contain unaccented letters, digits and hyphens (not at the start or end), up to 63 characters.';
+  if (KIDS[pid].some(x => NODES[x].l === l)) return `${childFq(pid, l)} already exists.`;
+  if (childFq(pid, l).length > 253) return 'The full name cannot be longer than 253 characters.';
+  return null;
+}
+const hostAt = name => ORDER.find(x => NODES[x].t === 'host' && FQ[x] === name);
+
+function formsHtml(id){
+  const n = NODES[id], a = app.actor, apex = id === a, f = [];
+  const def = app.openF || (apex ? 'sub' : n.t === 'dom' ? 'deleg' : null);
+  const det = (key, title, body) => `<details class="act" style="--zc:${zc(a)}"${def === key ? ' open' : ''}><summary>${title}</summary>${body}</details>`;
+  if (n.t === 'dom'){
+    f.push(det('sub', `Create a subdomain of ${FQ[id]}`,
+      `<form data-f="sub" data-id="${id}"><label>Subdomain label<input type="text" name="l" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="redes"></label><p class="pv">Full name: <span class="mono" data-pv="${id}">…</span></p><button class="btn">Create subdomain</button><p class="err" role="alert"></p></form>`));
+    f.push(det('host', `Add a host in ${FQ[id]}`,
+      `<form data-f="host" data-id="${id}"><label>Host label<input type="text" name="l" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="www"></label><p class="pv">Full name: <span class="mono" data-pv="${id}">…</span></p><label>IPv4 address<input type="text" name="ip" autocomplete="off" spellcheck="false" value="${suggestIP(id)}"></label><button class="btn">Add A record</button><p class="err" role="alert"></p></form>`));
+    if (!apex){
+      const d = DEL[id] || {}, srv = d.srv || `dns.${FQ[id]}`;
+      f.push(det('deleg', `Hand ${FQ[id]} over to someone else`,
+        `<form data-f="deleg" data-id="${id}">
+          <label>Who will be in charge<input type="text" name="op" autocomplete="off" value="${esc(d.op || '')}" placeholder="Networks Group"></label>
+          <label>Name of their authoritative server<input type="text" name="srv" autocomplete="off" spellcheck="false" autocapitalize="off" value="${esc(srv)}"></label>
+          <label>Server address<input type="text" name="ip" autocomplete="off" spellcheck="false" value="${esc(d.ip || hostAt(srv) && NODES[hostAt(srv)].ip || suggestIP(id))}"></label>
+          <label class="chk"><input type="checkbox" name="glue"${d.glue === false ? '' : ' checked'}><span data-gh></span></label>
+          <button class="btn">Hand over ${FQ[id]}</button><p class="err" role="alert"></p></form>`));
+    }
+  }
+  if (!apex){
+    const sub = ORDER.filter(x => x !== id && isDesc(x, id));
+    const blocked = sub.some(x => app.D.has(x));
+    f.push(det('del', `Delete ${FQ[id]}`, blocked
+      ? `<p class="note">There are zones inside that you have already handed over: withdraw those delegations first.</p>`
+      : `<p class="note">${sub.length ? `The ${sub.length} ${sub.length === 1 ? 'name' : 'names'} below it will be deleted too.` : 'It disappears from the tree and from your zone file.'}</p><div class="acts"><button class="btn" data-act="del" data-id="${id}">Delete ${FQ[id]}</button></div>`));
+  }
+  return f.join('');
+}
+
+function labHtml(id){
+  const D = app.D, a = app.actor, n = NODES[id], z = zoneOf(id, D), me = who(a);
+  if (D.has(id) && zoneOf(n.p, D) === a){
+    return `<p class="note">You handed <b>${FQ[id]}</b> over to ${esc(who(id))}. You can withdraw the delegation: the branch would come back to your zone and you would have to maintain its records yourself.</p><div class="acts" style="--zc:${zc(a)}"><button class="btn" data-act="undo" data-id="${id}">Withdraw the delegation of ${FQ[id]}</button>${a !== id ? `<button class="btn" data-actor="${id}">Act as ${esc(DEL[id].op)}</button>` : ''}</div>`;
+  }
+  if (id === a){
+    return (id === 'root'
+      ? `<p class="note">This is the apex of your zone. There is nobody above the root.</p>`
+      : `<p class="note">This is the apex of your zone. You can change what is inside, but you cannot take the zone away from yourself: only ${esc(who(zoneOf(n.p, D)))} can do that, by withdrawing your delegation.</p>`) + formsHtml(id);
+  }
+  if (z === a) return `<p class="note"><b>${FQ[id]}</b> is in your zone: you manage it.</p>` + formsHtml(id);
+  if (isDesc(a, z)){
+    return `<p class="note no"><b>You can’t.</b> ${FQ[id]} is above you, in the zone ${zname(z)}, managed by ${esc(who(z))}. Nobody can touch what lies above what was delegated to them.</p>`;
+  }
+  if (isDesc(z, a)){
+    const top = pathTo(z).find(x => D.has(x) && isDesc(x, a) && x !== a);
+    return `<p class="note no"><b>It’s not yours any more.</b> ${FQ[id]} is in the zone ${zname(z)}, managed by ${esc(who(z))}. You handed over ${FQ[top]}${top !== z ? ' and whoever received it delegated it again' : ''}. All you can do is withdraw the delegation by clicking the apex ${FQ[top]}.</p>`;
+  }
+  return `<p class="note no"><b>You can’t.</b> ${FQ[id]} belongs to the zone ${zname(z)}, managed by ${esc(who(z))}. As ${esc(me)} you only control the zone ${zname(a)}: what was delegated to you minus what you have handed over.</p>`;
+}
+
+function drawInsp(){
+  const b = $('insp');
+  if (!app.sel || app.asking){ b.hidden = true; return; }
+  const id = app.sel;
+  b.hidden = false;
+  b.innerHTML = `<div class="kind">${NODES[id].t === 'host' ? 'Host' : 'Domain'} · zone ${zname(zoneOf(id, app.D))}</div><h3>Who answers for <span class="mono">${FQ[id]}</span>?</h3>${chainHtml(id)}${app.mode === 'lab' ? labHtml(id) : ''}`;
+  b.querySelectorAll('[data-act]').forEach(x => x.addEventListener('click', () => labAct(x.dataset.act, x.dataset.id)));
+  b.querySelectorAll('[data-actor]').forEach(x => x.addEventListener('click', () => setActor(x.dataset.actor)));
+  b.querySelectorAll('form').forEach(wireForm);
+}
+
+// Live preview of the name and glue hint while typing
+function wireForm(form){
+  const id = form.dataset.id, kind = form.dataset.f, err = form.querySelector('.err');
+  const lab = form.querySelector('[name=l]'), pv = form.querySelector('[data-pv]');
+  if (lab) lab.addEventListener('input', () => { const v = lab.value.trim().toLowerCase(); pv.textContent = v ? childFq(id, v) : '…'; });
+  if (kind === 'deleg'){
+    const srv = form.querySelector('[name=srv]'), glue = form.querySelector('[name=glue]'), gh = form.querySelector('[data-gh]');
+    const upd = () => {
+      const s = srv.value.trim().toLowerCase(), must = inside(s, FQ[id]);
+      glue.disabled = must; if (must) glue.checked = true;
+      gh.innerHTML = must
+        ? `<b>Glue required</b>: ${esc(s) || 'the server'} is inside ${FQ[id]}. Without its address in your zone, nobody could reach it.`
+        : `Include glue (optional: ${esc(s) || 'the server'} is outside ${FQ[id]}, so its address can be found with a separate resolution).`;
+    };
+    srv.addEventListener('input', upd); upd();
+  }
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const v = k => (form.querySelector(`[name=${k}]`)?.value || '').trim();
+    const e1 = labSubmit(kind, id, {l:v('l').toLowerCase(), ip:v('ip'), op:v('op'), srv:v('srv').toLowerCase().replace(/\.$/, ''), glue:form.querySelector('[name=glue]')?.checked});
+    if (e1){ err.textContent = e1; form.querySelector('input')?.focus(); }
+  });
+  if (app.focusForm === kind){ const i = form.querySelector('input[type=text]'); if (i) setTimeout(() => i.focus(), 0); }
+}
+
+function drawZones(dd){
+  const selZone = app.sel ? zoneOf(app.sel, app.D) : null;
+  const selFq = app.sel ? FQ[app.sel] : null;
+  const html = dd.map(z => {
+    const changed = z.nAdd || z.nDel;
+    const open = changed || z.A === selZone || (app.mode === 'guide' && app.k === 0);
+    const row = (r, st) => r.c
+      ? `<div class="rrl c ${st}"><span class="s">${st === 'add' ? '+' : st === 'del' ? '−' : ''}</span><span>; ${r.c}</span></div>`
+      : `<div class="rrl ${st}${r.n === selFq && r.t === 'A' ? ' sel' : ''}"><span class="s">${st === 'add' ? '+' : st === 'del' ? '−' : st === 'mod' ? '~' : ''}</span><span>${r.n}</span><span class="t">${r.t}</span><span>${r.v}${r.g ? ` <span class="g">; glue${st === 'mod' ? ' (already there: it stays)' : ''}</span>` : ''}</span></div>`;
+    const body = z.lines.map(r => row(r, z.isNew ? '' : r.st)).join('') + z.removed.map(r => row(r, 'del')).join('');
+    const d = z.isNew ? '<span class="p">new</span>' : z.gone ? '<span class="m">gone</span>' : `${z.nAdd ? `<span class="p">+${z.nAdd}</span> ` : ''}${z.nDel ? `<span class="m">−${z.nDel}</span>` : ''}`;
+    return `<details class="zf${z.gone ? ' gone' : ''}" style="--zc:${zc(z.A)}"${open ? ' open' : ''}><summary><b>zone ${zname(z.A)}</b><span class="who">${DEL[z.A].srv} · ${esc(DEL[z.A].op)}</span><span class="d">${d}</span></summary><div class="rrs">${body}</div></details>`;
+  });
+  $('zones').innerHTML = html.join('');
+}
+
+function drawSteps(){
+  const ol = $('steps');
+  ol.hidden = app.mode !== 'guide';
+  if (ol.hidden) return;
+  if (!ol.children.length){
+    STEPS.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<button><span class="n">${i}</span><span>${s.title}</span></button>`;
+      li.querySelector('button').addEventListener('click', () => setGuide(i, true));
+      ol.appendChild(li);
+    });
+  }
+  [...ol.children].forEach((li, i) => { li.classList.toggle('done', i <= app.k); li.classList.toggle('cur', i === app.k); });
+}
+
+function drawActors(){
+  const box = $('t-actors'), zs = apexes(app.D);
+  const count = {}; zs.forEach(A => count[DEL[A].op] = (count[DEL[A].op] || 0) + 1);
+  box.innerHTML = '<span>Acting as:</span>' + zs.map(A =>
+    `<button class="chip" style="--zc:${zc(A)}" data-a="${A}" aria-pressed="${A === app.actor}" title="zone ${zname(A)}"><i></i>${esc(DEL[A].op)}${count[DEL[A].op] > 1 ? ` <span class="mono">(${zname(A)})</span>` : ''}</button>`).join('');
+  box.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => setActor(b.dataset.a)));
+}
+function setActor(a){
+  app.actor = a; app.msg = null; app.fresh = new Set(); app.prev = zoneFiles(app.D); app.openF = null;
+  if (!app.sel || zoneOf(app.sel, app.D) !== a && !(app.D.has(app.sel) && zoneOf(NODES[app.sel].p, app.D) === a)) app.sel = a;
+  render();
+}
+
+function render(){
+  const guide = app.mode === 'guide';
+  $('t-guide').hidden = !guide; $('t-count').hidden = !guide;
+  $('t-actors').hidden = guide; $('t-lab').hidden = guide;
+  $('c-k').textContent = app.k;
+  $('b-prev').disabled = guide && app.k === 0 && !app.asking;
+  $('b-next').disabled = app.k >= NSTEP;
+  const dd = diff(app.prev, app.D);
+  drawTree(); drawCard(dd); drawInsp(); drawSteps(); drawZones(dd);
+  if (!guide) drawActors();
+  app.focusForm = null;
+}
+
+function select(id){
+  if (app.asking) return;
+  app.sel = id; app.fresh = new Set(); app.openF = null;
+  if (app.mode === 'lab'){ app.msg = null; app.prev = zoneFiles(app.D); }
+  render();
+}
+
+/* ---------- Your turn: actions ---------- */
+// Every change snapshots the zone files first so the page can show what changed
+function commit(mutate){
+  const prev = zoneFiles(app.D);
+  mutate();
+  refresh();
+  app.prev = prev;
+  render();
+}
+
+function labSubmit(kind, id, v){
+  if (kind === 'sub' || kind === 'host'){
+    const bad = checkLabel(id, v.l); if (bad) return bad;
+    if (kind === 'host' && !isIP(v.ip)) return 'Type a valid IPv4 address, such as 193.146.60.80.';
+    const nid = 'u' + (++labT.seq), name = childFq(id, v.l);
+    commit(() => {
+      NODES[nid] = kind === 'sub' ? {p:id, l:v.l, t:'dom'} : {p:id, l:v.l, t:'host', ip:v.ip};
+      app.fresh = new Set([nid]);
+      if (kind === 'sub'){
+        app.sel = nid; app.openF = null; app.focusForm = 'deleg';
+        app.msg = `<div class="kind" style="color:${zc(app.actor)}"><i></i>Subdomain created</div><h3>${name}</h3><p class="say">It is a new name inside your zone ${zname(app.actor)}. As long as it has no hosts and you do not hand it over, your zone file does not change: an empty domain needs no records.</p><p class="note">Now you can add hosts to it, or hand it over to someone else with the form on the right.</p>`;
+      } else {
+        app.openF = 'host'; app.focusForm = 'host';
+        app.msg = `<div class="kind" style="color:${zc(app.actor)}"><i></i>Host added</div><h3>${name} → ${v.ip}</h3><p class="say">One more A record in your zone ${zname(app.actor)}. You decided it yourself: nobody above you even noticed.</p>`;
+      }
+    });
+    return null;
+  }
+  if (kind === 'deleg'){
+    const fq = FQ[id];
+    if (!v.op) return 'Say who will be in charge of the subdomain.';
+    if (!HOST_RE.test(v.srv)) return 'The server name must be a fully qualified domain name, such as ns.redes.aut.uah.es.';
+    if (!isIP(v.ip)) return 'Type a valid IPv4 address for the server.';
+    const h = hostAt(v.srv);
+    if (h && NODES[h].ip !== v.ip) return `${v.srv} already exists in the tree with the address ${NODES[h].ip}: use that one.`;
+    if (app.actor !== 'root' && inside(v.srv, FQ[app.actor]) && !inside(v.srv, fq) && !h) return `${v.srv} would be in your own zone, but it does not exist. Create it as a host first, or choose another name.`;
+    const must = inside(v.srv, fq);
+    commit(() => {
+      const old = DEL[id] || {};
+      DEL[id] = {srv:v.srv, ip:v.ip, op:v.op, glue: must || !!v.glue, c: old.c || (BASE_NODES[id] ? undefined : `var(--z-x${labT.col++ % 6})`)};
+      if (old.art && old.op === v.op) DEL[id].art = old.art;
+      // If the server hangs directly from the delegated domain, draw it as a host of the new zone
+      const lab1 = v.srv.slice(0, -(fq.length + 1));
+      if (must && !h && v.srv !== fq && LABEL_RE.test(lab1) && !KIDS[id].some(x => NODES[x].l === lab1)){
+        NODES['u' + (++labT.seq)] = {p:id, l:lab1, t:'host', ip:v.ip};
+      }
+      app.D.add(id); labT.D = app.D;
+      app.fresh = new Set([id]);
+      app.openF = null;
+      app.msg = `<div class="kind" style="color:${zc(id)}"><i></i>Delegation</div><h3>${esc(Who(app.actor))} hands ${fq} over to ${esc(who(id))}</h3><p class="say">“${esc(Who(id))} is in charge of ${fq}: its server is ${v.srv}, at ${v.ip}.”</p><p class="note">The zone ${fq} is born, with its SOA and NS. ${must ? '<b>The server is inside the branch handed over, so the glue is essential.</b>' : DEL[id].glue ? 'The server is outside the branch handed over: the glue was not required, but it saves a resolution.' : '<b>No glue</b>: the server is outside the branch handed over, so the resolver can find its address separately (one more resolution).'}</p><button class="btn inl" data-actor="${id}">Act as ${esc(v.op)} and continue inside ${fq}</button>`;
+    });
+    return null;
+  }
+}
+
+function labAct(act, id){
+  if (act === 'del'){
+    const p = NODES[id].p, name = FQ[id];
+    commit(() => {
+      for (const x of ORDER.filter(x => isDesc(x, id))){ delete NODES[x]; if (!BASE_DEL[x]) delete DEL[x]; }
+      app.sel = p; app.fresh = new Set(); app.openF = null;
+      app.msg = `<div class="kind" style="color:${zc(app.actor)}"><i></i>Name deleted</div><h3>${name}</h3><p class="say">It no longer exists: anyone who asks for it will get an authoritative answer saying the name does not exist (NXDOMAIN).</p>`;
+    });
+    return;
+  }
+  commit(() => {
+    if (act === 'undo') app.D.delete(id);
+    labT.D = app.D;
+    app.fresh = new Set([app.actor]);
+    app.msg = `<div class="kind" style="color:${zc(app.actor)}"><i></i>Delegation withdrawn</div><h3>${esc(Who(app.actor))} takes back ${FQ[id]}</h3><p class="say">It deletes the NS and the glue for ${FQ[id]} and writes the records of that branch back into its own zone.</p><p class="note">If ${esc(who(id))} had delegated a sub-branch in turn, that delegation still exists, but its NS and glue now live in the zone of ${esc(who(app.actor))}.</p>`;
+  });
+}
+
+function setLab(){
+  useTree(labT);
+  app.D = labT.D; app.prev = zoneFiles(app.D); app.fresh = new Set(); app.msg = null; app.halo = null; app.openF = null;
+  if (!NODES[app.actor] || !apexes(app.D).includes(app.actor)) app.actor = NODES[app.actor] ? zoneOf(app.actor, app.D) : 'root';
+  if (app.sel && !NODES[app.sel]) app.sel = null;
+  render();
+}
+
+/* ---------- Controls ---------- */
+function setMode(m){
+  app.mode = m; app.sel = null; app.asking = false;
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+  if (m === 'guide') setGuide(app.k, false); else setLab();
+}
+function next(){
+  if (app.mode !== 'guide' || app.k >= NSTEP) return;
+  if ($('o-ask').checked && !app.asking){ app.asking = true; app.sel = null; app.halo = null; app.fresh = new Set(); app.prev = zoneFiles(app.D); render(); return; }
+  setGuide(app.k + 1, true);
+}
+function prev(){
+  if (app.mode !== 'guide') return;
+  if (app.asking){ setGuide(app.k, false); return; }
+  if (app.k > 0) setGuide(app.k - 1, false);
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+$('b-next').addEventListener('click', next);
+$('b-prev').addEventListener('click', prev);
+$('b-reset').addEventListener('click', () => setGuide(0, false));
+$('b-full').addEventListener('click', () => { app.sel = null; newLab(FULL); setLab(); });
+$('b-none').addEventListener('click', () => { app.sel = null; app.actor = 'root'; newLab([]); setLab(); });
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea,summary,form')) return;
+  if (e.target.closest('.node')) return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); prev(); }
+  else if (e.key === 'Home' && app.mode === 'guide'){ e.preventDefault(); setGuide(0, false); }
+  else if (e.key === 'Escape'){ select(null); }
+});
+const tb = document.querySelector('.toolbar');
+new ResizeObserver(() => document.documentElement.style.setProperty('--tbh', tb.offsetHeight + 'px')).observe(tb);
+setGuide(0, false);
+})();
+</script>

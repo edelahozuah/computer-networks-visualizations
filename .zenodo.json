@@ -1,0 +1,46 @@
+{
+  "title": "Interactive visualizations for computer networks courses",
+  "description": "<p>Self-contained, interactive HTML visualizations for teaching computer networks at undergraduate level: line coding and bit time, transmission and propagation delays, space-time and timing diagrams, layering and encapsulation, queueing and packet drops in a router, DNS names, zone delegation and query resolution, and persistent HTTP with and without pipelining.</p><p>Every visualization is a single HTML file with no dependencies that works offline, and is available in Spanish and English. The repository also includes the modular source of the larger pieces, a machine-readable catalogue (catalog.yml) with summaries, concepts and formulas, and the design template of the delay lab.</p><p>Developed for the course <em>Arquitectura de Redes I</em> (Network Architecture I) at the University of Alcalá, Spain, and published at <a href=\"https://edelahozuah.github.io/docencia/ar1/\">edelahozuah.github.io</a>.</p>",
+  "creators": [
+    {
+      "name": "de la Hoz, Enrique",
+      "affiliation": "Departamento de Automática, Universidad de Alcalá",
+      "orcid": "0000-0003-4837-3837"
+    }
+  ],
+  "license": "cc-by-sa-4.0",
+  "upload_type": "lesson",
+  "access_right": "open",
+  "language": "eng",
+  "keywords": [
+    "computer networks",
+    "networking education",
+    "interactive visualization",
+    "open educational resources",
+    "transmission delay",
+    "propagation delay",
+    "packet switching",
+    "queueing",
+    "DNS",
+    "HTTP",
+    "redes de computadores",
+    "docencia"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://edelahozuah.github.io/docencia/ar1/",
+      "relation": "isSupplementTo",
+      "resource_type": "other"
+    },
+    {
+      "identifier": "https://edelahozuah.github.io/computer-networks-visualizations/",
+      "relation": "isIdenticalTo",
+      "resource_type": "other"
+    },
+    {
+      "identifier": "10.5281/zenodo.23285054",
+      "relation": "isRelatedTo",
+      "resource_type": "software"
+    }
+  ]
+}

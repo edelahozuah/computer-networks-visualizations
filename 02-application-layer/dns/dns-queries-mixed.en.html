@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DNS queries: you decide who is recursive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEF0F2; --surface:#FFFFFF; --surface2:#F6F7F8; --ink:#1B2129; --muted:#5E6873; --line:#D5DAE0;
+  --rust:#B5541F;           /* barra de las diapositivas UAH */
+  --q:#B5541F;              /* consulta */
+  --ref:#9A6E00;            /* referencia */
+  --ans:#1D66A8;            /* respuesta */
+  --node:#46505C; --nodefill:#E3E7EB; --owe:#B5541F;
+  --f-disp:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+    --rust:#E27B45; --q:#E27B45; --ref:#E0B03C; --ans:#5DA9EC; --node:#B7C0CA; --nodefill:#26303A; --owe:#E27B45;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+  --rust:#E27B45; --q:#E27B45; --ref:#E0B03C; --ans:#5DA9EC; --node:#B7C0CA; --nodefill:#26303A; --owe:#E27B45;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);margin:0;padding-inline:16px;padding-block:0 40px}
+.wrap{max-width:1280px;margin:0 auto}
+header{border-top:6px solid var(--rust);padding-block:18px 10px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:end;justify-content:space-between}
+h1{font:800 clamp(22px,3vw,30px)/1.1 var(--f-disp);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.rule{font-size:14px;color:var(--muted);max-width:52ch;margin:0}
+.rule b{color:var(--ink)}
+
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding-block:10px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:600 14px var(--f-body);border:0;background:transparent;color:var(--ink);padding:8px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ctrls{display:inline-flex;gap:6px;align-items:center}
+.btn{font:600 14px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:42px}
+.btn.primary{background:var(--rust);border-color:var(--rust);color:#fff;min-width:150px}
+.btn:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--ans);outline-offset:2px}
+.opt{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.opt input[type=range]{width:90px;accent-color:var(--rust)}
+.opt input[type=checkbox]{accent-color:var(--rust);width:16px;height:16px}
+.counter{font:500 14px var(--f-mono);color:var(--muted);margin-left:auto}
+.counter b{color:var(--ink);font-size:18px}
+
+.stages{display:grid;gap:18px}
+.stages.compare{grid-template-columns:1fr 1fr}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:14px;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);align-items:start}
+.stages.compare .stage{grid-template-columns:1fr}
+.stage h2{font:700 18px/1.2 var(--f-disp);margin:0 0 2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.stage h2 small{font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.svgbox{overflow-x:auto}
+svg.net{width:100%;height:auto;display:block;min-width:0}
+.side{display:grid;gap:12px}
+
+.card{border:1px solid var(--line);border-radius:8px;background:var(--surface2);padding:12px 14px;min-height:170px}
+.card .kind{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;display:inline-flex;gap:8px;align-items:center}
+.card .kind i{width:18px;height:3px;border-radius:2px;background:currentColor;display:inline-block}
+.card h3{font:700 17px/1.25 var(--f-disp);margin:6px 0 8px}
+.say{font-size:15px;margin:0 0 10px;padding-left:10px;border-left:3px solid var(--line)}
+.fields{display:flex;flex-wrap:wrap;gap:6px}
+.fields span{font:500 12.5px/1.2 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:4px 7px}
+.note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.k-q{color:var(--q)} .k-ref{color:var(--ref)} .k-ans{color:var(--ans)}
+.ask{font:700 17px/1.3 var(--f-disp)}
+
+ol.msgs{list-style:none;margin:0;padding:0;display:grid;gap:3px;counter-reset:m}
+ol.msgs li button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13.5px;color:var(--muted)}
+ol.msgs li button:hover{background:var(--surface2)}
+ol.msgs li button:focus-visible{outline:2px solid var(--ans)}
+ol.msgs li .n{font:600 12px var(--f-mono);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line)}
+ol.msgs li .t{font:500 11.5px var(--f-mono);text-transform:uppercase;letter-spacing:.04em}
+ol.msgs li.done button{color:var(--ink)}
+ol.msgs li.done .n{color:#fff;border-color:transparent}
+ol.msgs li.done.q .n{background:var(--q)} ol.msgs li.done.ref .n{background:var(--ref)} ol.msgs li.done.ans .n{background:var(--ans)}
+ol.msgs li.cur button{background:var(--surface2);box-shadow:inset 3px 0 0 var(--rust)}
+
+table.load{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:8px;font-variant-numeric:tabular-nums}
+table.load td,table.load th{padding:3px 6px;text-align:left;border-bottom:1px solid var(--line)}
+table.load th{font:600 11.5px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.bar{height:8px;border-radius:4px;background:var(--rust);display:inline-block;vertical-align:middle;margin-right:6px}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:14px}
+.legend span{display:inline-flex;gap:7px;align-items:center}
+.legend i{width:22px;height:3px;border-radius:2px;display:inline-block}
+.legend .ring{width:14px;height:14px;border-radius:50%;border:2px dashed var(--owe)}
+footer{font-size:12.5px;color:var(--muted);margin-top:14px;max-width:90ch}
+
+/* SVG */
+.nd .ico{fill:var(--nodefill);stroke:var(--node);stroke-width:1.6}
+.nd .slot{stroke:var(--node);stroke-width:1.4}
+.nd .led{fill:var(--ans)}
+.nd .role{font:700 17px var(--f-disp);fill:var(--ink)}
+.nd .host{font:400 13.5px var(--f-mono);fill:var(--muted)}
+.nd .tag{font:600 13.5px var(--f-body);fill:var(--owe)}
+.nd .ringc{fill:none;stroke:var(--owe);stroke-width:2.2;stroke-dasharray:6 5;opacity:0;transition:opacity .3s}
+.nd.owe .ringc{opacity:1;animation:spin 3s linear infinite}
+.nd.flash .ico{stroke:var(--ans);stroke-width:2.6}
+@keyframes spin{to{stroke-dashoffset:-66}}
+.arr{fill:none;stroke-width:2.6;stroke-linecap:round}
+.arr.q{stroke:var(--q)} .arr.ref{stroke:var(--ref)} .arr.ans{stroke:var(--ans)}
+.arr.old{opacity:.5;stroke-width:2.2}
+.arr:not(.old){stroke-width:3.4}
+.mk-q{fill:var(--q)} .mk-ref{fill:var(--ref)} .mk-ans{fill:var(--ans)}
+.badge circle{stroke:var(--surface);stroke-width:2}
+.badge.q circle{fill:var(--q)} .badge.ref circle{fill:var(--ref)} .badge.ans circle{fill:var(--ans)}
+.badge text,.pkt text{font:600 12px var(--f-mono);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.pkt rect{stroke:var(--surface);stroke-width:2}
+.pkt.q rect{fill:var(--q)} .pkt.ref rect{fill:var(--ref)} .pkt.ans rect{fill:var(--ans)}
+.warn{font:600 14px var(--f-body);fill:var(--muted)}
+
+@media (max-width:980px){
+  .stage{grid-template-columns:1fr}
+  .stages.compare{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .counter{margin-left:0}
+  .btn.primary{min-width:0;flex:1}
+}
+@media (prefers-reduced-motion:reduce){ .nd.owe .ringc{animation:none} }
+
+/* Configuración por servidor */
+.cfg{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:grid;gap:10px}
+.cfg-head{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cfg-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px}
+.cfg-item{display:grid;gap:5px}
+.cfg-name{font:700 15px/1.2 var(--f-disp)}
+.cfg-name small{font:400 12.5px var(--f-mono);color:var(--muted);display:block;margin-top:2px}
+.seg.sm button{font-size:13.5px;padding:6px 11px;flex:1}
+.seg.sm{display:flex}
+.cfg-item .seg button[data-v="rec"][aria-pressed="true"]{background:var(--owe);color:#fff}
+.presets{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:13.5px;color:var(--muted)}
+.presets button{font:600 13px var(--f-body);border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer}
+.presets button:hover{border-color:var(--muted)}
+.presets button[aria-pressed="true"]{border-color:var(--rust);box-shadow:inset 0 0 0 1px var(--rust)}
+.warns{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:3px}
+.warns li{font-size:13.5px;color:var(--muted)}
+.warns li::before{content:"⚠ ";color:var(--ref)}
+.nd .chip{cursor:pointer}
+.nd .chip rect{fill:var(--surface);stroke:var(--node);stroke-width:1.3}
+.nd .chip text{font:600 11px var(--f-mono);letter-spacing:.05em;fill:var(--node);dominant-baseline:central}
+.nd .chip.rec rect{fill:var(--owe);stroke:var(--owe)}
+.nd .chip.rec text{fill:#fff}
+.nd .chip:hover rect{stroke-width:2.2}
+.nd .chip:focus{outline:none}
+.nd .chip:focus-visible rect{stroke:var(--ans);stroke-width:3}
+.yes{color:var(--owe);font-weight:600}
+table.load td:nth-child(2){white-space:nowrap}
+@media (max-width:860px){ .cfg-row{grid-template-columns:repeat(2,minmax(0,1fr))} }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Unit 2 · GG21 · DNS</div>
+      <h1>DNS queries: you decide who is recursive</h1>
+    </div>
+    <p class="rule">The host asks for <b>gaia.cs.umass.edu</b>, with every cache empty. As Kurose &amp; Ross point out, <b>in theory any DNS query can be iterative or recursive</b>: choose how each server handles the queries it receives and see what changes.</p>
+  </header>
+
+  <section class="cfg" aria-label="Behaviour of each server">
+    <div class="cfg-head">How each server handles the queries it receives</div>
+    <div class="cfg-row" id="cfg-row"></div>
+    <div class="presets" id="presets">Examples:</div>
+  </section>
+
+  <div class="toolbar" role="toolbar" aria-label="Animation controls">
+    <div class="ctrls">
+      <button class="btn" id="b-reset" title="Back to start (Home)" aria-label="Back to start">⏮</button>
+      <button class="btn" id="b-prev" title="Previous message (←)" aria-label="Previous message">◀</button>
+      <button class="btn primary" id="b-next" title="Next message (→)">Next message ▶</button>
+      <button class="btn" id="b-play" title="Play / pause (space)" aria-label="Play">▶▶</button>
+    </div>
+    <label class="opt" for="o-speed">Speed <input type="range" id="o-speed" min="0.5" max="2.5" step="0.25" value="1"></label>
+    <label class="opt" for="o-ask"><input type="checkbox" id="o-ask"> Pause to predict</label>
+    <div class="counter" aria-live="polite">message <b id="c-k">0</b> / <span id="c-n">8</span></div>
+  </div>
+
+  <div class="stages" id="stages"></div>
+
+  <div class="legend">
+    <span><i style="background:var(--q)"></i>Query</span>
+    <span><i style="background:var(--ref)"></i>Referral (“I don’t know, ask…”)</span>
+    <span><i style="background:var(--ans)"></i>Reply with the address</span>
+    <span><span class="ring"></span>Server holding someone else’s pending query (it must remember it and wait)</span>
+  </div>
+  <footer>An extension of Figs. 2.19 and 2.20 in Kurose &amp; Ross. Simplified model: a “recursive” server resolves whatever it is asked on its own (RD = 1 and RA = 1); an “iterative” one replies only with what it knows, usually a referral. You can also change a server’s mode by clicking the label next to it in the diagram. The configuration is stored in the page address, so you can share it. The IP addresses of the .edu and umass.edu servers are illustrative. Keyboard: → next, ← previous, space play/pause, Home restart.</footer>
+</div>
+
+<script>
+(() => {
+const NODES = {
+  host:  {x:215, y:452, kind:'pc',  role:'Host',            name:'cis.poly.edu',       side:'left'},
+  local: {x:215, y:250, kind:'srv', role:'Local DNS server', name:'dns.poly.edu',       side:'left'},
+  root:  {x:410, y:82,  kind:'srv', role:'Root',            name:'a.root-servers.net', side:'right'},
+  tld:   {x:610, y:250, kind:'srv', role:'TLD .edu',        name:'a.edu-servers.net',  side:'right'},
+  auth:  {x:610, y:440, kind:'srv', role:'Authoritative',   name:'dns.cs.umass.edu',   side:'right'},
+};
+const LBL = {host:'Host', local:'Local DNS server', root:'Root', tld:'TLD .edu', auth:'Authoritative'};
+const ART = {host:'the host', local:'the local DNS server', root:'the root', tld:'the TLD', auth:'the authoritative server'};
+const CHAIN = ['local','root','tld','auth'];
+const Q = 'gaia.cs.umass.edu';
+const IP = '128.119.245.12';
+
+const CE = {
+  a:     `${Q} A ${IP} · TTL 3600`,
+  rt:    '. NS a.root-servers.net · TTL 518400',
+  rtG:   'a.root-servers.net A 198.41.0.4 · TTL 518400',
+  edu:   'edu NS a.edu-servers.net · TTL 172800',
+  eduG:  'a.edu-servers.net A 192.5.6.30 · TTL 172800',
+  um:    'umass.edu NS dns.cs.umass.edu · TTL 172800',
+  umG:   'dns.cs.umass.edu A 128.119.240.1 · TTL 172800',
+};
+// What each iterative server replies: whom to ask next
+const REF = {
+  local: {zone:'.',         to:'the root',                    name:'a.root-servers.net', ip:'198.41.0.4',    cache:['rt','rtG']},
+  root:  {zone:'edu',       to:'the .edu servers',            name:'a.edu-servers.net',  ip:'192.5.6.30',    cache:['edu','eduG']},
+  tld:   {zone:'umass.edu', to:'the authoritative server for umass.edu', name:'dns.cs.umass.edu',  ip:'128.119.240.1', cache:['um','umG']},
+};
+
+const PRESETS = [
+  {label:'Fig. 2.19: iterative (the usual one)', cfg:{local:'rec', root:'it',  tld:'it',  auth:'it'}},
+  {label:'Fig. 2.20: all recursive',          cfg:{local:'rec', root:'rec', tld:'rec', auth:'rec'}},
+  {label:'All iterative',                     cfg:{local:'it',  root:'it',  tld:'it',  auth:'it'}},
+  {label:'Iterative root, recursive TLD',     cfg:{local:'rec', root:'it',  tld:'rec', auth:'it'}},
+];
+
+// Build the message sequence from the configuration
+function buildMsgs(cfg){
+  const msgs = [], pending = new Set();
+  const query = (f, t) => {
+    const rec = cfg[t] === 'rec', n = msgs.length + 1;
+    let note;
+    if (t === 'auth') note = rec
+      ? `${cap(ART[f])} asks for recursion, but it makes no difference: the authoritative server holds the umass.edu zone and knows the answer.`
+      : `${cap(ART[f])} asks the server that holds the umass.edu zone.`;
+    else if (rec && f === 'host') note = `The host hands all the work to ${ART[t]}, which is now in charge of bringing back the answer.`;
+    else if (rec) note = `${cap(ART[f])} delegates: ${ART[t]} is now in charge of resolving the name and must remember the query until it has the answer.`;
+    else note = `${cap(ART[f])} only expects an immediate reply with whatever ${ART[t]} knows. If it is not the address, ${ART[f]} will have to keep asking.`;
+    const m = {f, t, k:'q', type: rec ? 'Recursive query' : 'Iterative query',
+      say: rec ? `“What is the address of ${Q}? Find it for me.”` : `“What is the address of ${Q}?”`,
+      fields:[rec ? 'RD = 1' : 'RD = 0', `Question: ${Q} A`], note};
+    if (rec && t !== 'auth'){
+      m.owe = t; pending.add(t);
+      if (pending.size > 1) m.note += ` There are now ${pending.size} servers waiting at once, each holding someone else’s query in memory.`;
+    }
+    msgs.push(m); return n;
+  };
+  // D asks CHAIN[i], CHAIN[i+1]... until it has the address
+  const drive = (D, i) => {
+    for (;;){
+      const s = CHAIN[i];
+      const qn = query(D, s);
+      if (s === 'auth'){
+        msgs.push({f:'auth', t:D, k:'ans', type:'Authoritative answer', say:`“${Q} is at ${IP}.”`,
+          fields:['AA = 1', `${Q} A ${IP}`, 'TTL 3600'],
+          note:'The authoritative server does know the name, and it sets the TTL: how long the record may be cached.', cache:{[D]:['a']}});
+        return;
+      }
+      if (cfg[s] === 'rec'){
+        drive(s, i+1);
+        pending.delete(s);
+        msgs.push({f:s, t:D, k:'ans', type:'Answer', say:`“${Q} is at ${IP}.”`,
+          fields:['AA = 0', 'RA = 1', `${Q} A ${IP}`, 'TTL 3600'],
+          note:`${cap(ART[s])} completes the task from message ${qn} and releases its pending query. AA = 0 because it is not authoritative.` + (D === 'host' ? ' Done: the host has the address.' : ''),
+          pay:s, cache:{[D]:['a']}});
+        return;
+      }
+      const r = REF[s];
+      msgs.push({f:s, t:D, k:'ref', type:'Referral',
+        say:`“I don’t know. Ask ${r.to}: ${r.name}, at ${r.ip}.”`,
+        fields:['Answer: empty', `NS ${r.zone} → ${r.name}`, `glue: ${r.ip}`],
+        note:`${cap(ART[s])} is iterative: it replies at once with what it knows and forgets the query. ${cap(ART[D])} will have to ask ${r.to} itself.` +
+          (s === 'local' ? ' In practice the host could not do this: its DNS software (a stub resolver) relies on the local DNS server being recursive.' : ''),
+        cache:{[D]:r.cache}});
+      i++;
+    }
+  };
+  drive('host', 0);
+  return msgs;
+}
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (n, a={}, p) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function geom(a, b){
+  const A = NODES[a], B = NODES[b];
+  const dx = B.x-A.x, dy = B.y-A.y, L = Math.hypot(dx,dy), ux = dx/L, uy = dy/L;
+  const nx = -uy, ny = ux, off = 9, r = 46;
+  const x1 = A.x+ux*r+nx*off, y1 = A.y+uy*r+ny*off, x2 = B.x-ux*(r+4)+nx*off, y2 = B.y-uy*(r+4)+ny*off;
+  return {x1,y1,x2,y2,len:Math.hypot(x2-x1,y2-y1), bx:(x1+x2)/2+nx*16, by:(y1+y2)/2+ny*16};
+}
+
+class Stage {
+  constructor(cfg, host){
+    this.cfg = cfg; this.msgs = buildMsgs(cfg); this.key = 'mx'; this.k = 0; this.anim = null;
+    const s = h('section','stage'); s.setAttribute('aria-label', 'Resolution with the chosen configuration');
+    const left = h('div');
+    const name = PRESETS.find(p => sameCfg(p.cfg, cfg));
+    left.appendChild(h('h2', null, `Step-by-step resolution <small>${name ? name.label : 'your own configuration'}</small>`));
+    const warns = [];
+    if (cfg.local === 'it') warns.push('A real host cannot iterate: its local DNS server always serves it recursively.');
+    const big = ['root','tld'].filter(n => cfg[n] === 'rec').map(n => ART[n]);
+    if (big.length) warns.push(`Today ${big.join(' and ')} ${big.length > 1 ? 'do' : 'does'} not accept recursive queries: ${big.length > 1 ? 'they ignore RD and reply' : 'it ignores RD and replies'} with referrals.`);
+    if (warns.length){ const ul = h('ul','warns'); warns.forEach(w => ul.appendChild(h('li', null, w))); left.appendChild(ul); }
+    const box = h('div','svgbox'); left.appendChild(box);
+    this.svg = el('svg', {class:'net', viewBox:'0 0 820 540', role:'img', 'aria-label':'Diagram of the resolution'}, box);
+    this.buildSvg();
+    const side = h('div','side');
+    this.card = h('div','card'); this.card.setAttribute('aria-live','polite');
+    this.list = h('ol','msgs');
+    this.msgs.forEach((m,i) => {
+      const li = h('li', m.k);
+      const b = h('button', null, `<span class="n">${i+1}</span><span>${LBL[m.f]} → ${LBL[m.t]}</span><span class="t">${m.k === 'q' ? 'Query ' + (m.type.startsWith('Recursive') ? 'rec.' : 'it.') : m.k === 'ref' ? 'Referral' : 'Answer'}</span>`);
+      b.addEventListener('click', () => app.jump(i+1));
+      li.appendChild(b); this.list.appendChild(li);
+    });
+    side.append(this.card, this.list);
+    s.append(left, side); host.appendChild(s);
+    this.render(0, null);
+  }
+  buildSvg(){
+    const svg = this.svg, defs = el('defs', {}, svg);
+    for (const k of ['q','ref','ans']){
+      const m = el('marker', {id:`mk-${this.key}-${k}`, viewBox:'0 0 10 10', refX:'8', refY:'5', markerWidth:'7', markerHeight:'7', orient:'auto-start-reverse'}, defs);
+      el('path', {d:'M0,0 L10,5 L0,10 z', class:`mk-${k}`}, m);
+    }
+    this.gArr = el('g', {}, svg);
+    this.gNodes = el('g', {}, svg);
+    this.gTop = el('g', {}, svg);
+    this.nodeEls = {};
+    for (const [id, n] of Object.entries(NODES)){
+      const g = el('g', {class:'nd', transform:`translate(${n.x},${n.y})`}, this.gNodes);
+      el('circle', {class:'ringc', r:44}, g);
+      if (n.kind === 'srv'){
+        el('rect', {class:'ico', x:-17, y:-26, width:34, height:52, rx:4}, g);
+        for (const y of [-15,-5,5]) el('line', {class:'slot', x1:-10, x2:10, y1:y, y2:y}, g);
+        el('circle', {class:'led', cx:9, cy:17, r:2.6}, g);
+      } else {
+        el('rect', {class:'ico', x:-25, y:-24, width:50, height:34, rx:3}, g);
+        el('rect', {class:'ico', x:-5, y:10, width:10, height:8}, g);
+        el('rect', {class:'ico', x:-16, y:18, width:32, height:5, rx:2}, g);
+      }
+      const L = n.side === 'left', tx = L ? -54 : 54, anchor = L ? 'end' : 'start';
+      if (this.cfg[id]){
+        const rec = this.cfg[id] === 'rec', w = 96, label = rec ? 'RECURSIVE' : 'ITERATIVE';
+        const c = el('g', {class:`chip ${rec ? 'rec' : 'it'}`, tabindex:0, role:'button',
+          'aria-label':`${LBL[id]}: ${rec ? 'recursive' : 'iterative'}. Click to change`}, g);
+        el('title', {}, c).textContent = 'Click to change the mode';
+        el('rect', {x: L ? tx-w : tx, y:-45, width:w, height:20, rx:10}, c);
+        el('text', {x: (L ? tx-w : tx) + w/2, y:-35, 'text-anchor':'middle'}, c).textContent = label;
+        const toggle = () => app.setNode(id, rec ? 'it' : 'rec');
+        c.addEventListener('click', toggle);
+        c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); e.stopPropagation(); toggle(); } });
+      }
+      const r1 = el('text', {class:'role', x:tx, y:-6, 'text-anchor':anchor}, g); r1.textContent = n.role;
+      const r2 = el('text', {class:'host', x:tx, y:13, 'text-anchor':anchor}, g); r2.textContent = n.name;
+      const tg = el('text', {class:'tag', x:tx, y:33, 'text-anchor':anchor}, g);
+      this.nodeEls[id] = {g, tag:tg};
+    }
+  }
+  stateAt(k){
+    const z = () => ({host:0,local:0,root:0,tld:0,auth:0});
+    const owe = {}, cache = {host:[],local:[],root:[],tld:[],auth:[]}, handled = z(), asked = z(), waited = {};
+    let peak = 0;
+    for (let i=0;i<k;i++){
+      const m = this.msgs[i];
+      handled[m.f]++; handled[m.t]++;
+      if (m.k === 'q') asked[m.f]++;
+      if (m.owe){ owe[m.owe] = m.f; waited[m.owe] = true; }
+      if (m.pay) delete owe[m.pay];
+      if (m.cache) for (const n in m.cache) cache[n].push(...m.cache[n]);
+      peak = Math.max(peak, Object.keys(owe).length);
+    }
+    return {owe, cache, handled, asked, waited, peak};
+  }
+  drawArrow(i, final){
+    const m = this.msgs[i], g = geom(m.f, m.t);
+    const line = el('line', {class:`arr ${m.k}`, x1:g.x1, y1:g.y1, x2:g.x2, y2:g.y2}, this.gArr);
+    if (final) line.setAttribute('marker-end', `url(#mk-${this.key}-${m.k})`);
+    return {line, g, m};
+  }
+  badge(i, g, m){
+    const b = el('g', {class:`badge ${m.k}`, transform:`translate(${g.bx},${g.by})`}, this.gArr);
+    el('circle', {r:11}, b); el('text', {}, b).textContent = i+1;
+  }
+  render(k, asking){
+    this.cancel();
+    this.k = k;
+    this.gArr.innerHTML = ''; this.gTop.innerHTML = '';
+    for (let i=0;i<k;i++){ const a = this.drawArrow(i, true); if (i < k-1) a.line.classList.add('old'); this.badge(i, a.g, a.m); }
+    this.paintNodes(k);
+    this.paintSide(k, asking);
+  }
+  paintNodes(k){
+    const st = this.stateAt(k);
+    for (const [id, o] of Object.entries(this.nodeEls)){
+      const who = st.owe[id];
+      o.g.classList.toggle('owe', !!who);
+      o.tag.textContent = '';
+      if (who){
+        const x = o.tag.getAttribute('x');
+        el('tspan', {x, dy:0}, o.tag).textContent = 'must reply to:';
+        el('tspan', {x, dy:17}, o.tag).textContent = LBL[who];
+      }
+    }
+  }
+  summary(st){
+    const N = this.msgs.length;
+    const list = a => a.length < 2 ? a.join('') : a.slice(0,-1).join(', ') + (a.length > 2 ? ',' : '') + ' and ' + a.at(-1);
+    const waited = Object.keys(st.waited).map(n => ART[n]);
+    const askers = Object.keys(st.asked).filter(n => st.asked[n]).map(n => ART[n]);
+    const cached = Object.keys(st.cache).filter(n => st.cache[n].includes('a')).map(n => ART[n]);
+    let s = `${N} messages, as in any other configuration: each server receives one query and sends one reply. What changes is who does the work. `;
+    s += waited.length
+      ? `Servers that had to remember someone else’s query: ${list(waited)}${st.peak > 1 ? ` (up to ${st.peak} at once)` : ''}. `
+      : 'No server had to remember someone else’s query: the host did all the work. ';
+    s += `Queries were sent by ${list(askers)}. The address ends up cached at ${list(cached)}.`;
+    if (this.cfg.root === 'rec' || this.cfg.tld === 'rec')
+      s += ' With millions of resolvers asking, a recursive root or TLD server could not cope: that is why, in practice, they always reply with referrals.';
+    return s;
+  }
+  paintSide(k, asking){
+    const msgs = this.msgs;
+    [...this.list.children].forEach((li,i) => { li.classList.toggle('done', i<k); li.classList.toggle('cur', i===k-1); });
+    let html;
+    if (asking){
+      html = `<div class="kind" style="color:var(--muted)">Before you go on</div><h3 class="ask">What is message ${k+1}?</h3><p class="say">Who sends it, to whom, and is it a query, a referral or an answer? Look at each server’s mode.</p><p class="note">Press “Next message” to check.</p>`;
+    } else if (k === 0){
+      html = `<div class="kind" style="color:var(--muted)">Starting point</div><h3>Every cache is empty</h3><p class="say">The host needs the address of <b>${Q}</b> and only knows its local DNS server. Each server knows whom to ask next: the local server asks the root; the root, the TLD; the TLD, the authoritative server.</p><p class="note">A <b style="color:var(--owe)">recursive</b> server resolves what it is asked by itself; an <b>iterative</b> one replies at once with a referral. Change the modes above or in the diagram and press “Next message”.</p>`;
+    } else {
+      const m = msgs[k-1];
+      html = `<div class="kind k-${m.k}"><i></i>${m.type}</div>
+        <h3>${k}. ${LBL[m.f]} → ${LBL[m.t]}</h3>
+        <p class="say">${m.say}</p>
+        <div class="fields">${m.fields.map(f=>`<span>${f}</span>`).join('')}</div>
+        <p class="note">${m.note}</p>`;
+      const st = this.stateAt(k);
+      if (m.cache){
+        html += `<p class="note"><b style="color:var(--ink)">Cached</b> (${Object.keys(m.cache).map(n=>LBL[n]).join(', ')}):</p><div class="fields">${Object.values(m.cache).flat().map(c=>`<span>${CE[c]}</span>`).join('')}</div>`;
+      }
+      if (k === msgs.length){
+        const max = Math.max(...Object.values(st.handled));
+        html += `<p class="note" style="color:var(--ink)"><b>Result.</b> ${this.summary(st)}</p>
+          <table class="load"><thead><tr><th>Device</th><th>Messages</th><th>Queries sent</th><th>Waited?</th></tr></thead><tbody>${
+          ['host','local','root','tld','auth'].map(n=>`<tr><td>${LBL[n]}</td><td><span class="bar" style="width:${st.handled[n]/max*44}px"></span>${st.handled[n]}</td><td>${st.asked[n]}</td><td>${st.waited[n] ? '<span class="yes">yes</span>' : 'no'}</td></tr>`).join('')}</tbody></table>`;
+      }
+    }
+    this.card.innerHTML = html;
+  }
+  cancel(){ if (this.anim){ cancelAnimationFrame(this.anim.raf); this.anim = null; } }
+  animateTo(k, dur){
+    return new Promise(res => {
+      this.render(k-1, false);
+      [...this.gArr.querySelectorAll('.arr')].forEach(l => l.classList.add('old'));
+      const i = k-1, a = this.drawArrow(i, false), {line, g, m} = a;
+      line.setAttribute('stroke-dasharray', g.len); line.setAttribute('stroke-dashoffset', g.len);
+      const pkt = el('g', {class:`pkt ${m.k}`}, this.gTop);
+      el('rect', {x:-15, y:-11, width:30, height:22, rx:5}, pkt); el('text', {}, pkt).textContent = k;
+      this.paintSide(k, false);
+      this.nodeEls[m.f].g.classList.add('flash');
+      const t0 = performance.now();
+      const step = now => {
+        let p = Math.min(1, (now-t0)/dur); const e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+        pkt.setAttribute('transform', `translate(${g.x1+(g.x2-g.x1)*e},${g.y1+(g.y2-g.y1)*e})`);
+        line.setAttribute('stroke-dashoffset', g.len*(1-e));
+        if (p < 1){ this.anim.raf = requestAnimationFrame(step); return; }
+        this.anim = null;
+        this.nodeEls[m.f].g.classList.remove('flash');
+        this.render(k, false);
+        res();
+      };
+      this.anim = {raf: requestAnimationFrame(step)};
+      if (dur === 0){ cancelAnimationFrame(this.anim.raf); step(t0); }
+    });
+  }
+}
+
+const sameCfg = (a, b) => CHAIN.every(n => a[n] === b[n]);
+
+// The configuration travels in the URL: #local=rec&root=it&tld=it&auth=it
+function readHash(){
+  const p = new URLSearchParams(location.hash.slice(1)), cfg = {...PRESETS[0].cfg};
+  for (const n of CHAIN){ const v = p.get(n); if (v === 'rec' || v === 'it') cfg[n] = v; }
+  return cfg;
+}
+
+const app = {
+  cfg: readHash(), k:0, asking:false, playing:false, busy:false, stages:[], timer:null, gen:0,
+  $: id => document.getElementById(id),
+  get N(){ return this.stages[0] ? this.stages[0].msgs.length : 0; },
+  buildCfg(){
+    const row = this.$('cfg-row');
+    const SUB = {local:'dns.poly.edu', root:'a.root-servers.net', tld:'a.edu-servers.net', auth:'dns.cs.umass.edu · has the answer'};
+    for (const n of CHAIN){
+      const it = h('div','cfg-item');
+      it.appendChild(h('div','cfg-name', `${LBL[n]}<small>${SUB[n]}</small>`));
+      const seg = h('div','seg sm'); seg.setAttribute('role','group'); seg.setAttribute('aria-label', `Mode of ${LBL[n]}`);
+      for (const [v, t] of [['rec','Recursive'],['it','Iterative']]){
+        const b = h('button', null, t); b.dataset.n = n; b.dataset.v = v;
+        b.addEventListener('click', () => this.setNode(n, v));
+        seg.appendChild(b);
+      }
+      it.appendChild(seg); row.appendChild(it);
+    }
+    const pr = this.$('presets');
+    PRESETS.forEach(p => {
+      const b = h('button', null, p.label); b.addEventListener('click', () => this.setCfg({...p.cfg}));
+      b._cfg = p.cfg; pr.appendChild(b);
+    });
+  },
+  paintCfg(){
+    document.querySelectorAll('#cfg-row button').forEach(b => b.setAttribute('aria-pressed', this.cfg[b.dataset.n] === b.dataset.v));
+    document.querySelectorAll('#presets button').forEach(b => b.setAttribute('aria-pressed', sameCfg(b._cfg, this.cfg)));
+  },
+  setNode(n, v){ if (this.cfg[n] !== v) this.setCfg({...this.cfg, [n]:v}, n); },
+  setCfg(cfg, focusNode){
+    this.cfg = cfg;
+    history.replaceState(null, '', '#' + CHAIN.map(n => `${n}=${cfg[n]}`).join('&'));
+    this.build();
+    // If the change came from the diagram, give focus back to the same server's label
+    if (focusNode && document.activeElement === document.body){
+      const c = this.stages[0].nodeEls[focusNode].g.querySelector('.chip'); if (c) c.focus();
+    }
+  },
+  build(){
+    this.stop(); this.gen++; this.busy = false;
+    const host = this.$('stages'); host.innerHTML = '';
+    this.stages = [new Stage(this.cfg, host)];
+    this.k = 0; this.asking = false; this.paintCfg(); this.sync();
+  },
+  dur(){ return reduce ? 0 : 1500 / +this.$('o-speed').value; },
+  sync(){
+    this.$('c-k').textContent = this.k;
+    this.$('c-n').textContent = this.N;
+    this.$('b-prev').disabled = this.k === 0 && !this.asking;
+    this.$('b-next').disabled = this.k >= this.N;
+    this.$('b-play').textContent = this.playing ? '❚❚' : '▶▶';
+    this.$('b-play').setAttribute('aria-label', this.playing ? 'Pause' : 'Play');
+  },
+  async next(){
+    if (this.busy || this.k >= this.N) return;
+    if (this.$('o-ask').checked && !this.asking){
+      this.asking = true; this.stages.forEach(s => s.render(this.k, true)); this.sync(); return;
+    }
+    const gen = this.gen;
+    this.asking = false; this.busy = true; this.k++; this.sync();
+    await Promise.all(this.stages.map(s => s.animateTo(this.k, this.dur())));
+    if (gen !== this.gen) return;
+    this.busy = false; this.sync();
+  },
+  prev(){
+    this.stop(); this.busy = false;
+    if (this.asking){ this.asking = false; } else if (this.k > 0) this.k--;
+    this.stages.forEach(s => s.render(this.k, false)); this.sync();
+  },
+  jump(k){ this.stop(); this.busy = false; this.asking = false; this.k = k; this.stages.forEach(s => s.render(k, false)); this.sync(); },
+  reset(){ this.jump(0); },
+  stop(){ this.playing = false; clearTimeout(this.timer); this.sync(); },
+  play(){
+    if (this.playing){ this.stop(); return; }
+    if (this.k >= this.N) this.jump(0);
+    this.playing = true; this.sync();
+    const loop = async () => {
+      if (!this.playing) return;
+      await this.next();
+      if (!this.playing) return;
+      if (this.k >= this.N && !this.asking){ this.stop(); return; }
+      this.timer = setTimeout(loop, (this.asking ? 2600 : 1100) / +this.$('o-speed').value);
+    };
+    loop();
+  },
+};
+window.app = app;
+
+app.$('b-next').addEventListener('click', () => { app.stop(); app.next(); });
+app.$('b-prev').addEventListener('click', () => app.prev());
+app.$('b-reset').addEventListener('click', () => app.reset());
+app.$('b-play').addEventListener('click', () => app.play());
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea') && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); app.stop(); app.next(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); app.prev(); }
+  else if (e.key === ' ' && !e.target.closest('button,[role=button]')){ e.preventDefault(); app.play(); }
+  else if (e.key === 'Home'){ e.preventDefault(); app.reset(); }
+});
+window.addEventListener('hashchange', () => { const c = readHash(); if (!sameCfg(c, app.cfg)){ app.cfg = c; app.build(); } });
+app.buildCfg();
+app.build();
+})();
+</script>

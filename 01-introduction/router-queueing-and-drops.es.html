@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colas y descartes en un router</title>
+<style>
+:root{
+  --bg:#ffffff; --surface:#f3f5fa; --ink:#2b2f38; --muted:#5f6b7d; --line:#d3d9e6;
+  --l-hi:#4472c4; --l-mid:#8faadc; --l-lo:#dae3f3;
+  --accent:#c0501f; --ok:#1f8a55; --alt:#d1495b; --warn:#b97e00;
+  --s0:#4472c4; --s1:#1f8a55; --s2:#b97e00; --s3:#a23b8c;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171e; --surface:#1d222c; --ink:#e8ebf2; --muted:#9aa5ba; --line:#343c4c;
+    --l-hi:#5f86d0; --l-mid:#5f7fbd; --l-lo:#2a3550;
+    --accent:#ee8a5c; --ok:#4cc78a; --alt:#f0697b; --warn:#e0a92e;
+    --s0:#6c95e0; --s1:#4cc78a; --s2:#e0a92e; --s3:#d47cc0;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:16px}
+h1{font-size:1.35rem;margin:0 0 2px;color:var(--accent)}
+.sub{color:var(--muted);margin:0 0 12px;font-size:.95rem}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:10px 0}
+.ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lbl{color:var(--muted);font-size:.9rem}
+.val{font-weight:700;min-width:3.2em;font-variant-numeric:tabular-nums}
+input[type=range]{accent-color:var(--accent);min-width:150px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:inherit;border:0;background:var(--bg);color:var(--ink);padding:6px 11px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--l-hi);color:#fff;font-weight:600}
+.btn{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.chip{font:inherit;font-weight:600;border:2px solid var(--accent);color:var(--accent);background:none;border-radius:999px;padding:3px 11px;cursor:pointer}
+.chip:hover{background:var(--surface)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--l-mid);outline-offset:2px}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.stage canvas{display:block;width:100%;min-width:720px;height:auto}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0}
+@media (max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
+.card{background:var(--surface);border-radius:10px;padding:8px 12px;border-left:4px solid var(--line)}
+.card h2{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0}
+.card .v{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.card .u{font-size:.8rem;color:var(--muted)}
+.card.loss{border-left-color:var(--alt)} .card.loss .v{color:var(--alt)}
+.card.q{border-left-color:var(--l-hi)}
+.card.d{border-left-color:var(--warn)}
+.card.ut{border-left-color:var(--ok)}
+.regime{margin:10px 0;padding:10px 14px;border-radius:10px;background:var(--surface);border-left:6px solid var(--ok)}
+.regime b{display:block;margin-bottom:2px}
+.regime[data-r="1"]{border-left-color:var(--l-hi)}
+.regime[data-r="2"]{border-left-color:var(--warn)}
+.regime[data-r="3"]{border-left-color:var(--alt)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+figure{margin:12px 0 0}
+figcaption{font-size:.88rem;color:var(--muted);margin-top:4px}
+figure canvas{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.keys{color:var(--muted);font-size:.85rem;margin-top:14px}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface);font-size:.85em}
+</style>
+</head>
+<body>
+<main>
+<h1>Colas y descartes en un router</h1>
+<p class="sub">Varios orígenes comparten un único enlace de salida. Sube la intensidad de tráfico y observa cómo aparece la cola, se llena el buffer y el router empieza a descartar paquetes.</p>
+
+<div class="controls">
+  <div class="ctl">
+    <label class="lbl" for="rho">Intensidad de tráfico ρ = λ·L/R</label>
+    <input id="rho" type="range" min="0.05" max="1.6" step="0.01" value="0.7">
+    <span class="val" id="rhoV">0,70</span>
+  </div>
+  <div class="ctl">
+    <span class="lbl">Ir a:</span>
+    <button class="chip" data-rho="0.3">0,3</button>
+    <button class="chip" data-rho="0.7">0,7</button>
+    <button class="chip" data-rho="0.95">0,95</button>
+    <button class="chip" data-rho="1.3">1,3</button>
+  </div>
+  <div class="ctl">
+    <label class="lbl" for="K">Buffer (paquetes en espera)</label>
+    <input id="K" type="range" min="1" max="16" step="1" value="8" style="min-width:100px">
+    <span class="val" id="KV">8</span>
+  </div>
+</div>
+<div class="controls">
+  <div class="ctl"><span class="lbl">Llegadas:</span>
+    <span class="seg" id="mode">
+      <button data-v="poisson" aria-pressed="true">Aleatorias (Poisson)</button>
+      <button data-v="regular" aria-pressed="false">Regulares</button>
+      <button data-v="burst" aria-pressed="false">Ráfagas</button>
+    </span></div>
+  <div class="ctl"><span class="lbl">Tamaño de paquete:</span>
+    <span class="seg" id="svc">
+      <button data-v="fixed" aria-pressed="true">Fijo</button>
+      <button data-v="exp" aria-pressed="false">Variable</button>
+    </span></div>
+  <div class="ctl"><span class="lbl">Velocidad:</span>
+    <span class="seg" id="speed">
+      <button data-v="1" aria-pressed="true">1×</button>
+      <button data-v="2" aria-pressed="false">2×</button>
+      <button data-v="4" aria-pressed="false">4×</button>
+      <button data-v="10" aria-pressed="false">10×</button>
+    </span></div>
+  <div class="ctl">
+    <button class="btn primary" id="pause">⏸ Pausa</button>
+    <button class="btn" id="step" title="Avanza un cuarto de tiempo de transmisión">Paso</button>
+    <button class="btn" id="reset">Reiniciar</button>
+  </div>
+</div>
+
+<div class="stage"><canvas id="scene" role="img" aria-label="Animación de un router con cuatro orígenes, un buffer finito y un enlace de salida"></canvas></div>
+
+<div class="cards" aria-live="off">
+  <div class="card q"><h2>Ocupación del buffer</h2><div class="v" id="cOcc">0 / 8</div><div class="u" id="cOccAvg">media: 0,00</div></div>
+  <div class="card d"><h2>Retardo en cola</h2><div class="v" id="cWait">0,00</div><div class="u">medio, en tiempos de transmisión (T = L/R)</div></div>
+  <div class="card ut"><h2>Utilización del enlace</h2><div class="v" id="cUtil">0 %</div><div class="u">tiempo ocupado transmitiendo</div></div>
+  <div class="card loss"><h2>Paquetes descartados</h2><div class="v" id="cLoss">0,0 %</div><div class="u" id="cLossN">0 de 0 llegados</div></div>
+  <div class="card"><h2>Entregados</h2><div class="v" id="cDel">0</div><div class="u" id="cThr">caudal: 0,00 pq/T</div></div>
+</div>
+
+<div class="regime" id="regime" data-r="0" aria-live="polite"><b id="regT"></b><span id="regD"></span></div>
+
+<figure>
+  <canvas id="tl"></canvas>
+  <figcaption>Ocupación del buffer en el tiempo (últimos 60 T). Las marcas rojas indican instantes en los que se descartó al menos un paquete.</figcaption>
+</figure>
+
+<div class="grid2">
+  <figure><canvas id="plLoss"></canvas>
+    <figcaption>Probabilidad de descarte frente a ρ.</figcaption></figure>
+  <figure><canvas id="plDel"></canvas>
+    <figcaption>Retardo medio (cola + transmisión) frente a ρ.</figcaption></figure>
+</div>
+<p class="sub" style="margin-top:6px">La curva es la referencia teórica M/M/1/N (llegadas Poisson, tamaños exponenciales, N = buffer + 1 paquete en transmisión). El punto lleno es el valor teórico para el ρ actual; el hueco, lo medido en la simulación desde el último cambio de parámetros (necesita unos cientos de llegadas para estabilizarse). Prueba «Regulares» y «Ráfagas»: el mismo ρ, otro comportamiento.</p>
+
+<p class="keys"><kbd>Espacio</kbd> pausa · <kbd>R</kbd> reiniciar · <kbd>←</kbd>/<kbd>→</kbd> ajustan ρ (con el deslizador enfocado). Unidad de tiempo: T = L/R, lo que tarda en transmitirse un paquete.</p>
+</main>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const P={rho:0.7,K:8,mode:'poisson',svc:'fixed',speed:1,paused:false};
+const LEAD=0.6;            // tiempo que tarda un paquete en recorrer el enlace de entrada
+const OUTT=0.6;            // idem, enlace de salida
+const BURST=4;             // tamaño medio de ráfaga
+let S;
+
+const rnd=()=>1-Math.random();                 // (0,1]
+const expo=m=>-Math.log(rnd())*m;
+
+/* ---------- Estado de la simulación ---------- */
+function resetStats(){
+  S.st={arr:0,drop:0,del:0,started:0,wait:0,sojourn:0,busy:0,occ:0,t0:S.now};
+}
+function resetAll(){
+  S={now:0,incoming:[],queue:[],serving:null,svcEnd:Infinity,outgoing:[],drops:[],
+     lastGen:0,samples:[],sampAcc:0,sampDrop0:0,id:0,regime:-1};
+  resetStats();
+  fill();
+}
+function pushNext(){
+  const r=Math.max(P.rho,0.05);
+  let t;
+  if(P.mode==='poisson'){ t=S.lastGen+expo(1/r); S.lastGen=t; add(t); }
+  else if(P.mode==='regular'){ t=S.lastGen+1/r; S.lastGen=t; add(t); }
+  else{
+    t=S.lastGen+expo(BURST/r); S.lastGen=t;
+    const n=1+Math.floor(Math.log(rnd())/Math.log(1-1/BURST));
+    const src=Math.floor(Math.random()*4);
+    for(let i=0;i<n;i++) add(t+i*0.16,src);
+  }
+}
+function add(t,src){
+  S.incoming.push({t,src:src??Math.floor(Math.random()*4),id:S.id++});
+  S.incoming.sort((a,b)=>a.t-b.t);
+}
+function fill(){ while(S.lastGen<S.now+1.2) pushNext(); }
+function refillAfterRhoChange(){
+  // conserva lo que ya está a la vista; regenera lo que aún no se ve
+  S.incoming=S.incoming.filter(p=>p.t<=S.now+LEAD);
+  S.lastGen=Math.max(S.now,...S.incoming.map(p=>p.t));
+  fill();
+}
+function startService(p){
+  S.serving=p; p.tStart=S.now;
+  p.dur=P.svc==='fixed'?1:Math.min(5,expo(1));
+  S.svcEnd=S.now+p.dur;
+  S.st.started++; S.st.wait+=S.now-p.t;
+}
+function advance(target){
+  const st=S.st;
+  for(;;){
+    const na=S.incoming.length?S.incoming[0].t:Infinity;
+    const ev=Math.min(na,S.svcEnd);
+    if(ev>target)break;
+    integrate(ev);
+    if(na<=S.svcEnd){
+      const p=S.incoming.shift(); st.arr++;
+      p.x=null;
+      if(!S.serving&&!S.queue.length) startService(p);
+      else if(S.queue.length<P.K) S.queue.push(p);
+      else {S.drops.push({p,t0:S.now}); st.drop++;}
+    }else{
+      const p=S.serving; st.del++; st.sojourn+=S.now-p.t;
+      S.outgoing.push({p,t0:S.now});
+      S.serving=null; S.svcEnd=Infinity;
+      if(S.queue.length) startService(S.queue.shift());
+    }
+  }
+  integrate(target);
+  fill();
+  // muestreo para la gráfica temporal
+  while(S.sampAcc>=0.25){
+    S.sampAcc-=0.25;
+    S.samples.push({n:S.queue.length,d:S.st.drop>S.sampDrop0});
+    S.sampDrop0=S.st.drop;
+    if(S.samples.length>240)S.samples.shift();
+  }
+  S.outgoing=S.outgoing.filter(o=>S.now-o.t0<OUTT);
+  S.drops=S.drops.filter(d=>S.now-d.t0<1);
+}
+function integrate(t){
+  const dt=t-S.now; if(dt<=0)return;
+  S.st.occ+=S.queue.length*dt; if(S.serving)S.st.busy+=dt;
+  S.sampAcc+=dt; S.now=t;
+}
+
+/* ---------- Teoría M/M/1/N ---------- */
+function theory(rho,K){
+  const N=K+1; let pb,L;
+  if(Math.abs(rho-1)<1e-6){pb=1/(N+1);L=N/2;}
+  else{
+    const rn=Math.pow(rho,N), rn1=rn*rho;
+    pb=(1-rho)*rn/(1-rn1);
+    L=rho/(1-rho)-(N+1)*rn1/(1-rn1);
+  }
+  const le=rho*(1-pb);
+  return {pb,W:le>0?L/le:1};
+}
+
+/* ---------- Dibujo ---------- */
+const css=()=>{const c=getComputedStyle(document.documentElement),g=n=>c.getPropertyValue(n).trim();
+  return{bg:g('--bg'),surface:g('--surface'),ink:g('--ink'),muted:g('--muted'),line:g('--line'),
+  hi:g('--l-hi'),mid:g('--l-mid'),lo:g('--l-lo'),acc:g('--accent'),ok:g('--ok'),alt:g('--alt'),warn:g('--warn'),
+  src:[g('--s0'),g('--s1'),g('--s2'),g('--s3')]};};
+function fit(c,lw,lh){
+  const dpr=window.devicePixelRatio||1, w=Math.max(c.clientWidth,300);
+  const W=Math.round(w*dpr);
+  if(c.width!==W){c.width=W;c.height=Math.round(W*lh/lw);}
+  c.style.aspectRatio=lw+'/'+lh;
+  const x=c.getContext('2d'); x.setTransform(c.width/lw,0,0,c.width/lw,0,0); return x;
+}
+function rr(x,X,y,w,h,r){x.beginPath();x.roundRect?x.roundRect(X,y,w,h,r):x.rect(X,y,w,h);}
+const lerp=(a,b,f)=>a+(b-a)*f;
+const SY=i=>170+(i-1.5)*76, SX=62, BR=700, TX=752, DX=965;
+
+function drawScene(dtReal){
+  const c=$('scene'), x=fit(c,1000,340), C=css();
+  x.clearRect(0,0,1000,340);
+  const K=P.K, sw=Math.min(46,380/K), bufL=BR-K*sw, E=[bufL-6,170];
+  // router
+  x.fillStyle=C.surface; rr(x,bufL-28,58,BR+118-(bufL-28),224,12); x.fill();
+  x.strokeStyle=C.line; x.lineWidth=2; x.stroke();
+  x.fillStyle=C.muted; x.font='600 13px system-ui'; x.textAlign='left';
+  x.fillText('ROUTER · puerto de salida',bufL-16,78);
+  // enlaces de entrada
+  x.lineWidth=2;
+  for(let i=0;i<4;i++){
+    x.strokeStyle=C.line; x.beginPath(); x.moveTo(SX+16,SY(i)); x.lineTo(E[0],E[1]); x.stroke();
+    x.fillStyle=C.src[i]; x.beginPath(); x.arc(SX,SY(i),15,0,7); x.fill();
+    x.fillStyle='#fff'; x.font='700 13px system-ui'; x.textAlign='center'; x.fillText('ABCD'[i],SX,SY(i)+5);
+  }
+  x.fillStyle=C.muted; x.font='13px system-ui'; x.textAlign='center';
+  x.fillText('Orígenes',SX,325);
+  // buffer
+  const full=S.queue.length>=K;
+  for(let i=0;i<K;i++){
+    const sx=BR-(i+1)*sw;
+    x.fillStyle=C.bg; x.strokeStyle=full?C.alt:C.line; x.lineWidth=full?2.5:1.5;
+    rr(x,sx+1,148,sw-2,44,4); x.fill(); x.stroke();
+  }
+  x.fillStyle=full?C.alt:C.muted; x.font='600 13px system-ui'; x.textAlign='center';
+  x.fillText(`Buffer: ${K} plazas`+(full?' · LLENO':''),(bufL+BR)/2,214);
+  x.font='12px system-ui'; x.fillStyle=C.muted; x.textAlign='left'; x.fillText('cola',bufL,138);
+  x.textAlign='right'; x.fillText('cabeza',BR,138);
+  // transmisor
+  x.fillStyle=C.bg; x.strokeStyle=C.hi; x.lineWidth=2.5; rr(x,TX-30,142,60,56,6); x.fill(); x.stroke();
+  x.fillStyle=C.muted; x.font='12px system-ui'; x.textAlign='center'; x.fillText('transmisor',TX,214);
+  // enlace de salida
+  x.strokeStyle=C.ink; x.lineWidth=4; x.beginPath(); x.moveTo(TX+30,170); x.lineTo(DX,170); x.stroke();
+  x.fillStyle=C.ink; x.beginPath(); x.moveTo(DX,170);x.lineTo(DX-10,163);x.lineTo(DX-10,177);x.fill();
+  x.fillStyle=C.muted; x.textAlign='center'; x.fillText('enlace de salida (R)',(TX+30+DX)/2,196);
+  x.fillText('Destino',DX-10,325);
+
+  const pw=Math.min(sw-8,34), ph=24;
+  const pkt=(px,py,col,a=1,cross=false)=>{
+    x.globalAlpha=a; x.fillStyle=col; rr(x,px-pw/2,py-ph/2,pw,ph,4); x.fill();
+    if(cross){x.strokeStyle='#fff';x.lineWidth=3;x.beginPath();x.moveTo(px-7,py-7);x.lineTo(px+7,py+7);x.moveTo(px+7,py-7);x.lineTo(px-7,py+7);x.stroke();}
+    x.globalAlpha=1;
+  };
+  // en tránsito hacia el router
+  for(const p of S.incoming){
+    const f=1-(p.t-S.now)/LEAD; if(f<0)continue;
+    pkt(lerp(SX+16,E[0],f),lerp(SY(p.src),E[1],f),C.src[p.src]);
+  }
+  // cola
+  const k=Math.min(1,dtReal*14);
+  S.queue.forEach((p,i)=>{
+    const tx=BR-(i+.5)*sw;
+    if(p.x==null){p.x=E[0];p.y=E[1];}
+    p.x+=(tx-p.x)*k; p.y=170;
+    pkt(p.x,p.y,C.src[p.src]);
+  });
+  // en servicio
+  if(S.serving){
+    const p=S.serving; if(p.x==null){p.x=E[0];}
+    p.x+=(TX-p.x)*k; pkt(p.x,170,C.src[p.src]);
+    const fr=Math.min(1,(S.now-p.tStart)/p.dur);
+    x.fillStyle=C.hi; x.fillRect(TX-24,182,48*fr,5);
+    x.strokeStyle=C.line; x.lineWidth=1; x.strokeRect(TX-24,182,48,5);
+  }
+  // salida
+  for(const o of S.outgoing){
+    const f=(S.now-o.t0)/OUTT; pkt(lerp(TX+30,DX-14,f),170,C.src[o.p.src]);
+  }
+  // descartes
+  for(const d of S.drops){
+    const u=(S.now-d.t0)/1;
+    pkt(E[0]-4,170+120*u*u,C.alt,1-u,true);
+  }
+  x.fillStyle=C.alt; x.font='700 14px system-ui'; x.textAlign='left';
+  x.fillText(`Descartados: ${S.st.drop}`,Math.max(bufL-40,80),322);
+}
+
+function axes(x,C,w,h,m,xmax,ymax,xl,yl,yfmt){
+  x.clearRect(0,0,w,h);
+  x.font='11px system-ui'; x.fillStyle=C.muted; x.strokeStyle=C.line; x.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=m.t+(h-m.t-m.b)*(1-i/4);
+    x.beginPath();x.moveTo(m.l,y);x.lineTo(w-m.r,y);x.stroke();
+    x.textAlign='right';x.fillText(yfmt(ymax*i/4),m.l-5,y+4);
+  }
+  x.textAlign='center';
+  for(let v=0;v<=xmax+1e-9;v+=xmax<=2?0.4:xmax/4){
+    const X=m.l+(w-m.l-m.r)*v/xmax; x.fillText(xl===''?'':(+v.toFixed(2)).toString().replace('.',','),X,h-m.b+15);
+  }
+  x.fillStyle=C.muted; x.textAlign='center'; x.fillText(xl,(m.l+w-m.r)/2,h-3);
+  x.save();x.translate(11,(m.t+h-m.b)/2);x.rotate(-Math.PI/2);x.fillText(yl,0,0);x.restore();
+}
+function drawPlot(cv,kind){
+  const w=490,h=240,x=fit(cv,w,h),C=css(),m={l:44,r:10,t:10,b:30};
+  const xmax=1.6, f=r=>{const t=theory(r,P.K);return kind==='loss'?t.pb*100:t.W;};
+  const pts=[];for(let r=0.02;r<=xmax+1e-9;r+=0.02)pts.push([r,f(r)]);
+  const meas=S.st.arr>=5?(kind==='loss'?S.st.drop/S.st.arr*100:(S.st.del?S.st.sojourn/S.st.del:null)):null;
+  let ymax=Math.max(...pts.map(p=>p[1]),meas||0)*1.1; ymax=kind==='loss'?Math.max(20,Math.ceil(ymax/20)*20):Math.max(4,Math.ceil(ymax/4)*4);
+  axes(x,C,w,h,m,xmax,ymax,'ρ',kind==='loss'?'descartes (%)':'retardo (T)',v=>Math.round(v).toString());
+  const X=r=>m.l+(w-m.l-m.r)*r/xmax, Y=v=>h-m.b-(h-m.t-m.b)*Math.min(v,ymax)/ymax;
+  // zona ρ>1
+  x.fillStyle=C.alt; x.globalAlpha=.08; x.fillRect(X(1),m.t,X(xmax)-X(1),h-m.t-m.b); x.globalAlpha=1;
+  x.strokeStyle=C.alt; x.setLineDash([4,4]); x.beginPath(); x.moveTo(X(1),m.t); x.lineTo(X(1),h-m.b); x.stroke(); x.setLineDash([]);
+  x.fillStyle=C.alt; x.font='11px system-ui'; x.textAlign='left'; x.fillText('ρ > 1: sobrecarga',X(1)+4,m.t+12);
+  x.strokeStyle=kind==='loss'?C.alt:C.warn; x.lineWidth=2.5; x.beginPath();
+  pts.forEach((p,i)=>i?x.lineTo(X(p[0]),Y(p[1])):x.moveTo(X(p[0]),Y(p[1]))); x.stroke();
+  const cur=f(P.rho); x.fillStyle=C.ink; x.beginPath(); x.arc(X(P.rho),Y(cur),5.5,0,7); x.fill();
+  if(meas!=null){x.strokeStyle=C.ink;x.lineWidth=2.5;x.fillStyle=C.bg;x.beginPath();x.arc(X(P.rho),Y(meas),6,0,7);x.fill();x.stroke();}
+}
+function drawTimeline(){
+  const cv=$('tl'),w=1000,h=170,x=fit(cv,w,h),C=css(),m={l:44,r:10,t:10,b:20};
+  const K=P.K; axes(x,C,w,h,m,60,K,'','paquetes en cola',v=>Math.round(v).toString());
+  const X=i=>m.l+(w-m.l-m.r)*i/240, Y=v=>h-m.b-(h-m.t-m.b)*v/K;
+  const s=S.samples, off=240-s.length;
+  x.strokeStyle=C.alt; x.setLineDash([5,4]); x.lineWidth=1.5; x.beginPath(); x.moveTo(m.l,Y(K)); x.lineTo(w-m.r,Y(K)); x.stroke(); x.setLineDash([]);
+  x.fillStyle=C.alt; x.textAlign='right'; x.fillText('buffer lleno',w-m.r-4,Y(K)+13);
+  if(!s.length)return;
+  x.beginPath(); x.moveTo(X(off),Y(0));
+  s.forEach((p,i)=>{x.lineTo(X(off+i),Y(p.n));x.lineTo(X(off+i+1),Y(p.n));});
+  x.lineTo(X(240),Y(0)); x.closePath(); x.fillStyle=C.hi; x.globalAlpha=.25; x.fill(); x.globalAlpha=1;
+  x.strokeStyle=C.hi; x.lineWidth=2; x.beginPath();
+  s.forEach((p,i)=>{i?x.lineTo(X(off+i),Y(p.n)):x.moveTo(X(off+i),Y(p.n));x.lineTo(X(off+i+1),Y(p.n));}); x.stroke();
+  x.fillStyle=C.alt;
+  s.forEach((p,i)=>{if(p.d)x.fillRect(X(off+i),h-m.b-6,Math.max(2,X(1)-X(0)),6);});
+}
+
+/* ---------- Panel numérico y texto ---------- */
+const f1=(v,d=2)=>v.toFixed(d).replace('.',',');
+function updateCards(){
+  const st=S.st, el=Math.max(S.now-st.t0,1e-9);
+  $('cOcc').textContent=`${S.queue.length} / ${P.K}`;
+  $('cOccAvg').textContent='media: '+f1(st.occ/el);
+  $('cWait').textContent=st.started?f1(st.wait/st.started):'0,00';
+  $('cUtil').textContent=Math.round(st.busy/el*100)+' %';
+  $('cLoss').textContent=(st.arr?f1(st.drop/st.arr*100,1):'0,0')+' %';
+  $('cLossN').textContent=`${st.drop} de ${st.arr} llegados`;
+  $('cDel').textContent=st.del;
+  $('cThr').textContent='caudal: '+f1(st.del/el)+' pq/T';
+  // régimen
+  const lossPct=st.arr>20?st.drop/st.arr:0, r=P.rho;
+  let k;
+  if(P.mode==='regular'&&r<1&&lossPct<.005) k=0;
+  else if(r>1.02) k=3;
+  else if(lossPct>.01||r>.9) k=2;
+  else if(r>.5) k=1; else k=0;
+  if(k!==S.regime){
+    S.regime=k;
+    const T=[
+     ['Enlace holgado: casi no hay cola','El enlace pasa tiempo ocioso. Un paquete que llega suele encontrar el transmisor libre y sale enseguida: el retardo es prácticamente la transmisión (T). Aun así, dos llegadas casi simultáneas ya forman una pequeña cola.'],
+     ['Aparece el encolado','Aunque el enlace no está saturado (ρ < 1), las llegadas aleatorias coinciden a veces y los paquetes esperan. El retardo medio en cola ya no es despreciable y crece más deprisa que la carga.'],
+     ['Cerca de la saturación: la cola se dispara','Con ρ próxima a 1 la cola crece mucho y el buffer se llena con frecuencia. Los paquetes que llegan con el buffer lleno se descartan: la pérdida aparece incluso con ρ < 1, sobre todo si el tráfico viene a ráfagas o el buffer es pequeño.'],
+     ['Sobrecarga: descarte estructural','Llegan más bits por segundo de los que el enlace puede sacar (ρ > 1). El buffer se llena y se queda lleno: el retardo se estanca en el máximo que permite el buffer y, en régimen estacionario, se descarta aproximadamente la fracción (ρ − 1)/ρ del tráfico. Más buffer solo retrasa el problema y aumenta el retardo.']][k];
+    $('regT').textContent=T[0]; $('regD').textContent=T[1]; $('regime').dataset.r=k;
+  }
+}
+
+/* ---------- Bucle ---------- */
+let last=performance.now(), acc=0;
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000); last=now;
+  if(!P.paused) advance(S.now+dt*P.speed);
+  drawScene(dt);
+  acc+=dt; if(acc>0.12){acc=0; updateCards(); drawTimeline(); drawPlot($('plLoss'),'loss'); drawPlot($('plDel'),'del');}
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Controles ---------- */
+function seg(id,key,conv=v=>v,reset=false){
+  const b=[...$(id).querySelectorAll('button')];
+  b.forEach(el=>el.addEventListener('click',()=>{
+    b.forEach(o=>o.setAttribute('aria-pressed',o===el));
+    P[key]=conv(el.dataset.v); if(reset){resetAll();}
+  }));
+}
+seg('mode','mode',v=>v,true); seg('svc','svc',v=>v,true); seg('speed','speed',Number);
+function setRho(v){
+  P.rho=Math.round(v*100)/100; $('rho').value=P.rho; $('rhoV').textContent=f1(P.rho);
+  resetStats(); refillAfterRhoChange(); S.regime=-1;
+}
+$('rho').addEventListener('input',e=>setRho(+e.target.value));
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>setRho(+c.dataset.rho)));
+$('K').addEventListener('input',e=>{P.K=+e.target.value;$('KV').textContent=P.K;resetAll();});
+function togglePause(){P.paused=!P.paused;$('pause').textContent=P.paused?'▶ Continuar':'⏸ Pausa';}
+$('pause').addEventListener('click',togglePause);
+$('step').addEventListener('click',()=>{if(!P.paused)togglePause();advance(S.now+0.25);});
+$('reset').addEventListener('click',()=>{resetAll();});
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'&&e.target.type==='range')return;
+  if(e.code==='Space'){e.preventDefault();togglePause();}
+  if(e.key==='r'||e.key==='R')resetAll();
+});
+window.addEventListener('resize',()=>{});
+resetAll();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

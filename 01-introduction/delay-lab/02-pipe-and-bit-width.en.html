@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The pipe and the width of a bit</title>
+<meta name="description" content="Bandwidth-delay product and the width of one bit on a 20,000 km link (Kurose problems P25, P26, and P27). AR1, session S1.2.">
+<style>
+/* =====================================================================
+   RETARDOS · base común
+   Copiar este bloque <style> íntegro en cada visualización.
+   Paleta validada (CVD y contraste) en claro y oscuro.
+   ===================================================================== */
+:root {
+  color-scheme: light;
+  --surface: #f4f6f9;      /* fondo de página */
+  --panel: #ffffff;        /* paneles y escenario */
+  --ink: #14213d;          /* texto principal */
+  --ink-2: #5b6478;        /* texto secundario, ejes */
+  --rule: #d7dde8;         /* líneas de rejilla, bordes */
+  --rule-strong: #9aa5b8;  /* regla, ejes principales */
+  --packet: #e0602c;       /* cuerpo del paquete / bits de datos */
+  --head: #2a78d6;         /* primer bit (cabeza) */
+  --tail: #4a3aa7;         /* último bit (cola) */
+  --ack: #159c6b;          /* reconocimientos (ACK) */
+  --focus: #2a78d6;
+  --link-fill: #e9edf3;    /* interior de la tubería vacía */
+  --radius: 6px;
+  --fs: 18px;              /* tamaño base: pensado para proyectar */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #16191f; --panel: #1f242d; --ink: #eef1f6; --ink-2: #aab3c2;
+    --rule: #343b48; --rule-strong: #6b7590; --packet: #d95926; --head: #3987e5;
+    --tail: #9085e9; --ack: #199e70; --focus: #3987e5; --link-fill: #262c37;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #16191f; --panel: #1f242d; --ink: #eef1f6; --ink-2: #aab3c2;
+  --rule: #343b48; --rule-strong: #6b7590; --packet: #d95926; --head: #3987e5;
+  --tail: #9085e9; --ack: #199e70; --focus: #3987e5; --link-fill: #262c37;
+}
+
+* { box-sizing: border-box; }
+html { font-size: var(--fs); }
+body {
+  margin: 0; background: var(--surface); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums; line-height: 1.45;
+}
+.page { max-width: 1400px; margin: 0 auto; padding: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; margin-bottom: 12px; }
+header.top h1 { font-size: 1.5rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+header.top .sub { color: var(--ink-2); margin: 0; }
+header.top .tools { margin-left: auto; display: flex; gap: 8px; }
+
+/* Rejilla general: escenario arriba a todo el ancho; debajo controles + diagrama */
+.grid { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 16px; }
+.stage { grid-column: 1 / -1; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 16px; }
+.panel h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
+
+/* Controles */
+.field { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; margin: 8px 0; }
+.field label { color: var(--ink-2); }
+.field output { font-weight: 600; justify-self: end; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--head); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+button, .btn {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); padding: 6px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-2); }
+button[aria-pressed="true"], .btn.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+button.primary { background: var(--head); color: #fff; border-color: var(--head); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Lecturas numéricas */
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin-top: 8px; }
+.readout .k { color: var(--ink-2); font-size: 0.85rem; }
+.readout .v { font-size: 1.25rem; font-weight: 600; }
+.readout .v.head { color: var(--head); } .readout .v.tail { color: var(--tail); }
+/* Modo predicción: se ocultan los valores hasta pulsar «Revelar» */
+:root[data-predict="on"] .readout .v, :root[data-predict="on"] .reveal { visibility: hidden; }
+:root[data-predict="on"] .readout::after { content: "?"; color: var(--ink-2); font-size: 1.25rem; font-weight: 600; margin-top: -1.8rem; display: block; }
+
+/* Línea de tiempo (scrubber) */
+.timeline { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: center; margin-top: 10px; }
+.timeline input[type=range] { width: 100%; accent-color: var(--ink); }
+.timeline .t { min-width: 9ch; font-weight: 600; }
+.keyframes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.keyframes button { padding: 4px 10px; font-size: 0.9rem; }
+.speed { color: var(--ink-2); font-size: 0.9rem; }
+
+/* SVG */
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: inherit; font-size: 15px; fill: var(--ink); }
+svg text.muted { fill: var(--ink-2); font-size: 13px; }
+.axis line, .axis path { stroke: var(--rule-strong); stroke-width: 1; }
+.grid-line { stroke: var(--rule); stroke-width: 1; }
+.link-pipe { fill: var(--link-fill); stroke: var(--rule-strong); stroke-width: 1.5; }
+.host { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.packet { fill: var(--packet); }
+.bit-head { fill: var(--head); } .bit-tail { fill: var(--tail); }
+.ack { fill: var(--ack); stroke: var(--ack); }
+.now-line { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.st-data { stroke: var(--packet); fill: var(--packet); fill-opacity: 0.18; stroke-width: 1.5; }
+.st-ack { stroke: var(--ack); stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+.marker-label { font-weight: 600; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--ink-2); font-size: 0.9rem; margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; background: var(--c); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* =====================================================================
+   PROPIO de la pieza 02 · tubería y ancho de bit (añadido, no altera la base)
+   ===================================================================== */
+:root { --pitch: #cdebc4; --pitch-line: #3b7d44; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pitch: #27442b; --pitch-line: #8fcf98; } }
+:root[data-theme="dark"] { --pitch: #27442b; --pitch-line: #8fcf98; }
+/* La base oculta todo .reveal en modo predicción, también el botón «Revelar valores»: se deja visible */
+:root[data-predict="on"] #btnReveal { visibility: visible; }
+/* Frases sueltas ocultas en modo predicción: se sustituyen por «?» en lugar de dejar un hueco */
+:root[data-predict="on"] span.reveal, :root[data-predict="on"] tspan.reveal { visibility: hidden; font-size: 0; }
+:root[data-predict="on"] span.reveal::after { content: "?"; visibility: visible; font-size: 1rem; color: var(--ink-2); font-weight: 600; }
+/* En modo predicción las notas bajo cada lectura desaparecen del flujo para que el «?» caiga sobre el valor */
+:root[data-predict="on"] .readout .note { display: none; }
+.grid > * { min-width: 0; }
+.col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+svg.narrow text { font-size: 22px; }
+svg.narrow text.muted { font-size: 19px; }
+#stage { cursor: crosshair; touch-action: pan-y; }
+.lupa-box { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 5 3; }
+.roll-hub { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.roll-empty { fill: none; stroke: var(--rule-strong); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.tape { stroke: var(--packet); stroke-width: 3; fill: none; }
+.pitch { fill: var(--pitch); stroke: var(--pitch-line); stroke-width: 2; }
+.pitch-line { stroke: var(--pitch-line); stroke-width: 1.5; fill: none; }
+.dim { stroke: var(--ink); stroke-width: 1.5; }
+.banner { margin: 10px 0 0; padding: 8px 12px; border-left: 4px solid var(--head); background: var(--link-fill); border-radius: var(--radius); }
+.note { color: var(--ink-2); font-size: 0.85rem; }
+.stage-readouts { border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 12px; }
+.summary { color: var(--ink-2); font-size: 0.9rem; margin: 10px 0 0; }
+.marks { position: relative; height: 1.3em; grid-column: 1 / -1; font-size: 0.75rem; color: var(--ink-2); }
+.marks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; left: calc(8px + (100% - 16px) * var(--p)); }
+.field input[type=number] { grid-column: 1 / -1; font: inherit; width: 100%; padding: 4px 8px; color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong); border-radius: var(--radius); }
+.legend .lg-lupa::before { background: transparent; border: 1.5px dashed var(--ink); box-sizing: border-box; }
+.caption { color: var(--ink-2); font-size: 0.9rem; margin: 6px 0 0; }
+@media (max-width: 600px) {
+  .timeline { grid-template-columns: auto 1fr auto; }
+  .timeline input[type=range] { grid-column: 1 / -1; order: 5; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>The pipe and the width of a bit</h1>
+    <p class="sub">Bandwidth-delay product · problems P25, P26, and P27 (Kurose)</p>
+    <div class="tools">
+      <button id="btnPredict" aria-pressed="false" title="Hides numeric values until you reveal them">Prediction mode</button>
+      <button id="btnTheme" title="Toggle light / dark">Theme</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="stage panel" aria-labelledby="stageTitle">
+      <h2 id="stageTitle">Link A → B: the file is poured into the pipe</h2>
+      <svg id="stage" viewBox="0 0 1200 192" role="img" aria-label="Link pipe with the file in transit"></svg>
+      <p id="banner" class="banner reveal" hidden></p>
+      <div class="legend">
+        <span style="--c: var(--packet)">file bits</span>
+        <span style="--c: var(--head)">head (first bit)</span>
+        <span style="--c: var(--tail)">tail (last bit)</span>
+        <span class="lg-lupa">segment magnified in the zoom view (click or drag on the pipe)</span>
+      </div>
+      <div class="timeline">
+        <button id="btnPlay" class="primary" aria-label="Play or pause">▶</button>
+        <span class="t" id="tNow" aria-live="off">t = 0 s</span>
+        <input id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="Time instant">
+        <span class="speed" id="speed"></span>
+      </div>
+      <div class="keyframes" id="keyframes" aria-label="Key instants (keys 1 to 4)"></div>
+      <div class="readouts stage-readouts">
+        <div class="readout"><div class="k">Pipe capacity, R·d<sub>prop</sub></div><div class="v" id="rCap"></div></div>
+        <div class="readout"><div class="k">Bits on the link now</div><div class="v head" id="rNow"></div></div>
+        <div class="readout"><div class="k">Maximum bits on the link during transmission</div><div class="v" id="rMax"></div></div>
+        <div class="readout"><div class="k">Width of a bit, s/R</div><div class="v" id="rW"></div><div class="note" id="rWN"></div></div>
+        <div class="readout"><div class="k">Portion of the file that fits at once</div><div class="v" id="rFit"></div><div class="note" id="rFitN"></div></div>
+      </div>
+      <p id="summary" class="summary" aria-live="polite"></p>
+    </section>
+
+    <aside class="panel" aria-labelledby="ctlTitle">
+      <h2 id="ctlTitle">Parameters</h2>
+      <div class="presets" id="presets"></div>
+      <div class="field"><label for="R">Transmission rate, R</label><output id="Rout" for="R"></output>
+        <input id="R" type="range" min="0" max="10" step="0.001" list="Rmarks">
+        <div class="marks" aria-hidden="true">
+          <span style="--p: 0.10969">12.5 bps</span><span style="--p: 0.630103">2 Mbps</span><span style="--p: 0.9">1 Gbps</span>
+        </div>
+        <datalist id="Rmarks"><option value="1.09691"></option><option value="6.30103"></option><option value="9"></option></datalist>
+      </div>
+      <div class="field"><label for="F">File size, F</label><output id="Fout" for="F"></output>
+        <input id="F" type="range" min="3" max="8" step="0.001"></div>
+      <div class="field"><label for="m">Link length, m</label><output id="mout" for="m"></output>
+        <input id="m" type="range" min="5" max="7.60206" step="0.001"></div>
+      <div class="field"><label for="vp">Propagation speed, s (×10⁸ m/s)</label><output id="vpout" for="vp"></output>
+        <input id="vp" type="number" min="0.1" max="3" step="0.1" value="2.5"></div>
+      <div class="readouts">
+        <div class="readout"><div class="k">d<sub>prop</sub> = m / s</div><div class="v" id="pDprop"></div></div>
+        <div class="readout"><div class="k">d<sub>trans</sub> = F / R</div><div class="v" id="pDtrans"></div></div>
+        <div class="readout"><div class="k">Length of the file in the medium, s·F/R</div><div class="v" id="pLen"></div></div>
+        <div class="readout"><div class="k">R at which a bit fills the link, s/m</div><div class="v" id="pRfill"></div></div>
+      </div>
+      <button id="btnReveal" class="reveal" hidden>Reveal values</button>
+    </aside>
+
+    <div class="col">
+      <section class="panel" aria-labelledby="lupaTitle">
+        <h2 id="lupaTitle">Magnifier</h2>
+        <div class="field"><label for="lupaPos">Point of the pipe being magnified</label><output id="lupaOut" for="lupaPos"></output>
+          <input id="lupaPos" type="range" min="0" max="1000" step="1" value="500"></div>
+        <svg id="lupa" viewBox="0 0 1000 244" role="img" aria-label="Magnified view of a pipe segment showing individual bits"></svg>
+        <p class="caption" id="lupaCap"></p>
+      </section>
+      <section class="panel" aria-labelledby="cmpTitle">
+        <h2 id="cmpTitle">Compare 2 Mbps and 1 Gbps</h2>
+        <svg id="cmp" viewBox="0 0 1000 316" role="img" aria-label="Two pipes at the same scale with the same file at their moment of maximum occupancy"></svg>
+        <p class="caption" id="cmpNote"></p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   RT · utilidades comunes. Copiar íntegro en cada visualización.
+   ===================================================================== */
+const RT = (() => {
+  const nf = (d) => new Intl.NumberFormat('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const sig = (x, n = 3) => { if (x === 0) return '0'; const d = Math.max(0, n - 1 - Math.floor(Math.log10(Math.abs(x)))); return nf(d).format(x); };
+  const fmt = {
+    time: (s) => s === 0 ? '0' : s >= 1 ? `${sig(s)} s` : s >= 1e-3 ? `${sig(s * 1e3)} ms` : s >= 1e-6 ? `${sig(s * 1e6)} µs` : `${sig(s * 1e9)} ns`,
+    dist: (m) => m === 0 ? '0' : Math.abs(m) >= 1000 ? `${sig(m / 1000)} km` : m >= 1 ? `${sig(m)} m` : `${sig(m * 100)} cm`,
+    bits: (b) => b >= 1e6 ? `${sig(b / 1e6)} Mbit` : b >= 1e3 ? `${sig(b / 1e3)} kbit` : `${nf(0).format(b)} bits`,
+    bitsExact: (b) => `${nf(0).format(b)} bits`,
+    rate: (r) => r >= 1e9 ? `${sig(r / 1e9)} Gbps` : r >= 1e6 ? `${sig(r / 1e6)} Mbps` : r >= 1e3 ? `${sig(r / 1e3)} kbps` : `${sig(r)} bps`,
+    speed: (v) => `${sig(v / 1e8)}·10⁸ m/s`,
+    num: (x, d = 2) => nf(d).format(x),
+  };
+
+  /* Tema y modo predicción, persistidos por navegador (opcional, protegido) */
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  const root = document.documentElement;
+  function initChrome({ theme = 'btnTheme', predict = 'btnPredict', reveal = 'btnReveal' } = {}) {
+    const t = store.get('rt-theme'); if (t) root.dataset.theme = t;
+    const bt = document.getElementById(theme);
+    if (bt) bt.addEventListener('click', () => {
+      const dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+      root.dataset.theme = dark ? 'light' : 'dark'; store.set('rt-theme', root.dataset.theme);
+    });
+    const bp = document.getElementById(predict), br = document.getElementById(reveal);
+    const setPredict = (on) => { root.dataset.predict = on ? 'on' : 'off'; if (bp) bp.setAttribute('aria-pressed', String(on)); if (br) br.hidden = !on; };
+    if (bp) bp.addEventListener('click', () => setPredict(root.dataset.predict !== 'on'));
+    if (br) br.addEventListener('click', () => setPredict(false));
+  }
+
+  /* Reloj de animación: tiempo simulado en segundos, cámara lenta explícita */
+  function Clock({ duration, onTick, slow = 1, playBtn, scrub, tLabel, speedLabel, keyframesEl }) {
+    let t = 0, playing = false, last = null, raf = null, keyframes = [];
+    const st = { get t() { return t; }, get duration() { return duration; } };
+    function set(x, emit = true) { t = Math.max(0, Math.min(duration, x)); if (scrub) scrub.value = Math.round(1000 * t / duration); if (tLabel) tLabel.textContent = `t = ${fmt.time(t)}`; if (emit) onTick(t); }
+    function frame(now) { if (!playing) return; if (last != null) set(t + (now - last) / 1000 / slow); last = now; if (t >= duration) { pause(); return; } raf = requestAnimationFrame(frame); }
+    function play() { if (t >= duration) set(0); playing = true; last = null; if (playBtn) playBtn.textContent = '❚❚'; raf = requestAnimationFrame(frame); }
+    function pause() { playing = false; last = null; if (raf) cancelAnimationFrame(raf); if (playBtn) playBtn.textContent = '▶'; }
+    function toggle() { playing ? pause() : play(); }
+    function setDuration(d) { duration = d; set(Math.min(t, d)); renderSpeed(); }
+    function setSlow(s) { slow = s; renderSpeed(); }
+    function renderSpeed() { if (speedLabel) speedLabel.textContent = slow === 1 ? 'real time' : `slow motion ×${fmt.num(slow, 0)}`; }
+    function setKeyframes(list) {  // [{label, t}]
+      keyframes = list; if (!keyframesEl) return; keyframesEl.replaceChildren();
+      list.forEach(k => { const b = document.createElement('button'); b.textContent = k.label; b.addEventListener('click', () => { pause(); set(k.t); }); keyframesEl.appendChild(b); });
+    }
+    if (playBtn) playBtn.addEventListener('click', toggle);
+    if (scrub) scrub.addEventListener('input', () => { pause(); set(scrub.value / 1000 * duration); });
+    document.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, textarea, select, button, a, summary')) return;
+      if (e.key === ' ') { e.preventDefault(); toggle(); }
+      else if (e.key === 'ArrowRight') { pause(); set(t + duration / 100); }
+      else if (e.key === 'ArrowLeft') { pause(); set(t - duration / 100); }
+      else if (e.key === 'Home') { pause(); set(0); } else if (e.key === 'End') { pause(); set(duration); }
+      else if (/^[1-9]$/.test(e.key) && keyframes[e.key - 1]) { pause(); set(keyframes[e.key - 1].t); }
+    });
+    renderSpeed();
+    return Object.assign(st, { set, play, pause, toggle, setDuration, setSlow, setKeyframes });
+  }
+
+  /* SVG helpers */
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); for (const k of kids) e.append(k); return e; };
+  const scale = (d0, d1, r0, r1) => (x) => r0 + (x - d0) / (d1 - d0) * (r1 - r0);
+
+  /* Regla con marcas «bonitas» (para distancia o tiempo) */
+  function ticks(max, n = 6) { const raw = max / n, p = 10 ** Math.floor(Math.log10(raw)); const step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => max / s <= n) || p * 10; const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toPrecision(12)); return out; }
+
+  /* Tubería: dibuja hosts, tubería, regla de distancia y los segmentos ocupados.
+     segments: [{from, to, cls}] en metros; markers: [{x, cls, label, above}] */
+  function drawLink(el, { length, segments = [], markers = [], y = 60, h = 34, pad = 90, w = 1200, rulerFmt = fmt.dist }) {
+    el.replaceChildren();
+    const x = scale(0, length, pad, w - pad);
+    el.append(svg('rect', { x: pad, y, width: w - 2 * pad, height: h, class: 'link-pipe', rx: 3 }));
+    for (const s of segments) { const a = Math.max(0, Math.min(length, s.from)), b = Math.max(0, Math.min(length, s.to)); if (b > a) el.append(svg('rect', { x: x(a), y: y + 2, width: Math.max(1, x(b) - x(a)), height: h - 4, class: s.cls || 'packet' })); }
+    for (const m of markers) { if (m.x < 0 || m.x > length) continue; const cx = x(m.x); el.append(svg('rect', { x: cx - 2, y: y - 4, width: 4, height: h + 8, class: m.cls })); if (m.label) el.append(svg('text', { x: cx, y: m.above ? y - 10 : y + h + 22, 'text-anchor': 'middle', class: 'marker-label' }, m.label)); }
+    // hosts
+    for (const [hx, name] of [[pad - 46, 'A'], [w - pad + 6, 'B']]) { el.append(svg('rect', { x: hx, y: y - 6, width: 40, height: h + 12, rx: 4, class: 'host' })); el.append(svg('text', { x: hx + 20, y: y + h / 2 + 6, 'text-anchor': 'middle', 'font-weight': '600' }, name)); }
+    // regla
+    const ry = y + h + 34; const g = svg('g', { class: 'axis' }); g.append(svg('line', { x1: pad, x2: w - pad, y1: ry, y2: ry }));
+    for (const v of ticks(length)) { g.append(svg('line', { x1: x(v), x2: x(v), y1: ry, y2: ry + 6 })); g.append(svg('text', { x: x(v), y: ry + 22, 'text-anchor': 'middle', class: 'muted' }, rulerFmt(v))); }
+    el.append(g);
+    return x;
+  }
+
+  /* Diagrama espacio-tiempo: emisor a la izquierda, receptor a la derecha, tiempo hacia abajo.
+     polys: [{pts: [[t,x],...], cls}] con x en [0,1] (fracción del enlace), t en segundos. */
+  function drawSpaceTime(el, { tMax, polys = [], labels = [], now = null, w = 520, h = 360, pad = { l: 70, r: 20, t: 30, b: 20 } }) {
+    el.replaceChildren();
+    const x = scale(0, 1, pad.l, w - pad.r), y = scale(0, tMax, pad.t, h - pad.b);
+    el.append(svg('text', { x: x(0), y: 18, 'text-anchor': 'middle', 'font-weight': '600' }, 'A'), svg('text', { x: x(1), y: 18, 'text-anchor': 'middle', 'font-weight': '600' }, 'B'));
+    const ax = svg('g', { class: 'axis' }); ax.append(svg('line', { x1: x(0), x2: x(0), y1: y(0), y2: y(tMax) }), svg('line', { x1: x(1), x2: x(1), y1: y(0), y2: y(tMax) }));
+    for (const v of ticks(tMax, 5)) { ax.append(svg('line', { x1: x(0) - 5, x2: x(0), y1: y(v), y2: y(v) }), svg('text', { x: x(0) - 9, y: y(v) + 5, 'text-anchor': 'end', class: 'muted' }, fmt.time(v))); }
+    el.append(ax);
+    for (const p of polys) el.append(svg(p.pts.length > 2 ? 'polygon' : 'polyline', { points: p.pts.map(([t, f]) => `${x(f)},${y(t)}`).join(' '), class: p.cls }));
+    for (const lb of labels) el.append(svg('text', { x: x(lb.x), y: y(lb.t), class: 'muted', 'text-anchor': lb.anchor || 'start', dx: lb.dx || 0 }, lb.text));
+    if (now != null) el.append(svg('line', { x1: x(0) - 5, x2: x(1) + 5, y1: y(now), y2: y(now), class: 'now-line' }));
+    return { x, y };
+  }
+
+  /* Deslizadores logarítmicos: el valor del input es log10 */
+  const log = { toVal: (inp) => 10 ** parseFloat(inp.value), fromVal: (inp, v) => { inp.value = Math.log10(v); } };
+
+  return { fmt, initChrome, Clock, svg, scale, ticks, drawLink, drawSpaceTime, log };
+})();
+
+/* =====================================================================
+   PIEZA 02 · tubería y ancho de bit (P25, P26, P27)
+   ===================================================================== */
+(() => {
+  RT.initChrome();
+  const $ = (id) => document.getElementById(id);
+  const svgE = RT.svg;
+  const root = document.documentElement;
+  const stage = $('stage'), lupaSvg = $('lupa'), cmpSvg = $('cmp');
+  const FIELD = 105;                                     // campo de fútbol, m
+  const S = { R: 2e6, F: 8e5, m: 2e7, s: 2.5e8, lupa: 0.5 };
+  let D = {};
+
+  /* ---------- utilidades numéricas y de formato ---------- */
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const near = (x) => Math.abs(x - Math.round(x)) < 1e-6 * Math.max(1, Math.abs(x)) ? Math.round(x) : x;
+  const round3 = (v) => { const e = Math.floor(Math.log10(v)) - 2; return e >= 0 ? Math.round(v / 10 ** e) * 10 ** e : Math.round(v * 10 ** -e) / 10 ** -e; };
+  const nice125 = (x) => { const p = 10 ** Math.floor(Math.log10(x)); return [1, 2, 5, 10].map(k => k * p).reduce((a, b) => Math.abs(Math.log(b / x)) < Math.abs(Math.log(a / x)) ? b : a); };
+  const sig3 = (x) => { if (x === 0) return '0'; const d = Math.max(0, 2 - Math.floor(Math.log10(Math.abs(x)))); return RT.fmt.num(x, Math.min(d, 20)); };
+  const fBits = (x) => { x = near(x); if (x === 1) return '1 bit'; if (Number.isInteger(x) || x >= 10) return RT.fmt.bitsExact(Math.round(x)); return `${sig3(x)} bits`; };
+  const fW = (w) => RT.fmt.dist(w);
+  const fPct = (p) => `${sig3(p * 100)} %`;
+  const predictOn = () => root.dataset.predict === 'on';
+  const tw = (str, narrow, muted) => str.length * (narrow ? (muted ? 9.6 : 11.2) : (muted ? 6.7 : 7.8));   // ancho aproximado del texto
+  const placeX = (cx, w, W) => clamp(cx, w / 2 + 4, W - w / 2 - 4);
+  function dimsFor(el, wide, narrowW) { const cw = el.getBoundingClientRect().width || wide; const narrow = cw < 640; const W = narrow ? narrowW : wide; return { W, narrow, px: W / cw }; }
+
+  function derive() {
+    const { R, F, m, s } = S; const dP = m / s, dT = F / R;
+    D = { dP, dT, T: dT + dP, cap: R * dP, w: s / R, maxOcc: Math.min(F, R * dP), fileLen: s * F / R, rFill: s / m, tMax: Math.min(dT, dP) };
+  }
+  const occAt = (t) => Math.max(0, S.R * (Math.min(t, D.dT) - Math.max(0, t - D.dP)));
+  function lupaSpan() { const m = S.m, span = Math.min(m, 10 * D.w), c = S.lupa * m; const x0 = clamp(c - span / 2, 0, m - span); return { x0, x1: x0 + span, span, c }; }
+
+  /* ---------- reloj ---------- */
+  const clock = RT.Clock({ duration: 1, onTick: render, playBtn: $('btnPlay'), scrub: $('scrub'), tLabel: $('tNow'), keyframesEl: $('keyframes') });
+
+  /* ---------- presets ---------- */
+  const presets = [
+    { name: 'P25 (2 Mbps)', R: 2e6 }, { name: 'P26 (12.5 bps)', R: 12.5 }, { name: 'P27 (1 Gbps)', R: 1e9 },
+  ];
+  const presetBtns = presets.map(p => {
+    const b = document.createElement('button'); b.textContent = p.name; b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => applyPreset(p, b)); $('presets').appendChild(b); return b;
+  });
+  const clearPresets = () => presetBtns.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  function applyPreset(p, btn) {
+    Object.assign(S, { R: p.R, F: 8e5, m: 2e7, s: 2.5e8 });
+    clearPresets(); btn.setAttribute('aria-pressed', 'true');
+    derive(); S.lupa = clamp(S.s * D.tMax / 2 / S.m, 0, 1); $('lupaPos').value = Math.round(S.lupa * 1000);   // lupa en el centro del tramo ocupado
+    clock.pause(); sync(); clock.set(D.tMax);          // instante de máxima ocupación
+  }
+
+  /* ---------- entradas ---------- */
+  $('R').addEventListener('input', () => { S.R = round3(RT.log.toVal($('R'))); clearPresets(); sync(); });
+  $('F').addEventListener('input', () => { S.F = Math.round(round3(RT.log.toVal($('F')))); clearPresets(); sync(); });
+  $('m').addEventListener('input', () => { S.m = round3(RT.log.toVal($('m'))); clearPresets(); sync(); });
+  $('vp').addEventListener('input', () => {
+    const v = parseFloat(String($('vp').value).replace(',', '.'));
+    if (isFinite(v) && v >= 0.1 && v <= 3) { S.s = Math.round(v * 1e6) * 100; clearPresets(); sync(); }
+  });
+  $('lupaPos').addEventListener('input', () => { S.lupa = $('lupaPos').value / 1000; lupaChanged(); });
+  function lupaChanged() { $('lupaOut').textContent = `x = ${RT.fmt.dist(S.lupa * S.m)}`; drawStage(clock.t); drawLupa(clock.t); scheduleSummary(); }
+
+  /* arrastre sobre la tubería para mover la lupa */
+  let dragging = false;
+  function svgPoint(e) { const r = stage.getBoundingClientRect(), vb = stage.viewBox.baseVal; const k = vb.width / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k, W: vb.width }; }
+  function lupaFromEvent(e) {
+    const p = svgPoint(e), pad = p.W === 1200 ? 150 : 104;
+    S.lupa = clamp((p.x - pad) / (p.W - 2 * pad), 0, 1); $('lupaPos').value = Math.round(S.lupa * 1000); lupaChanged();
+  }
+  stage.addEventListener('pointerdown', (e) => { const p = svgPoint(e); if (p.y < 40 || p.y > 125) return; dragging = true; stage.setPointerCapture(e.pointerId); lupaFromEvent(e); });
+  stage.addEventListener('pointermove', (e) => { if (dragging) lupaFromEvent(e); });
+  ['pointerup', 'pointercancel'].forEach(ev => stage.addEventListener(ev, () => { dragging = false; }));
+
+  /* ---------- sincronización de parámetros ---------- */
+  function sync() {
+    derive();
+    const { R, F, m, s } = S;
+    RT.log.fromVal($('R'), R); RT.log.fromVal($('F'), F); RT.log.fromVal($('m'), m);
+    if (document.activeElement !== $('vp')) $('vp').value = +(s / 1e8).toPrecision(6);
+    $('Rout').textContent = RT.fmt.rate(R); $('Fout').textContent = fBits(F); $('mout').textContent = RT.fmt.dist(m); $('vpout').textContent = RT.fmt.speed(s);
+    $('pDprop').textContent = RT.fmt.time(D.dP); $('pDtrans').textContent = RT.fmt.time(D.dT);
+    $('pLen').textContent = fW(D.fileLen); $('pRfill').textContent = RT.fmt.rate(D.rFill);
+    // lecturas del escenario
+    $('rCap').textContent = fBits(D.cap); $('rMax').textContent = fBits(D.maxOcc);
+    $('rW').textContent = fW(D.w);
+    $('rWN').textContent = D.w > FIELD ? `longer than a football field (105 m)` : `a football field (105 m) = ${sig3(FIELD / D.w)} bits`;
+    $('rFit').textContent = fPct(D.maxOcc / F);
+    $('rFitN').textContent = F <= D.cap ? `fits entirely: occupies ${fPct(F / D.cap)} of the pipe` : `${fBits(D.maxOcc)} of ${fBits(F)}`;
+    // rótulo P26
+    const ratio = D.w / m, bn = $('banner');
+    if (ratio >= 1 - 1e-3) {
+      bn.hidden = false;
+      bn.textContent = Math.abs(ratio - 1) < 1e-3
+        ? `A single bit is ${fW(D.w)} long, the same as the link: one bit fills the entire pipe from A to B (P26). This happens when R = s/m = ${RT.fmt.rate(D.rFill)}.`
+        : `A bit is ${fW(D.w)} long, longer than the link (${RT.fmt.dist(m)}): not even a single bit fits entirely in the pipe. A bit fills it exactly when R = s/m = ${RT.fmt.rate(D.rFill)}.`;
+    } else bn.hidden = true;
+    // reloj: duración, cámara lenta, instantes clave
+    const win = D.cap < 50 ? Math.min(D.T, Math.max(D.dP, 20 / R)) : D.T;
+    const k = 8 / win, slow = k >= 1 ? Math.max(1, nice125(k)) : 1 / nice125(1 / k);
+    clock.setDuration(D.T); clock.setSlow(slow);
+    $('speed').textContent = slow === 1 ? 'real time' : slow > 1 ? `slow motion ×${RT.fmt.num(slow, 0)}` : `fast forward ×${RT.fmt.num(Math.round(1 / slow), 0)}`;
+    const raw = [{ n: ['0'], t: 0 }, { n: ['d<sub>prop</sub>'], t: D.dP }, { n: ['d<sub>trans</sub>'], t: D.dT }, { n: ['d<sub>trans</sub> + d<sub>prop</sub>'], t: D.T }].sort((a, b) => a.t - b.t);
+    const kf = [];
+    for (const r of raw) { const prev = kf[kf.length - 1]; if (prev && Math.abs(r.t - prev.t) <= 1e-9 * D.T) prev.n.push(...r.n); else kf.push({ n: [...r.n], t: r.t }); }
+    clock.setKeyframes(kf.map(x => ({ label: 't', t: x.t })));
+    let prevLab = '';
+    [...$('keyframes').children].forEach((b, i) => {
+      const x = kf[i]; let lab = RT.fmt.time(x.t);
+      if (lab === prevLab) lab = x.t >= 1 ? `${RT.fmt.num(x.t, 3)} s` : `${RT.fmt.num(x.t * 1e3, 3)} ms`;   // distingue instantes muy próximos
+      prevLab = lab;
+      b.innerHTML = `t = ${x.n.join(' = ')}${x.t > 0 ? ` <span class="reveal">(${lab})</span>` : ''}`;
+      b.title = `key ${i + 1}`;
+    });
+    stage.setAttribute('aria-label', `Scaled pipe between A and B, ${RT.fmt.dist(m)} long, with a distance ruler; on the left, the ${fBits(F)} file being poured into it at ${RT.fmt.rate(R)}.`);
+    $('lupaOut').textContent = `x = ${RT.fmt.dist(S.lupa * m)}`;
+    drawCmp();
+    render(clock.t);
+  }
+
+  /* ---------- dibujo ---------- */
+  function render(t) { drawStage(t); drawLupa(t); $('rNow').textContent = fBits(occAt(t)); scheduleSummary(); }
+
+  function drawStage(t) {
+    const { W, narrow, px } = dimsFor(stage, 1200, 560);
+    const pad = narrow ? 104 : 150, Y = 64, H = 34;
+    stage.setAttribute('viewBox', `0 0 ${W} 192`); stage.classList.toggle('narrow', narrow);
+    const { R, F, m, s } = S, { dP, dT } = D;
+    const segFrom = Math.max(0, s * (t - dT)), segTo = Math.min(m, s * t);
+    const discrete = D.cap <= 300;                      // pocos bits en la tubería: se dibujan uno a uno
+    const step = RT.ticks(m)[1] || m;
+    const x = RT.drawLink(stage, { length: m, segments: discrete ? [] : [{ from: segFrom, to: segTo }], y: Y, h: H, pad, w: W,
+      rulerFmt: (v) => narrow && Math.round(v / step) % 2 ? '' : RT.fmt.dist(v) });
+    if (discrete && t > 0) {
+      const i0 = Math.max(0, Math.floor(R * (t - dP))), i1 = Math.min(F - 1, Math.ceil(R * t) - 1);
+      for (let i = i0; i <= i1; i++) {
+        const a = Math.max(0, s * (t - (i + 1) / R)), b = Math.min(m, s * (t - i / R)); if (b <= a) continue;
+        const xa = x(a), xb = x(b);
+        stage.append(svgE('rect', { x: xa + px / 2, y: Y + 2, width: Math.max(0.6, xb - xa - px), height: H - 4, class: i === 0 ? 'bit-head' : i === F - 1 ? 'bit-tail' : 'packet' }));
+      }
+    }
+    // caja de la lupa
+    const L = lupaSpan(); let xa = x(L.x0), xb = x(L.x1); if (xb - xa < 10) { const c = (xa + xb) / 2; xa = c - 5; xb = c + 5; }
+    stage.append(svgE('rect', { x: xa, y: Y - 7, width: xb - xa, height: H + 14, class: 'lupa-box', rx: 2 }));
+    // marcadores de cabeza y cola
+    const marker = (pos, cls, label, above) => {
+      const cx = x(pos); stage.append(svgE('rect', { x: cx - 2, y: Y - 4, width: 4, height: H + 8, class: cls }));
+      stage.append(svgE('text', { x: placeX(cx, tw(label, narrow), W), y: above ? Y - 14 : Y + H + 22, 'text-anchor': 'middle', class: 'marker-label' }, label));
+    };
+    if (t > 0) marker(Math.min(m, s * t), 'bit-head', s * t > m * (1 + 1e-9) ? 'head: already at B' : s * t >= m * (1 - 1e-9) ? 'head: arriving at B' : 'head', true);
+    if (t >= dT) marker(Math.min(m, s * (t - dT)), 'bit-tail', s * (t - dT) > m * (1 + 1e-9) ? 'tail: already at B' : s * (t - dT) >= m * (1 - 1e-9) ? 'tail: arriving at B' : 'tail', false);
+    // bits en el enlace ahora, sobre el segmento
+    const occ = occAt(t);
+    if (occ > 0 && segTo > segFrom) {
+      const full = segFrom <= 0 && segTo >= m;
+      const txt = `on the link: ${fBits(occ)}${full ? ' · pipe full' : ''}`;
+      stage.append(svgE('text', { x: Math.max(pad - 40 + tw(txt, narrow) / 2, placeX(x((segFrom + segTo) / 2), tw(txt, narrow), W)), y: 24, 'text-anchor': 'middle', class: 'reveal', 'font-weight': '600' }, txt));
+    }
+    // rollo del fichero, a la izquierda de A
+    const cx = (pad - 46) / 2, cy = Y + H / 2, rmax = Math.min(30, cx - 4);
+    const rem = F - Math.min(F, R * t);
+    stage.append(svgE('text', { x: 2, y: 36, class: 'muted' }, 'file'));
+    if (rem > 0) {
+      const r = Math.max(4, rmax * Math.sqrt(rem / F));
+      stage.append(svgE('path', { d: `M${cx},${cy - r} L${pad - 46},${Y + 3}`, class: 'tape' }));
+      stage.append(svgE('circle', { cx, cy, r, class: 'packet' }), svgE('circle', { cx, cy, r: 3.5, class: 'roll-hub' }));
+      stage.append(svgE('text', { x: 2, y: Y + H + 40, class: 'muted' }, t < dT ? 'to send' : ''));
+      stage.append(svgE('text', { x: 2, y: Y + H + 60, class: 'muted' }, RT.fmt.bits(Math.ceil(rem - 1e-9))));
+      if (t < dT) stage.append(svgE('text', { x: 2, y: Y + H + 82, class: 'marker-label' }, 'tail: still at A'));
+    } else {
+      stage.append(svgE('circle', { cx, cy, r: rmax, class: 'roll-empty' }));
+      stage.append(svgE('text', { x: 2, y: Y + H + 40, class: 'muted' }, 'sent'));
+    }
+  }
+
+  function drawLupa(t) {
+    const { W, narrow, px } = dimsFor(lupaSvg, 1000, 560);
+    const pad = narrow ? 16 : 24, TY = 40, TH = 50;
+    lupaSvg.setAttribute('viewBox', `0 0 ${W} 244`); lupaSvg.classList.toggle('narrow', narrow); lupaSvg.replaceChildren();
+    const { R, F, m, s } = S, w = D.w, { x0, x1, span, c } = lupaSpan();
+    const X = RT.scale(0, span, pad, W - pad);
+    lupaSvg.append(svgE('rect', { x: pad, y: TY, width: W - 2 * pad, height: TH, class: 'link-pipe', rx: 3 }));
+    let first = null, last = null;
+    if (t > 0) {
+      const iLo = Math.max(0, Math.floor(R * (t - x1 / s)) - 1), iHi = Math.min(F - 1, Math.floor(R * (t - x0 / s)) + 1);
+      for (let i = iLo; i <= iHi && i - iLo < 400; i++) {
+        const a = Math.max(x0, 0, s * (t - (i + 1) / R)), b = Math.min(x1, m, s * (t - i / R)); if (b <= a) continue;
+        const xa = X(a - x0), xb = X(b - x0);
+        lupaSvg.append(svgE('rect', { x: xa + px / 2, y: TY + 3, width: Math.max(0.6, xb - xa - px), height: TH - 6, class: i === 0 ? 'bit-head' : i === F - 1 ? 'bit-tail' : 'packet' }));
+        if (first === null) first = i; last = i;
+      }
+    }
+    const n1 = (i) => RT.fmt.num(i + 1, 0);
+    let cap;
+    if (first === null) cap = 'empty segment at this instant: no bit of the file passes through here';
+    else {
+      cap = first === last ? `bit No. ${n1(first)} of the file` : `bits No. ${n1(first)} to ${n1(last)} of the file`;
+      if (first === 0) cap += ' · the first is the head'; if (last === F - 1) cap += ' · the last is the tail';
+    }
+    lupaSvg.append(svgE('text', { x: pad, y: 26, class: 'muted' }, cap));
+    // cota de un bit
+    const DY = 112, wl = Math.min(w, span), xe = X(wl);
+    const dim = svgE('g', { class: 'reveal' });
+    dim.append(svgE('line', { x1: X(0), x2: xe, y1: DY, y2: DY, class: 'dim' }), svgE('line', { x1: X(0), x2: X(0), y1: DY - 6, y2: DY + 6, class: 'dim' }), svgE('line', { x1: xe, x2: xe, y1: DY - 6, y2: DY + 6, class: 'dim' }));
+    const dt = w <= span ? `1 bit = ${fW(w)}` : `1 bit = ${fW(w)}: longer than the segment`;
+    dim.append(svgE('text', { x: placeX((X(0) + xe) / 2, tw(dt, narrow), W), y: DY + (narrow ? 27 : 22), 'text-anchor': 'middle', 'font-weight': '600' }, dt));
+    lupaSvg.append(dim);
+    // campo de fútbol a escala
+    const FY = 146, FH = 40, fpx = X(FIELD) - X(0);
+    if (FIELD <= span && fpx >= 6) {
+      const fx = X(0);
+      lupaSvg.append(svgE('rect', { x: fx, y: FY, width: fpx, height: FH, class: 'pitch' }));
+      lupaSvg.append(svgE('line', { x1: fx + fpx / 2, x2: fx + fpx / 2, y1: FY, y2: FY + FH, class: 'pitch-line' }));
+      const rc = 9.15 / FIELD * fpx; if (rc >= 2.5 && rc <= FH / 2 - 2) lupaSvg.append(svgE('circle', { cx: fx + fpx / 2, cy: FY + FH / 2, r: rc, class: 'pitch-line' }));
+      const ga = 16.5 / FIELD * fpx; if (ga >= 3) for (const gx of [fx, fx + fpx - ga]) lupaSvg.append(svgE('rect', { x: gx, y: FY + 8, width: ga, height: FH - 16, class: 'pitch-line' }));
+      const lb = 'football field: 105 m', lw = tw(lb, narrow);
+      if (fx + fpx + 10 + lw <= W - pad) lupaSvg.append(svgE('text', { x: fx + fpx + 10, y: FY + FH / 2 + 6 }, lb));
+      else lupaSvg.append(svgE('text', { x: placeX(fx + fpx / 2, lw, W), y: FY + FH / 2 + 6, 'text-anchor': 'middle' }, lb));
+    } else {
+      lupaSvg.append(svgE('text', { x: pad, y: FY + 20 }, 'a football field is 105 m long,'));
+      lupaSvg.append(svgE('text', { x: pad, y: FY + 46, class: 'reveal' }, `that is ${sig3(FIELD / w)} bits at this rate ${FIELD > span ? '(does not fit here)' : '(not visible at this scale)'}`));
+    }
+    // regla propia del tramo, en metros desde su inicio
+    const RY = 212, g = svgE('g', { class: 'axis' }), tk = RT.ticks(span);
+    g.append(svgE('line', { x1: pad, x2: W - pad, y1: RY, y2: RY }));
+    tk.forEach((v, i) => {
+      g.append(svgE('line', { x1: X(v), x2: X(v), y1: RY, y2: RY + 6 }));
+      if (narrow && i % 2) return;
+      const lab = fW(v) === '0 m' ? '0' : fW(v), lw = tw(lab, narrow, true);
+      g.append(svgE('text', { x: placeX(X(v), lw, W), y: RY + 22, 'text-anchor': 'middle', class: 'muted' }, lab));
+    });
+    lupaSvg.append(g);
+    lupaSvg.setAttribute('aria-label', predictOn() ? 'Magnifier over a segment of the pipe (values hidden in prediction mode)'
+      : `Magnifier: ${fW(span)} segment around x = ${RT.fmt.dist(c)}; a bit is ${fW(w)} long; ${cap}.`);
+    $('lupaCap').innerHTML = `Magnified segment of <span class="reveal">${fW(span)} (${near(span / w) === 1 ? '1 bit' : `${sig3(span / w)} bits`})</span> around x = ${RT.fmt.dist(c)}${span >= m ? ': this is the entire pipe' : ''}. The ruler measures from the start of the segment. Each cell is one bit.`;
+  }
+
+  function drawCmp() {
+    const { W, narrow } = dimsFor(cmpSvg, 1000, 560);
+    const pad = narrow ? 90 : 100;
+    cmpSvg.setAttribute('viewBox', `0 0 ${W} 312`); cmpSvg.classList.toggle('narrow', narrow); cmpSvg.replaceChildren();
+    const { F, m, s } = S, dP = m / s, step = RT.ticks(m)[1] || m;
+    const rows = [2e6, 1e9].map((R, k) => {
+      const g = svgE('g', { transform: `translate(0 ${k * 158})` }); cmpSvg.append(g);
+      const dT = F / R, tm = Math.min(dT, dP), cap = R * dP, occ = Math.min(F, cap), seg = s * tm, full = F >= cap;
+      const x = RT.drawLink(g, { length: m, segments: [{ from: 0, to: seg }], y: 50, h: 30, pad, w: W,
+        rulerFmt: (v) => narrow && Math.round(v / step) % 2 ? '' : RT.fmt.dist(v) });
+      const title = svgE('text', { x: 4, y: 16, 'font-weight': '600' }, `R = ${RT.fmt.rate(R)} · maximum occupancy`);
+      title.append(svgE('tspan', { class: 'reveal' }, ` at t = ${RT.fmt.time(tm)}`)); g.append(title);
+      const lab = full
+        ? (narrow ? `${fBits(occ)} = ${fPct(occ / F)} of the file` : `${fBits(occ)} on the link = ${fPct(occ / F)} of the file · pipe full end to end`)
+        : (narrow ? `${fBits(occ)} = ${fPct(F / cap)} of the pipe` : `${fBits(occ)}: the entire file occupies only ${fPct(F / cap)} of the pipe (${RT.fmt.dist(seg)})`);
+      const lw = tw(lab, narrow);
+      g.append(svgE('text', full ? { x: placeX(x(seg / 2), lw, W), y: 40, 'text-anchor': 'middle', class: 'reveal' } : { x: x(0) - 2, y: 40, class: 'reveal' }, lab));
+      return { R, cap, occ, seg, full };
+    });
+    const [a, b] = rows;
+    const say = (r) => r.full ? `at ${RT.fmt.rate(r.R)} it fits ${fBits(r.cap)}: the file doesn't fit entirely and the pipe fills end to end with ${fPct(r.occ / F)} of the file`
+      : `at ${RT.fmt.rate(r.R)} it fits ${fBits(r.cap)}: the entire file occupies ${RT.fmt.dist(r.seg)}, ${fPct(F / r.cap)} of the pipe`;
+    $('cmpNote').innerHTML = `Same ${RT.fmt.dist(m)} pipe, same scale, and same ${fBits(F)} file, each at its moment of maximum occupancy. <span class="reveal">${say(a).replace(/^a/, 'A')}; ${say(b)}.</span>`;
+    cmpSvg.setAttribute('aria-label', predictOn() ? 'Two pipes of equal length at 2 Mbps and 1 Gbps (values hidden in prediction mode)' : `Comparison: ${say(a)}; ${say(b)}.`);
+  }
+
+  /* ---------- resumen para lectores de pantalla ---------- */
+  let sumTimer = null;
+  function scheduleSummary() { clearTimeout(sumTimer); sumTimer = setTimeout(updateSummary, 250); }
+  function updateSummary() {
+    const t = clock.t, base = `R = ${RT.fmt.rate(S.R)}, file of ${fBits(S.F)}, link of ${RT.fmt.dist(S.m)}. Instant t = ${RT.fmt.time(t)}.`;
+    $('summary').textContent = predictOn() ? `${base} Values hidden in prediction mode.`
+      : `${base} There are ${fBits(occAt(t))} on the link; the pipe holds at most R·dprop = ${fBits(D.cap)}. A bit is ${fW(D.w)} long. During transmission there are up to ${fBits(D.maxOcc)} bits at once (${fPct(D.maxOcc / S.F)} of the file). Magnifier at x = ${RT.fmt.dist(S.lupa * S.m)}.`;
+  }
+  ['btnPredict', 'btnReveal'].forEach(id => $(id).addEventListener('click', () => { drawCmp(); drawLupa(clock.t); updateSummary(); }));
+
+  /* ---------- redimensionado ---------- */
+  let lastW = 0;
+  new ResizeObserver(() => { const w = document.querySelector('.page').clientWidth; if (w !== lastW) { lastW = w; drawCmp(); render(clock.t); } }).observe(document.querySelector('.page'));
+
+  /* ---------- arranque ---------- */
+  applyPreset(presets[0], presetBtns[0]);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { clock.set(0); clock.play(); }
+})();
+</script>
+</body>
+</html>

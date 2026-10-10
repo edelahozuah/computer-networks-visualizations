@@ -1,0 +1,22 @@
+name: check
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install pyyaml
+      - name: Catalogue and HTML checks
+        run: python3 scripts/check.py
+      - name: Index is up to date
+        run: python3 scripts/build_index.py --check
+      - name: Sources build and tests pass
+        run: for b in src/*/build*.sh; do sh "$b" || exit 1; done

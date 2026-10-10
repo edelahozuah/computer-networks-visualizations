@@ -1,0 +1,172 @@
+<title>DNS paso a paso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Mismo lenguaje visual que HttpPersistente y DrawDelayDiagram: paleta, tipografías y tokens claro/oscuro. */
+:root {
+  --bg: #f3f6f8; --lienzo: #ffffff; --panel: #ffffff; --fg: #16202a; --muted: #5a6876; --line: #c8d1d9; --suave: #eef2f5;
+  --ip: #0f7c8c; --nombre: #7a4fb5; --rec: #c25400; --ite: #1f5fbf; --ref: #b0307a; --bien: #17855a; --mal: #c0392b; --sel: #c97a00;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --lienzo: #121920; --panel: #151c23; --fg: #e2e8ee; --muted: #93a1ae; --line: #34414e; --suave: #1b242d;
+    --ip: #3fbfcf; --nombre: #b796ec; --rec: #f0954a; --ite: #6ea3f0; --ref: #e56aa9; --bien: #4cc28d; --mal: #f07b6b; --sel: #f2b63c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --lienzo: #121920; --panel: #151c23; --fg: #e2e8ee; --muted: #93a1ae; --line: #34414e; --suave: #1b242d;
+  --ip: #3fbfcf; --nombre: #b796ec; --rec: #f0954a; --ite: #6ea3f0; --ref: #e56aa9; --bien: #4cc28d; --mal: #f07b6b; --sel: #f2b63c;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--body); margin: 0; }
+.dns * { box-sizing: border-box; }
+.dns [hidden] { display: none !important; }
+.dns { max-width: 1500px; margin: 0 auto; padding: 10px 16px 30px; font-size: 14px; }
+.dns-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 8px; }
+.dns h1 { font-family: var(--display); font-size: 1.25rem; margin: 0; }
+.dns h1 span { color: var(--rec); }
+.dns-ctrl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dns button, .dns select { font: inherit; font-size: 0.86rem; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+.dns select { max-width: 280px; }
+.dns button:hover { border-color: var(--fg); }
+.dns button:focus-visible, .dns select:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.dns-cont { font-family: var(--mono); min-width: 6ch; text-align: center; }
+#dns-escenario { background: var(--lienzo); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#dns-escenario:fullscreen { border: 0; border-radius: 0; display: flex; align-items: center; justify-content: center; }
+#dns-lienzo { display: block; width: 100%; height: auto; max-height: calc(100vh - 70px); cursor: pointer; user-select: none; }
+#dns-escenario:fullscreen #dns-lienzo { width: 100vw; height: 100vh; max-height: none; }
+.dns-ayuda { color: var(--muted); font-size: 0.8rem; margin: 6px 0 0; }
+.dns-notas { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 16px; margin-top: 10px; font-size: 1rem; line-height: 1.5; max-width: 90ch; }
+.dns-notas p { margin: 0.4em 0; }
+.n-cab { color: var(--muted); font-size: 0.9em; }
+.n-preg { border-left: 3px solid var(--ite); padding-left: 10px; }
+.n-ojo { border-left: 3px solid var(--sel); padding-left: 10px; }
+.n-sig { color: var(--muted); font-size: 0.9em; }
+.dns-pres { padding: 16px; font-size: 1.15rem; }
+.dns-pres .dns-notas { font-size: 1.25rem; max-width: none; }
+
+/* SVG */
+#dns-lienzo text { font-family: var(--body); fill: var(--fg); }
+#dns-lienzo .mono { font-family: var(--mono); white-space: pre; }
+#dns-lienzo .el { transition: transform .6s ease, opacity .45s ease; }
+#dns-lienzo .tit { font-family: var(--display); }
+#dns-lienzo .acto { fill: var(--rec); letter-spacing: .08em; text-transform: uppercase; }
+#dns-lienzo .ns { fill: var(--muted); }
+#dns-lienzo .nt { fill: var(--fg); }
+#dns-lienzo .halo { paint-order: stroke; stroke: var(--lienzo); stroke-width: 5px; stroke-linejoin: round; }
+#dns-lienzo .c-ip { fill: var(--ip); } #dns-lienzo .c-nombre { fill: var(--nombre); } #dns-lienzo .c-rec { fill: var(--rec); }
+#dns-lienzo .c-ite { fill: var(--ite); } #dns-lienzo .c-ref { fill: var(--ref); } #dns-lienzo .c-bien, #dns-lienzo .c-resp { fill: var(--bien); }
+#dns-lienzo .c-mal { fill: var(--mal); } #dns-lienzo .c-preg { fill: var(--fg); } #dns-lienzo .c-cache { fill: var(--fg); }
+.pie { font-family: var(--body); font-size: 25px; line-height: 1.3; color: var(--fg); border-top: 2px solid var(--line); padding-top: 10px; }
+.pie b { color: var(--rec); font-weight: 700; }
+#dns-lienzo .nodo { fill: var(--panel); stroke: var(--fg); stroke-width: 1.6; }
+#dns-lienzo .nodo.srv { stroke: var(--ip); stroke-width: 2.5; }
+#dns-lienzo .nodo.nombre { stroke: var(--nombre); stroke-width: 2.2; }
+#dns-lienzo .nodo.ip { stroke: var(--ip); stroke-width: 2; }
+#dns-lienzo .nodo.local { stroke: var(--rec); stroke-width: 2.5; }
+#dns-lienzo .nodo.cab-vida { fill: var(--suave); stroke: var(--line); }
+#dns-lienzo .tarjeta { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+#dns-lienzo .tarjeta.destacada { stroke: var(--fg); stroke-width: 2; }
+#dns-lienzo .tarjeta.ip { stroke: var(--ip); }
+#dns-lienzo .tarjeta.nombre { stroke: var(--nombre); stroke-width: 2; }
+#dns-lienzo .tarjeta.rota { stroke: var(--mal); stroke-width: 2; fill: color-mix(in srgb, var(--mal) 7%, var(--panel)); }
+#dns-lienzo .tarjeta.ok { stroke: var(--bien); stroke-width: 2; }
+#dns-lienzo .tarjeta.ref { stroke: var(--ref); stroke-width: 2; stroke-dasharray: 7 5; }
+#dns-lienzo .tarjeta.rec { stroke: var(--rec); stroke-width: 2.5; }
+#dns-lienzo .tarjeta.ite { stroke: var(--ite); stroke-width: 2.5; }
+#dns-lienzo .fantasma { fill: none; stroke: var(--mal); stroke-width: 2; stroke-dasharray: 6 5; }
+#dns-lienzo .cajanegra { fill: var(--suave); stroke: var(--fg); stroke-width: 2.5; }
+#dns-lienzo .equipo { fill: none; stroke: var(--line); stroke-width: 2; }
+#dns-lienzo .fichero { fill: var(--panel); stroke: var(--fg); stroke-width: 2; }
+#dns-lienzo .host { fill: var(--panel); stroke: var(--fg); stroke-width: 1.6; }
+#dns-lienzo .nube { fill: var(--suave); stroke: var(--line); stroke-width: 1.5; }
+#dns-lienzo .isp { fill: color-mix(in srgb, var(--ip) 5%, transparent); stroke: var(--ip); stroke-width: 1.5; stroke-dasharray: 8 6; }
+#dns-lienzo .router { fill: var(--panel); stroke: var(--fg); stroke-width: 2; }
+#dns-lienzo .enlace { stroke: var(--muted); stroke-width: 2; }
+#dns-lienzo .enlace.rec-suave { stroke: var(--rec); opacity: .45; }
+#dns-lienzo .enlace.ite-suave { stroke: var(--ite); opacity: .45; }
+#dns-lienzo .guia { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; }
+#dns-lienzo .zona { fill: color-mix(in srgb, var(--nombre) 7%, transparent); stroke: var(--nombre); stroke-width: 1.4; stroke-dasharray: 6 5; }
+#dns-lienzo .rama { stroke: var(--nombre); stroke-width: 2; opacity: .7; }
+#dns-lienzo .rama-ip { stroke: var(--ip); stroke-width: 2; opacity: .7; }
+#dns-lienzo .camino { stroke: var(--ref); stroke-width: 5; stroke-linecap: round; }
+#dns-lienzo .vida { stroke: var(--line); stroke-width: 2; stroke-dasharray: 5 5; }
+#dns-lienzo .banda { stroke: none; }
+#dns-lienzo .banda.rec { fill: color-mix(in srgb, var(--rec) 12%, transparent); }
+#dns-lienzo .banda.ite { fill: color-mix(in srgb, var(--ite) 9%, transparent); }
+#dns-lienzo .fl { stroke-width: 2.6; fill: none; }
+#dns-lienzo .fl.fino { stroke-width: 1.6; }
+#dns-lienzo .fl.dash { stroke-dasharray: 7 6; }
+#dns-lienzo .fl.neutro { stroke: var(--muted); } #dns-lienzo .fl.rec { stroke: var(--rec); } #dns-lienzo .fl.ite { stroke: var(--ite); }
+#dns-lienzo .fl.bien { stroke: var(--bien); } #dns-lienzo .fl.mal { stroke: var(--mal); } #dns-lienzo .fl.nombre { stroke: var(--nombre); }
+#dns-lienzo .fl.ip { stroke: var(--ip); } #dns-lienzo .fl.ref { stroke: var(--ref); }
+#dns-lienzo .punta-neutro { fill: var(--muted); } #dns-lienzo .punta-rec { fill: var(--rec); } #dns-lienzo .punta-ite { fill: var(--ite); }
+#dns-lienzo .punta-bien { fill: var(--bien); } #dns-lienzo .punta-mal { fill: var(--mal); } #dns-lienzo .punta-nombre { fill: var(--nombre); }
+#dns-lienzo .punta-ip { fill: var(--ip); } #dns-lienzo .punta-ref { fill: var(--ref); }
+#dns-lienzo .sobre { fill: var(--lienzo); stroke-width: 2.5; }
+#dns-lienzo .sobre.rec { stroke: var(--rec); } #dns-lienzo .sobre.ite { stroke: var(--ite); } #dns-lienzo .sobre.ref { stroke: var(--ref); }
+#dns-lienzo .sobre.bien { stroke: var(--bien); }
+#dns-lienzo .sobre-t { fill: var(--fg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { #dns-lienzo .el { transition: opacity .2s; } }
+</style>
+
+<div class="dns" id="dns-app">
+  <div class="dns-barra">
+    <h1>DNS <span>paso a paso</span></h1>
+    <div class="dns-ctrl">
+      <select id="dns-indice" aria-label="Ir al paso"></select>
+      <button id="dns-ant" title="Anterior (←)">◀</button>
+      <span class="dns-cont" id="dns-cont"></span>
+      <button id="dns-sig" title="Siguiente (→, espacio, clic)">▶</button>
+      <button id="dns-rep" title="Repetir la animación (R)">↻ Repetir</button>
+      <button id="dns-bnotas" title="Notas (N)">Notas</button>
+      <button id="dns-bpres" title="Ventana del presentador (P)">Presentador</button>
+      <button id="dns-bfs" title="Pantalla completa (F)">Pantalla completa</button>
+      <button id="dns-btema">Tema: auto</button>
+    </div>
+  </div>
+  <div id="dns-escenario">
+    <svg id="dns-lienzo" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Animación del DNS">
+      <defs>
+        <marker id="dnsm-neutro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-neutro"/></marker>
+        <marker id="dnsm-rec" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-rec"/></marker>
+        <marker id="dnsm-ite" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-ite"/></marker>
+        <marker id="dnsm-bien" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-bien"/></marker>
+        <marker id="dnsm-mal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-mal"/></marker>
+        <marker id="dnsm-nombre" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-nombre"/></marker>
+        <marker id="dnsm-ip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-ip"/></marker>
+        <marker id="dnsm-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-ref"/></marker>
+      </defs>
+      <rect width="1600" height="900" fill="var(--lienzo)"/>
+      <g id="dns-capa"></g>
+      <g id="dns-vuelos"></g>
+    </svg>
+  </div>
+  <p class="dns-ayuda">→ / espacio / clic: avanzar · ←: retroceder · R: repetir · N: notas · P: ventana del presentador · F: pantalla completa</p>
+  <section class="dns-notas" id="dns-notas" hidden></section>
+</div>
+
+<div class="dns dns-pres" id="dns-pres" hidden>
+  <div class="dns-barra">
+    <h1>DNS <span>· presentador</span></h1>
+    <div class="dns-ctrl">
+      <button id="dns-pres-ant">◀ Anterior</button>
+      <span class="dns-cont" id="dns-pres-cont"></span>
+      <button id="dns-pres-sig">Siguiente ▶</button>
+      <button id="dns-pres-rep">↻ Repetir</button>
+    </div>
+  </div>
+  <section class="dns-notas" id="dns-notas-pres"></section>
+</div>
+
+<script>
+(function () {
+'use strict';
+/*@@JS@@*/
+})();
+</script>

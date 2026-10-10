@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Envío continuo frente a parada y espera</title>
+<meta name="description" content="Compara el envío de un fichero como un único mensaje frente a su envío en paquetes con parada y espera (P28, Kurose).">
+<style>
+/* =====================================================================
+   RETARDOS · base común
+   Copiar este bloque <style> íntegro en cada visualización.
+   Paleta validada (CVD y contraste) en claro y oscuro.
+   ===================================================================== */
+:root {
+  color-scheme: light;
+  --surface: #f4f6f9;      /* fondo de página */
+  --panel: #ffffff;        /* paneles y escenario */
+  --ink: #14213d;          /* texto principal */
+  --ink-2: #5b6478;        /* texto secundario, ejes */
+  --rule: #d7dde8;         /* líneas de rejilla, bordes */
+  --rule-strong: #9aa5b8;  /* regla, ejes principales */
+  --packet: #e0602c;       /* cuerpo del paquete / bits de datos */
+  --head: #2a78d6;         /* primer bit (cabeza) */
+  --tail: #4a3aa7;         /* último bit (cola) */
+  --ack: #159c6b;          /* reconocimientos (ACK) */
+  --focus: #2a78d6;
+  --link-fill: #e9edf3;    /* interior de la tubería vacía */
+  --radius: 6px;
+  --fs: 18px;              /* tamaño base: pensado para proyectar */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #16191f; --panel: #1f242d; --ink: #eef1f6; --ink-2: #aab3c2;
+    --rule: #343b48; --rule-strong: #6b7590; --packet: #d95926; --head: #3987e5;
+    --tail: #9085e9; --ack: #199e70; --focus: #3987e5; --link-fill: #262c37;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #16191f; --panel: #1f242d; --ink: #eef1f6; --ink-2: #aab3c2;
+  --rule: #343b48; --rule-strong: #6b7590; --packet: #d95926; --head: #3987e5;
+  --tail: #9085e9; --ack: #199e70; --focus: #3987e5; --link-fill: #262c37;
+}
+
+* { box-sizing: border-box; }
+html { font-size: var(--fs); }
+body {
+  margin: 0; background: var(--surface); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums; line-height: 1.45;
+}
+.page { max-width: 1400px; margin: 0 auto; padding: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; margin-bottom: 12px; }
+header.top h1 { font-size: 1.5rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+header.top .sub { color: var(--ink-2); margin: 0; }
+header.top .tools { margin-left: auto; display: flex; gap: 8px; }
+
+/* Rejilla general: escenario arriba a todo el ancho; debajo controles + diagrama */
+.grid { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 16px; }
+.stage { grid-column: 1 / -1; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 16px; }
+.panel h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
+
+/* Controles */
+.field { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; margin: 8px 0; }
+.field label { color: var(--ink-2); }
+.field output { font-weight: 600; justify-self: end; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--head); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+button, .btn {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); padding: 6px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-2); }
+button[aria-pressed="true"], .btn.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+button.primary { background: var(--head); color: #fff; border-color: var(--head); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Lecturas numéricas */
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin-top: 8px; }
+.readout .k { color: var(--ink-2); font-size: 0.85rem; }
+.readout .v { font-size: 1.25rem; font-weight: 600; }
+.readout .v.head { color: var(--head); } .readout .v.tail { color: var(--tail); }
+/* Modo predicción: se ocultan los valores hasta pulsar «Revelar» */
+:root[data-predict="on"] .readout .v, :root[data-predict="on"] .hide-pred { visibility: hidden; }
+:root[data-predict="on"] .readout::after { content: "?"; color: var(--ink-2); font-size: 1.25rem; font-weight: 600; margin-top: -1.8rem; display: block; }
+
+/* Línea de tiempo (scrubber) */
+.timeline { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: center; margin-top: 10px; }
+.timeline input[type=range] { width: 100%; accent-color: var(--ink); }
+.timeline .t { min-width: 9ch; font-weight: 600; }
+.keyframes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.keyframes button { padding: 4px 10px; font-size: 0.9rem; }
+.speed { color: var(--ink-2); font-size: 0.9rem; }
+
+/* SVG */
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: inherit; font-size: 15px; fill: var(--ink); }
+svg text.muted { fill: var(--ink-2); font-size: 13px; }
+.axis line, .axis path { stroke: var(--rule-strong); stroke-width: 1; }
+.grid-line { stroke: var(--rule); stroke-width: 1; }
+.link-pipe { fill: var(--link-fill); stroke: var(--rule-strong); stroke-width: 1.5; }
+.host { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.packet { fill: var(--packet); }
+.bit-head { fill: var(--head); } .bit-tail { fill: var(--tail); }
+.ack { fill: var(--ack); stroke: var(--ack); }
+.now-line { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.st-data { stroke: var(--packet); fill: var(--packet); fill-opacity: 0.18; stroke-width: 1.5; }
+.st-ack { stroke: var(--ack); stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+.marker-label { font-weight: 600; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--ink-2); font-size: 0.9rem; margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; background: var(--c); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* =====================================================================
+   Estilos propios de esta pieza (03 · continuo frente a parada y espera)
+   ===================================================================== */
+.status-line { color: var(--ink-2); font-size: 0.92rem; margin: 0 0 12px; min-height: 1.3em; }
+.scenario { margin-bottom: 20px; }
+.scenario:last-of-type { margin-bottom: 8px; }
+.scenario h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 6px; color: var(--ink-2); }
+.meter-row { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; margin-top: 10px; }
+.meter { display: flex; align-items: center; gap: 10px; flex: 1 1 260px; min-width: 220px; }
+.meter-label { color: var(--ink-2); font-size: 0.85rem; white-space: nowrap; }
+.meter-bar { flex: 1; height: 14px; background: var(--link-fill); border: 1px solid var(--rule-strong); border-radius: 7px; overflow: hidden; }
+.meter-fill { height: 100%; background: var(--packet); width: 0%; }
+.meter output { font-weight: 600; min-width: 4.5ch; text-align: right; }
+.chrono { display: flex; align-items: baseline; gap: 8px; }
+.chrono .k { color: var(--ink-2); font-size: 0.85rem; white-space: nowrap; }
+.chrono .v { font-size: 1.4rem; font-weight: 700; }
+.compare-label { text-align: center; font-weight: 600; font-size: 1.05rem; margin: 4px 0 16px; padding: 8px; border-radius: var(--radius); background: var(--link-fill); }
+.st-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.st-row .st-col h3 { font-size: 0.9rem; font-weight: 600; margin: 0 0 6px; color: var(--ink-2); text-align: center; }
+@media (max-width: 700px) { .st-row { grid-template-columns: 1fr; } }
+.window-extra { border-top: 1px dashed var(--rule); margin-top: 14px; padding-top: 10px; }
+.badge-extra { display: inline-block; font-size: 0.72rem; font-weight: 600; color: var(--ink-2); border: 1px solid var(--rule-strong); border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Envío continuo frente a parada y espera</h1>
+    <p class="sub">Problema P28 (Kurose) · A y B a 20 000 km, R = 2 Mbps, fichero de 800 000 bits</p>
+    <div class="tools">
+      <button id="btnPredict" aria-pressed="false" title="Oculta los valores numéricos hasta revelarlos">Modo predicción</button>
+      <button id="btnTheme" title="Alternar claro / oscuro">Tema</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="stage panel" aria-labelledby="stageTitle">
+      <h2 id="stageTitle">Enlace A → B: dos formas de enviar el mismo fichero</h2>
+      <p class="status-line" id="status" aria-live="polite">preparado.</p>
+
+      <div class="scenario">
+        <h3>a) Envío continuo, como un único mensaje</h3>
+        <svg id="stageA" viewBox="0 0 1200 170" role="img" aria-label="Tubería del enlace A a B mostrando el fichero completo viajando como un único mensaje"></svg>
+        <div class="legend">
+          <span style="--c: var(--packet)">bits del mensaje</span>
+          <span style="--c: var(--head)">primer bit</span>
+          <span style="--c: var(--tail)">último bit</span>
+        </div>
+        <div class="meter-row">
+          <div class="meter">
+            <span class="meter-label">utilización del enlace</span>
+            <div class="meter-bar"><div class="meter-fill" id="utilAfill"></div></div>
+            <output id="utilAout">0 %</output>
+          </div>
+          <div class="chrono"><span class="k">cronómetro</span><span class="v" id="chronoA">0 s</span></div>
+        </div>
+      </div>
+
+      <div class="scenario">
+        <h3>b) Parada y espera, en N paquetes</h3>
+        <svg id="stageB" viewBox="0 0 1200 170" role="img" aria-label="Tubería del enlace A a B mostrando paquetes de datos hacia B y reconocimientos ACK volviendo hacia A, uno tras otro"></svg>
+        <div class="legend">
+          <span style="--c: var(--packet)">paquete de datos → B</span>
+          <span style="--c: var(--ack)">ACK ← A</span>
+        </div>
+        <div class="meter-row">
+          <div class="meter">
+            <span class="meter-label">utilización del enlace</span>
+            <div class="meter-bar"><div class="meter-fill" id="utilBfill"></div></div>
+            <output id="utilBout">0 %</output>
+          </div>
+          <div class="chrono"><span class="k">cronómetro</span><span class="v" id="chronoB">0 s</span></div>
+        </div>
+      </div>
+
+      <p class="compare-label" id="compareLabel">–</p>
+
+      <div class="timeline">
+        <button id="btnPlay" class="primary" aria-label="Reproducir o pausar">▶</button>
+        <span class="t" id="tNow" aria-live="off">t = 0 s</span>
+        <input id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="Instante de tiempo">
+        <span class="speed" id="speed"></span>
+      </div>
+      <div class="keyframes" id="keyframes"></div>
+    </section>
+
+    <aside class="panel" aria-labelledby="ctlTitle">
+      <h2 id="ctlTitle">Parámetros</h2>
+      <div class="presets" id="presets"></div>
+
+      <div class="field"><label for="F">Tamaño del fichero, F</label><output id="Fout"></output>
+        <input id="F" type="range" min="5" max="8" step="any" value="5.90309"></div>
+      <div class="field"><label for="R">Tasa de transmisión, R</label><output id="Rout"></output>
+        <input id="R" type="range" min="3" max="10" step="any" value="6.30103"></div>
+      <div class="field"><label for="dist">Distancia A–B</label><output id="distout"></output>
+        <input id="dist" type="range" min="5" max="7.60206" step="any" value="7.30103"></div>
+      <div class="field"><label for="N">Número de paquetes, N</label><output id="Nout"></output>
+        <input id="N" type="range" min="1" max="100" step="1" value="20"></div>
+
+      <div class="window-extra">
+        <div class="field"><label for="W">Ventana, W <span class="badge-extra">fuera del alcance de P28</span></label><output id="Wout"></output>
+          <input id="W" type="range" min="1" max="100" step="1" value="1"></div>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="k">d<sub>trans</sub> total = F / R</div><div class="v" id="roDtrans"></div></div>
+        <div class="readout"><div class="k">d<sub>prop</sub> = distancia / v<sub>p</sub></div><div class="v" id="roDprop"></div></div>
+        <div class="readout"><div class="k">RTT = 2 · d<sub>prop</sub></div><div class="v" id="roRtt"></div></div>
+        <div class="readout"><div class="k">tiempo, envío continuo</div><div class="v" id="roCont"></div></div>
+        <div class="readout"><div class="k">tiempo, con paquetes</div><div class="v" id="roPkts"></div></div>
+        <div class="readout"><div class="k">cociente (paquetes / continuo)</div><div class="v" id="roRatio"></div></div>
+        <div class="readout"><div class="k">utilización, continuo</div><div class="v" id="roUtilA"></div></div>
+        <div class="readout"><div class="k">utilización, parada y espera</div><div class="v" id="roUtilB"></div></div>
+      </div>
+      <button id="btnReveal" hidden>Revelar valores</button>
+    </aside>
+
+    <section class="panel" aria-labelledby="stTitle">
+      <h2 id="stTitle">Diagramas espacio-tiempo (misma escala vertical)</h2>
+      <div class="st-row">
+        <div class="st-col">
+          <h3>Envío continuo</h3>
+          <svg id="stA" viewBox="0 0 480 380" role="img" aria-label="Diagrama espacio-tiempo del envío continuo: un único paralelogramo de datos"></svg>
+        </div>
+        <div class="st-col">
+          <h3>Parada y espera</h3>
+          <svg id="stB" viewBox="0 0 480 380" role="img" aria-label="Diagrama espacio-tiempo de la parada y espera: paralelogramos de datos separados por líneas discontinuas de ACK"></svg>
+        </div>
+      </div>
+      <div class="legend">
+        <span style="--c: var(--packet)">datos</span>
+        <span style="--c: var(--ack)">ACK (discontinuo)</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   RT · utilidades comunes. Copiar íntegro en cada visualización.
+   ===================================================================== */
+const RT = (() => {
+  const nf = (d) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const sig = (x, n = 3) => { if (x === 0) return '0'; const d = Math.max(0, n - 1 - Math.floor(Math.log10(Math.abs(x)))); return nf(d).format(x); };
+  const fmt = {
+    time: (s) => s === 0 ? '0' : s >= 1 ? `${sig(s)} s` : s >= 1e-3 ? `${sig(s * 1e3)} ms` : s >= 1e-6 ? `${sig(s * 1e6)} µs` : `${sig(s * 1e9)} ns`,
+    dist: (m) => m === 0 ? '0' : Math.abs(m) >= 1000 ? `${sig(m / 1000)} km` : m >= 1 ? `${sig(m)} m` : `${sig(m * 100)} cm`,
+    bits: (b) => b >= 1e6 ? `${sig(b / 1e6)} Mbit` : b >= 1e3 ? `${sig(b / 1e3)} kbit` : `${nf(0).format(b)} bits`,
+    bitsExact: (b) => `${nf(0).format(b)} bits`,
+    rate: (r) => r >= 1e9 ? `${sig(r / 1e9)} Gbps` : r >= 1e6 ? `${sig(r / 1e6)} Mbps` : r >= 1e3 ? `${sig(r / 1e3)} kbps` : `${sig(r)} bps`,
+    speed: (v) => `${sig(v / 1e8)}·10⁸ m/s`,
+    num: (x, d = 2) => nf(d).format(x),
+  };
+
+  /* Tema y modo predicción, persistidos por navegador (opcional, protegido) */
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  const root = document.documentElement;
+  function initChrome({ theme = 'btnTheme', predict = 'btnPredict', reveal = 'btnReveal' } = {}) {
+    const t = store.get('rt-theme'); if (t) root.dataset.theme = t;
+    const bt = document.getElementById(theme);
+    if (bt) bt.addEventListener('click', () => {
+      const dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+      root.dataset.theme = dark ? 'light' : 'dark'; store.set('rt-theme', root.dataset.theme);
+    });
+    const bp = document.getElementById(predict), br = document.getElementById(reveal);
+    const setPredict = (on) => { root.dataset.predict = on ? 'on' : 'off'; if (bp) bp.setAttribute('aria-pressed', String(on)); if (br) br.hidden = !on; };
+    if (bp) bp.addEventListener('click', () => setPredict(root.dataset.predict !== 'on'));
+    if (br) br.addEventListener('click', () => setPredict(false));
+  }
+
+  /* Reloj de animación: tiempo simulado en segundos, cámara lenta explícita */
+  function Clock({ duration, onTick, slow = 1, playBtn, scrub, tLabel, speedLabel, keyframesEl }) {
+    let t = 0, playing = false, last = null, raf = null, keyframes = [];
+    const st = { get t() { return t; }, get duration() { return duration; } };
+    function set(x, emit = true) { t = Math.max(0, Math.min(duration, x)); if (scrub) scrub.value = Math.round(1000 * t / duration); if (tLabel) tLabel.textContent = `t = ${fmt.time(t)}`; if (emit) onTick(t); }
+    function frame(now) { if (!playing) return; if (last != null) set(t + (now - last) / 1000 / slow); last = now; if (t >= duration) { pause(); return; } raf = requestAnimationFrame(frame); }
+    function play() { if (t >= duration) set(0); playing = true; last = null; if (playBtn) playBtn.textContent = '❚❚'; raf = requestAnimationFrame(frame); }
+    function pause() { playing = false; last = null; if (raf) cancelAnimationFrame(raf); if (playBtn) playBtn.textContent = '▶'; }
+    function toggle() { playing ? pause() : play(); }
+    function setDuration(d) { duration = d; set(Math.min(t, d)); renderSpeed(); }
+    function setSlow(s) { slow = s; renderSpeed(); }
+    function renderSpeed() { if (speedLabel) speedLabel.textContent = slow === 1 ? 'tiempo real' : `cámara lenta ×${fmt.num(slow, 0)}`; }
+    function setKeyframes(list) {  // [{label, t}]
+      keyframes = list; if (!keyframesEl) return; keyframesEl.replaceChildren();
+      list.forEach(k => { const b = document.createElement('button'); b.textContent = k.label; b.addEventListener('click', () => { pause(); set(k.t); }); keyframesEl.appendChild(b); });
+    }
+    if (playBtn) playBtn.addEventListener('click', toggle);
+    if (scrub) scrub.addEventListener('input', () => { pause(); set(scrub.value / 1000 * duration); });
+    document.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, textarea, select, button, a, summary')) return;
+      if (e.key === ' ') { e.preventDefault(); toggle(); }
+      else if (e.key === 'ArrowRight') { pause(); set(t + duration / 100); }
+      else if (e.key === 'ArrowLeft') { pause(); set(t - duration / 100); }
+      else if (e.key === 'Home') { pause(); set(0); } else if (e.key === 'End') { pause(); set(duration); }
+      else if (/^[1-9]$/.test(e.key) && keyframes[e.key - 1]) { pause(); set(keyframes[e.key - 1].t); }
+    });
+    renderSpeed();
+    return Object.assign(st, { set, play, pause, toggle, setDuration, setSlow, setKeyframes });
+  }
+
+  /* SVG helpers */
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); for (const k of kids) e.append(k); return e; };
+  const scale = (d0, d1, r0, r1) => (x) => r0 + (x - d0) / (d1 - d0) * (r1 - r0);
+
+  /* Regla con marcas «bonitas» (para distancia o tiempo) */
+  function ticks(max, n = 6) { const raw = max / n, p = 10 ** Math.floor(Math.log10(raw)); const step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => max / s <= n) || p * 10; const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toPrecision(12)); return out; }
+
+  /* Tubería: dibuja hosts, tubería, regla de distancia y los segmentos ocupados.
+     segments: [{from, to, cls}] en metros; markers: [{x, cls, label, above}] */
+  function drawLink(el, { length, segments = [], markers = [], y = 60, h = 34, pad = 90, w = 1200, rulerFmt = fmt.dist }) {
+    el.replaceChildren();
+    const x = scale(0, length, pad, w - pad);
+    el.append(svg('rect', { x: pad, y, width: w - 2 * pad, height: h, class: 'link-pipe', rx: 3 }));
+    for (const s of segments) { const a = Math.max(0, Math.min(length, s.from)), b = Math.max(0, Math.min(length, s.to)); if (b > a) el.append(svg('rect', { x: x(a), y: y + 2, width: Math.max(1, x(b) - x(a)), height: h - 4, class: s.cls || 'packet' })); }
+    for (const m of markers) { if (m.x < 0 || m.x > length) continue; const cx = x(m.x); el.append(svg('rect', { x: cx - 2, y: y - 4, width: 4, height: h + 8, class: m.cls })); if (m.label) el.append(svg('text', { x: cx, y: m.above ? y - 10 : y + h + 22, 'text-anchor': 'middle', class: 'marker-label' }, m.label)); }
+    // hosts
+    for (const [hx, name] of [[pad - 46, 'A'], [w - pad + 6, 'B']]) { el.append(svg('rect', { x: hx, y: y - 6, width: 40, height: h + 12, rx: 4, class: 'host' })); el.append(svg('text', { x: hx + 20, y: y + h / 2 + 6, 'text-anchor': 'middle', 'font-weight': '600' }, name)); }
+    // regla
+    const ry = y + h + 34; const g = svg('g', { class: 'axis' }); g.append(svg('line', { x1: pad, x2: w - pad, y1: ry, y2: ry }));
+    for (const v of ticks(length)) { g.append(svg('line', { x1: x(v), x2: x(v), y1: ry, y2: ry + 6 })); g.append(svg('text', { x: x(v), y: ry + 22, 'text-anchor': 'middle', class: 'muted' }, rulerFmt(v))); }
+    el.append(g);
+    return x;
+  }
+
+  /* Diagrama espacio-tiempo: emisor a la izquierda, receptor a la derecha, tiempo hacia abajo.
+     polys: [{pts: [[t,x],...], cls}] con x en [0,1] (fracción del enlace), t en segundos. */
+  function drawSpaceTime(el, { tMax, polys = [], labels = [], now = null, w = 520, h = 360, pad = { l: 70, r: 20, t: 30, b: 20 } }) {
+    el.replaceChildren();
+    const x = scale(0, 1, pad.l, w - pad.r), y = scale(0, tMax, pad.t, h - pad.b);
+    el.append(svg('text', { x: x(0), y: 18, 'text-anchor': 'middle', 'font-weight': '600' }, 'A'), svg('text', { x: x(1), y: 18, 'text-anchor': 'middle', 'font-weight': '600' }, 'B'));
+    const ax = svg('g', { class: 'axis' }); ax.append(svg('line', { x1: x(0), x2: x(0), y1: y(0), y2: y(tMax) }), svg('line', { x1: x(1), x2: x(1), y1: y(0), y2: y(tMax) }));
+    for (const v of ticks(tMax, 5)) { ax.append(svg('line', { x1: x(0) - 5, x2: x(0), y1: y(v), y2: y(v) }), svg('text', { x: x(0) - 9, y: y(v) + 5, 'text-anchor': 'end', class: 'muted' }, fmt.time(v))); }
+    el.append(ax);
+    for (const p of polys) el.append(svg(p.pts.length > 2 ? 'polygon' : 'polyline', { points: p.pts.map(([t, f]) => `${x(f)},${y(t)}`).join(' '), class: p.cls }));
+    for (const lb of labels) el.append(svg('text', { x: x(lb.x), y: y(lb.t), class: 'muted', 'text-anchor': lb.anchor || 'start', dx: lb.dx || 0 }, lb.text));
+    if (now != null) el.append(svg('line', { x1: x(0) - 5, x2: x(1) + 5, y1: y(now), y2: y(now), class: 'now-line' }));
+    return { x, y };
+  }
+
+  /* Deslizadores logarítmicos: el valor del input es log10 */
+  const log = { toVal: (inp) => 10 ** parseFloat(inp.value), fromVal: (inp, v) => { inp.value = Math.log10(v); } };
+
+  return { fmt, initChrome, Clock, svg, scale, ticks, drawLink, drawSpaceTime, log };
+})();
+
+/* =====================================================================
+   Lógica propia de la pieza 03: continuo frente a parada y espera
+   ===================================================================== */
+(() => {
+  RT.initChrome();
+  const VP = 2.5e8;
+  const $ = (id) => document.getElementById(id);
+
+  const stageA = $('stageA'), stageB = $('stageB'), stA = $('stA'), stB = $('stB');
+  const statusEl = $('status'), compareLabel = $('compareLabel');
+  const utilAfill = $('utilAfill'), utilAout = $('utilAout'), utilBfill = $('utilBfill'), utilBout = $('utilBout');
+  const chronoA = $('chronoA'), chronoB = $('chronoB');
+
+  let F, R, dist, N, W;
+  let dtransTotal, dprop, RTT, contTotal;
+  let Lp, dtransP, standTotal, sim;
+  let contPoly, standPolys; // precomputadas por readParams, reutilizadas en cada fotograma
+
+  /* Simula parada y espera con ventana W (W = 1 ⇒ parada y espera clásica de P28).
+     Devuelve, para cada paquete i: instante de inicio de envío, fin de envío y llegada del ACK. */
+  function simulateWindow(n, w, dtp, rtt) {
+    const ackQueue = [];
+    let transmitterFree = 0;
+    const sendTimes = [], finishTimes = [], ackTimes = [];
+    for (let i = 0; i < n; i++) {
+      while (ackQueue.length && ackQueue[0] <= transmitterFree) ackQueue.shift();
+      let start = transmitterFree;
+      if (ackQueue.length >= w) { start = Math.max(start, ackQueue[0]); ackQueue.shift(); }
+      const finish = start + dtp;
+      const ack = finish + rtt;
+      sendTimes.push(start); finishTimes.push(finish); ackTimes.push(ack);
+      transmitterFree = finish; ackQueue.push(ack);
+    }
+    return { sendTimes, finishTimes, ackTimes };
+  }
+
+  const clock = RT.Clock({
+    duration: 1, onTick: render, playBtn: $('btnPlay'), scrub: $('scrub'),
+    tLabel: $('tNow'), speedLabel: $('speed'), keyframesEl: $('keyframes'),
+  });
+
+  /* Preset exacto del enunciado P28 */
+  const PRESET_P28 = { F: 800000, R: 2e6, dist: 20000e3, N: 20, W: 1 };
+  function applyPreset(p) {
+    RT.log.fromVal($('F'), p.F); RT.log.fromVal($('R'), p.R); RT.log.fromVal($('dist'), p.dist);
+    $('N').value = p.N; $('W').max = p.N; $('W').value = p.W;
+    readParams();
+  }
+  { const b = document.createElement('button'); b.textContent = 'P28 (enunciado)'; b.className = 'primary';
+    b.addEventListener('click', () => applyPreset(PRESET_P28)); $('presets').appendChild(b); }
+
+  function readParams() {
+    F = Math.round(RT.log.toVal($('F')));
+    R = RT.log.toVal($('R'));
+    dist = RT.log.toVal($('dist'));
+    N = parseInt($('N').value, 10);
+    if (parseInt($('W').max, 10) !== N) $('W').max = N;
+    W = Math.min(parseInt($('W').value, 10), N);
+    $('W').value = W;
+
+    $('Fout').textContent = RT.fmt.bitsExact(F);
+    $('Rout').textContent = RT.fmt.rate(R);
+    $('distout').textContent = RT.fmt.dist(dist);
+    $('Nout').textContent = RT.fmt.num(N, 0);
+    $('Wout').textContent = W === 1 ? '1 (parada y espera)' : `${RT.fmt.num(W, 0)} paquetes sin reconocer`;
+
+    dtransTotal = F / R;
+    dprop = dist / VP;
+    RTT = 2 * dprop;
+    contTotal = dtransTotal + dprop;
+
+    Lp = F / N;
+    dtransP = Lp / R;
+    sim = simulateWindow(N, W, dtransP, RTT);
+    standTotal = sim.ackTimes[N - 1];
+
+    // Precomputar los polígonos del diagrama espacio-tiempo (no cambian con t)
+    contPoly = [{ pts: [[0, 0], [dprop, 1], [contTotal, 1], [dtransTotal, 0]], cls: 'st-data' }];
+    standPolys = [];
+    for (let i = 0; i < N; i++) {
+      const s = sim.sendTimes[i], f = sim.finishTimes[i], a = sim.ackTimes[i];
+      standPolys.push({ pts: [[s, 0], [s + dprop, 1], [f + dprop, 1], [f, 0]], cls: 'st-data' });
+      standPolys.push({ pts: [[f + dprop, 1], [a, 0]], cls: 'st-ack' });
+    }
+
+    const ratio = standTotal / contTotal;
+    const utilAFinal = dtransTotal / contTotal;
+    const utilBFinal = dtransTotal / standTotal;
+
+    $('roDtrans').textContent = RT.fmt.time(dtransTotal);
+    $('roDprop').textContent = RT.fmt.time(dprop);
+    $('roRtt').textContent = RT.fmt.time(RTT);
+    $('roCont').textContent = RT.fmt.time(contTotal);
+    $('roPkts').textContent = RT.fmt.time(standTotal);
+    $('roRatio').textContent = `×${RT.fmt.num(ratio, 1)}`;
+    $('roUtilA').textContent = `${Math.round(utilAFinal * 100)} %`;
+    $('roUtilB').textContent = `${Math.round(utilBFinal * 100)} %`;
+    compareLabel.textContent = `parada y espera tarda ${RT.fmt.num(ratio, 1)} veces más`;
+
+    clock.setDuration(standTotal);
+    const slow = standTotal > 0 ? Math.max(1e-6, 8 / standTotal) : 1;
+    clock.setSlow(slow);
+    $('speed').textContent = slow >= 1
+      ? `cámara lenta ×${RT.fmt.num(slow, slow < 10 ? 1 : 0)}`
+      : `avance rápido ×${RT.fmt.num(1 / slow, 1)}`;
+    clock.setKeyframes([
+      { label: 't = 0', t: 0 },
+      { label: 'fin envío continuo', t: contTotal },
+      { label: 'fin paquete 1 + ACK', t: sim.ackTimes[0] },
+      { label: 'fin parada y espera', t: standTotal },
+    ]);
+
+    render(clock.t);
+  }
+
+  function render(t) {
+    const effA = Math.min(t, contTotal);
+
+    // --- Escenario a) envío continuo -------------------------------------
+    const headA = Math.min(dist, VP * effA);
+    const tailA = Math.min(dist, VP * Math.max(0, effA - dtransTotal));
+    RT.drawLink(stageA, {
+      length: dist,
+      segments: [{ from: tailA, to: headA, cls: 'packet' }],
+      markers: [
+        { x: headA, cls: 'bit-head', label: 'primer bit', above: true },
+        { x: tailA, cls: 'bit-tail', label: 'último bit' },
+      ],
+    });
+
+    // --- Escenario b) parada y espera -------------------------------------
+    const segsB = [], marksB = [];
+    let curSending = -1, acked = 0;
+    for (let i = 0; i < N; i++) {
+      const s = sim.sendTimes[i], f = sim.finishTimes[i], a = sim.ackTimes[i];
+      if (t >= a) { acked++; continue; }
+      if (t < s) continue;
+      if (t <= f) {
+        curSending = i;
+        const head = Math.min(dist, VP * (t - s));
+        const tail = Math.min(dist, VP * Math.max(0, t - f));
+        segsB.push({ from: tail, to: head, cls: 'packet' });
+        marksB.push({ x: head, cls: 'bit-head', label: `paquete ${i + 1}`, above: true });
+      } else if (t <= f + dprop) {
+        const head = Math.min(dist, VP * (t - s));
+        const tail = Math.min(dist, VP * (t - f));
+        segsB.push({ from: tail, to: head, cls: 'packet' });
+        marksB.push({ x: head, cls: 'bit-head', label: `paquete ${i + 1}`, above: true });
+      } else {
+        const pos = Math.max(0, dist - VP * (t - (f + dprop)));
+        marksB.push({ x: pos, cls: 'ack', label: `ACK ${i + 1}` });
+      }
+    }
+    RT.drawLink(stageB, { length: dist, segments: segsB, markers: marksB });
+
+    // --- Medidores de utilización y cronómetros ---------------------------
+    const utilA = effA > 0 ? Math.min(effA, dtransTotal) / effA : 0;
+    let busyB = 0;
+    for (let i = 0; i < N; i++) { const a0 = sim.sendTimes[i], b0 = Math.min(sim.finishTimes[i], t); if (b0 > a0) busyB += (b0 - a0); }
+    const utilB = t > 0 ? busyB / t : 0;
+    utilAfill.style.width = `${Math.min(100, utilA * 100)}%`;
+    utilBfill.style.width = `${Math.min(100, utilB * 100)}%`;
+    utilAout.textContent = `${Math.round(utilA * 100)} %`;
+    utilBout.textContent = `${Math.round(utilB * 100)} %`;
+    chronoA.textContent = RT.fmt.time(effA);
+    chronoB.textContent = RT.fmt.time(t);
+
+    // --- Diagramas espacio-tiempo ------------------------------------------
+    RT.drawSpaceTime(stA, {
+      tMax: standTotal, now: t, polys: contPoly, w: 480, h: 380, pad: { l: 60, r: 16, t: 26, b: 20 },
+      labels: [{ t: dtransTotal / 2, x: 0, dx: 6, text: 'd_trans' }, { t: contTotal - dprop / 2, x: 0.5, text: 'd_prop', anchor: 'middle' }],
+    });
+    RT.drawSpaceTime(stB, {
+      tMax: standTotal, now: t, polys: standPolys, w: 480, h: 380, pad: { l: 60, r: 16, t: 26, b: 20 },
+      labels: N <= 40 ? [] : [{ t: standTotal * 0.04, x: 0.5, text: `${N} paquetes`, anchor: 'middle' }],
+    });
+
+    // --- Estado accesible ---------------------------------------------------
+    const contMsg = effA >= contTotal
+      ? `envío continuo completado en ${RT.fmt.time(contTotal)}`
+      : `envío continuo: ${Math.round((effA / contTotal) * 100)} % transmitido`;
+    let standMsg;
+    if (curSending >= 0) standMsg = `parada y espera: enviando el paquete ${curSending + 1} de ${N}`;
+    else if (t >= standTotal) standMsg = `parada y espera completada en ${RT.fmt.time(standTotal)}`;
+    else standMsg = 'parada y espera: esperando el reconocimiento (ACK)';
+    statusEl.textContent = `${contMsg}. ${standMsg}. paquetes reconocidos: ${acked} de ${N}.`;
+  }
+
+  ['F', 'R', 'dist', 'N', 'W'].forEach((id) => $(id).addEventListener('input', readParams));
+  applyPreset(PRESET_P28);
+})();
+</script>
+</body>
+</html>

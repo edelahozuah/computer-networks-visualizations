@@ -1,0 +1,793 @@
+<title>HTTP persistente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: mismo banco de trabajo que el Diagrama de retardos del tema 1. Panel de parámetros a la izquierda; diagramas, fórmulas y tabla a la derecha; una sola columna en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --html: #7a4fb5;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+.campo { display: flex; gap: 4px; flex: 1; min-width: 0; }
+input[type="text"], input[type="number"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.86rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="text"], input[type="number"] { flex: 1; width: 100%; }
+input.mal { border-color: var(--aviso); }
+select { cursor: pointer; }
+select.u { flex: 0 0 auto; }
+select.ancho { flex: 1; width: 100%; font-family: var(--body); }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover { border-color: var(--fg); }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.error { font-size: 0.84rem; color: var(--aviso); margin: 0; }
+.checks { display: flex; flex-direction: column; gap: 6px; font-size: 0.86rem; }
+.checks label { display: flex; gap: 7px; align-items: flex-start; cursor: pointer; }
+.checks input { margin-top: 3px; }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+.barra { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
+.dato { display: flex; gap: 6px; align-items: baseline; }
+.dato b { font-weight: 500; color: var(--muted); }
+.dato span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dato.fuerte span { font-weight: 500; color: var(--fg); }
+.reproductor { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; flex-wrap: wrap; }
+.reproductor input[type="range"] { flex: 1; min-width: 140px; accent-color: var(--sel); }
+.reproductor .t { font-family: var(--mono); font-size: 0.84rem; min-width: 10ch; color: var(--sel); font-variant-numeric: tabular-nums; }
+.reproductor button.btn { padding: 4px 10px; min-width: 36px; }
+.lienzo { overflow-x: auto; padding: 6px 8px 10px; }
+/* El diagrama se encoge con el recuadro hasta el 80 % de su tamaño; por debajo, desplazamiento horizontal. */
+.lienzo svg { display: block; margin: 0 auto; width: 100%; height: auto; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 14px 12px; font-size: 0.8rem; color: var(--muted); }
+.leyenda i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.oculto-diag { padding: 28px 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.oculto-diag h3 { font-family: var(--display); font-weight: 700; font-size: 1.1rem; margin: 0; }
+.enunciado { font-size: 0.95rem; max-width: 70ch; margin: 0; }
+.enunciado code { font-family: var(--mono); font-size: 0.9em; background: var(--suave); padding: 1px 5px; border-radius: 3px; }
+.dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.dos > div { padding: 12px 14px; min-width: 0; }
+.dos > div + div { border-left: 1px solid var(--line); }
+@media (max-width: 700px) { .dos > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+h3.mod { font-family: var(--display); font-weight: 700; font-size: 0.98rem; margin: 0 0 8px; }
+.form { font-family: var(--mono); font-size: 0.86rem; display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: baseline; }
+.form .ig { color: var(--muted); }
+.form .res { font-weight: 500; }
+.ahorro { padding: 10px 14px; border-top: 1px solid var(--line); font-size: 0.86rem; }
+.ahorro b { font-family: var(--mono); font-weight: 500; }
+.pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.pred .fila > label.et { min-width: 150px; }
+.fb { font-size: 0.84rem; margin: 0; }
+.fb.ok { color: var(--bien); }
+.fb.ko { color: var(--aviso); }
+table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+.tabla { overflow-x: auto; }
+th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; border-top: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+th.n { text-align: right; }
+tr.pend td { color: var(--muted); opacity: .55; }
+details.sup { padding: 0; }
+details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.oculto-archivo { display: none; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.vis { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1 data-en-html="Persistent HTTP: &lt;span&gt;without and with pipelining&lt;/span&gt;">HTTP persistente: <span>sin y con canalización</span></h1>
+    <div class="cab-der"><p class="sub" data-en="A web page with N objects on the same server as the HTML base file, downloaded over a single persistent TCP connection. Change the parameters and compare both delay diagrams on the same time scale.">Una página web con N objetos alojados en el mismo servidor que el HTML base, descargada por una única conexión TCP persistente. Cambia los parámetros y compara los dos diagramas de retardos a la misma escala de tiempo.</p>
+    <div class="seg idioma" id="idioma" role="group" aria-label="Idioma / Language"><button type="button" data-v="es" lang="es">ES</button><button type="button" data-v="en" lang="en">EN</button></div></div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL DE PARÁMETROS -->
+    <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2 data-en="Link">Enlace</h2>
+        <div class="fila"><label data-en="Data rate R" class="et" for="e-R">Velocidad R</label>
+          <div class="campo"><input type="text" id="e-R" data-k="enlace.R" inputmode="decimal">
+            <select class="u" data-k="enlace.uR" aria-label="Unidad de R"><option>bps</option><option>kbps</option><option>Mbps</option><option>Gbps</option></select></div></div>
+        <div class="fila"><label class="et" for="e-dp">d_prop</label>
+          <div class="campo"><input type="text" id="e-dp" data-k="enlace.dprop" inputmode="decimal">
+            <select class="u" data-k="enlace.uProp" aria-label="Unidad de d_prop"><option>µs</option><option>ms</option><option>s</option></select></div></div>
+        <p class="nota" data-en="RTT = 2 · d_prop. Requests and TCP control segments are so small that their transmission time is neglected.">RTT = 2 · d_prop. Las peticiones y los segmentos de control TCP son tan pequeños que se desprecia su tiempo de transmisión.</p>
+        <p class="error" id="err-enlace" hidden></p>
+      </section>
+
+      <section>
+        <h2 data-en="Web page">Página web</h2>
+        <p class="nota" data-en="The browser first downloads the HTML base file; only when it has received it does it know which N objects to request.">El navegador descarga primero el fichero HTML base; solo cuando lo ha recibido sabe qué N objetos tiene que pedir.</p>
+        <div class="fila"><label data-en="HTML size" class="et" for="p-html">Tamaño HTML</label>
+          <div class="campo"><input type="text" id="p-html" data-k="pagina.html" inputmode="decimal">
+            <select class="u" data-k="pagina.uHtml" aria-label="Unidad del HTML"><option value="bits">bits</option><option value="B">bytes</option><option value="KB">KB</option><option value="MB">MB</option></select></div></div>
+        <div class="fila"><label data-en="Object sizes" class="et">Tamaños</label>
+          <div class="seg" data-k="pagina.modoTam"><button type="button" data-v="iguales" data-en="Equal">Iguales</button><button type="button" data-v="distintos" data-en="Different">Distintos</button></div></div>
+        <div class="fila" id="fila-N"><label data-en="Objects N" class="et" for="p-N">Objetos N</label>
+          <div class="campo"><input type="number" id="p-N" data-k="pagina.N" min="1" max="30" step="1"></div></div>
+        <div class="fila" id="fila-L"><label data-en="Size L" class="et" for="p-L">Tamaño L</label>
+          <div class="campo"><input type="text" id="p-L" data-k="pagina.L" inputmode="decimal">
+            <select class="u" data-k="pagina.uL" aria-label="Unidad de L"><option value="bits">bits</option><option value="B">bytes</option><option value="KB">KB</option><option value="MB">MB</option></select></div></div>
+        <div class="fila" id="fila-lista"><label data-en="Sizes" class="et" for="p-lista">Tamaños</label>
+          <div class="campo"><input type="text" id="p-lista" data-k="pagina.lista" placeholder="50; 20; 100">
+            <select class="u" data-k="pagina.uLista" aria-label="Unidad de los tamaños"><option value="bits">bits</option><option value="B">bytes</option><option value="KB">KB</option><option value="MB">MB</option></select></div></div>
+        <p class="nota" id="nota-lista" data-en="One size per object, separated by “;” or spaces. N is the number of sizes.">Un tamaño por objeto, separados por «;» o espacios. N es el número de tamaños.</p>
+        <p class="nota" data-en="1 KB = 1000 bytes; 1 MB = 10⁶ bytes.">1 KB = 1000 bytes; 1 MB = 10⁶ bytes.</p>
+        <p class="error" id="err-pagina" hidden></p>
+      </section>
+
+      <section>
+        <h2 data-en="Assumptions">Supuestos</h2>
+        <div class="checks">
+          <label><input type="checkbox" data-k="sup.tcp"> <span data-en="Include TCP connection setup (1 RTT; the first request travels in the 3rd segment, with the ACK)">Incluir el establecimiento de la conexión TCP (1 RTT; la primera petición viaja en el 3.er segmento, con el ACK)</span></label>
+        </div>
+        <div class="fila"><label class="et" for="s-proc" data-en="Server t_proc">t_proc servidor</label>
+          <div class="campo"><input type="text" id="s-proc" data-k="sup.tproc" inputmode="decimal" placeholder="0">
+            <select class="u" data-k="sup.uProc" aria-label="Unidad de t_proc"><option>µs</option><option>ms</option><option>s</option></select></div></div>
+      </section>
+
+      <section>
+        <h2 data-en="View">Vista</h2>
+        <div class="fila"><label data-en="Show" class="et">Mostrar</label>
+          <div class="seg" data-k="vista.modos"><button type="button" data-v="ambos" data-en="Both">Ambos</button><button type="button" data-v="sin" data-en="Without">Sin canal.</button><button type="button" data-v="con" data-en="With">Con canal.</button></div></div>
+        <div class="fila"><label data-en="Client side" class="et">Lado cliente</label>
+          <div class="seg" data-k="vista.anot"><button type="button" data-v="llaves" data-en="RTT / X">RTT / X</button><button type="button" data-v="instantes" data-en="Times">Instantes</button><button type="button" data-v="nada" data-en="Nothing">Nada</button></div></div>
+        <div class="checks">
+          <label><input type="checkbox" data-k="vista.ocio"> <span data-en="Highlight when the server→client link is idle">Marcar cuándo está ocioso el enlace servidor→cliente</span></label>
+          <label><input type="checkbox" data-k="vista.misma"> <span data-en="Same time scale in both diagrams">Misma escala de tiempo en los dos diagramas</span></label>
+        </div>
+        <div class="fila"><label data-en="Time unit" class="et" for="v-uT">Unidad de t</label><div class="campo"><select class="ancho" id="v-uT" data-k="vista.uT"><option data-en="automatic" value="auto">automática</option><option>µs</option><option>ms</option><option>s</option></select></div></div>
+        <div class="fila"><label data-en="Height" class="et" for="v-alto">Altura</label><div class="campo"><input type="range" id="v-alto" data-k="vista.alto" min="360" max="1400" step="20" style="flex:1"></div></div>
+      </section>
+
+      <section>
+        <h2 data-en="Practice">Practicar</h2>
+        <p class="nota" data-en="Generates random values and hides the diagrams and results: draw both diagrams on paper, compute T and check your answer.">Genera valores aleatorios y oculta diagramas y resultados: dibuja los dos diagramas en papel, calcula T y comprueba tu respuesta.</p>
+        <div class="fila">
+          <button type="button" class="btn prim" id="b-ejercicio" data-en="New exercise">Nuevo ejercicio</button>
+          <button type="button" class="btn" id="b-ocultar" data-en="Hide results">Ocultar resultados</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-en="Export">Exportar</h2>
+        <div class="fila">
+          <button data-en="Download SVG" type="button" class="btn" id="b-svg">Descargar SVG</button>
+          <button data-en="Download PNG" type="button" class="btn" id="b-png">Descargar PNG</button>
+        </div>
+        <div class="fila">
+          <button data-en="Save scenario" type="button" class="btn" id="b-json">Guardar escenario</button>
+          <button data-en="Open scenario" type="button" class="btn" id="b-cargar">Abrir escenario</button>
+          <input type="file" id="f-archivo" accept="application/json,.json" class="oculto-archivo">
+          <button data-en="Reset" type="button" class="btn peligro" id="b-reset">Restablecer</button>
+        </div>
+        <label class="fila" style="font-size:.84rem;gap:6px;cursor:pointer"><input type="checkbox" data-k="vista.claro"> <span data-en="Always export in light colors">Exportar siempre en colores claros</span></label>
+      </section>
+    </form>
+
+    <!-- RESULTADOS -->
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="barra" id="resumen"></div>
+        <div id="con-diagrama">
+          <div class="reproductor">
+            <button type="button" class="btn" id="r-ini" aria-label="Al principio" data-en-aria="To the start">⏮</button>
+            <button type="button" class="btn" id="r-ant" aria-label="Evento anterior" data-en-aria="Previous event">◀</button>
+            <button type="button" class="btn prim" id="r-play" aria-label="Reproducir" data-en-aria="Play">▶</button>
+            <button type="button" class="btn" id="r-sig" aria-label="Evento siguiente" data-en-aria="Next event">▶︎|</button>
+            <button type="button" class="btn" id="r-fin" aria-label="Al final" data-en-aria="To the end">⏭</button>
+            <input type="range" id="r-t" min="0" max="1000" step="1" aria-label="Instante t" data-en-aria="Time t">
+            <span class="t" id="r-etq"></span>
+          </div>
+          <div class="lienzo" id="lienzo"></div>
+          <div class="leyenda" id="leyenda"></div>
+        </div>
+        <div class="oculto-diag" id="sin-diagrama" hidden>
+          <h3 data-en="Exercise">Ejercicio</h3>
+          <p class="enunciado" id="enunciado"></p>
+          <p class="nota" data-en="Draw both delay diagrams on paper, compute T for each mode and write it below.">Dibuja en papel los dos diagramas de retardos, calcula T para cada modo y escríbelo abajo.</p>
+        </div>
+      </div>
+
+      <div class="tarjeta" id="t-pred" hidden>
+        <div class="pred">
+          <h2 data-en="Your answer">Tu respuesta</h2>
+          <div class="fila"><label class="et" for="pr-sin" data-en="T without pipelining">T sin canalización</label><div class="campo"><input type="text" id="pr-sin" inputmode="decimal"></div></div>
+          <div class="fila"><label class="et" for="pr-con" data-en="T with pipelining">T con canalización</label><div class="campo"><input type="text" id="pr-con" inputmode="decimal"></div></div>
+          <div class="fila"><label class="et" for="pr-u" data-en="Unit">Unidad</label><div class="campo"><select class="ancho" id="pr-u"><option>µs</option><option selected>ms</option><option>s</option></select></div></div>
+          <p class="fb" id="fb-sin"></p>
+          <p class="fb" id="fb-con"></p>
+          <div class="fila">
+            <button type="button" class="btn prim" id="b-comprobar" data-en="Check">Comprobar</button>
+            <button type="button" class="btn" id="b-solucion" data-en="Show solution">Ver solución</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tarjeta" id="t-formulas">
+        <div class="dos" id="formulas"></div>
+        <div class="ahorro" id="ahorro"></div>
+      </div>
+
+      <div class="tarjeta" id="t-tabla">
+        <div class="dos" id="tablas"></div>
+      </div>
+
+      <details class="tarjeta sup">
+        <summary data-en="Model assumptions">Supuestos del modelo</summary>
+        <ul>
+          <li data-en="A single link of rate R and propagation delay d_prop between client and server; no other traffic, no losses, no TCP congestion control (no slow start).">Un único enlace de velocidad R y retardo de propagación d_prop entre cliente y servidor; sin otro tráfico, sin pérdidas y sin control de congestión TCP (sin arranque lento).</li>
+          <li data-en="Requests (GET) and TCP control segments have negligible size: they take d_prop to arrive and no transmission time.">Las peticiones (GET) y los segmentos de control TCP tienen tamaño despreciable: tardan d_prop en llegar y no tienen tiempo de transmisión.</li>
+          <li data-en="Each object (and the HTML) is sent as a block of L bits: X = L/R. Headers are neglected.">Cada objeto (y el HTML) se envía como un bloque de L bits: X = L/R. Se desprecian las cabeceras.</li>
+          <li data-en="Processing in the browser is neglected; the server needs t_proc to prepare each response.">Se desprecia el procesamiento en el navegador; el servidor necesita t_proc para preparar cada respuesta.</li>
+          <li data-en="Without pipelining, the client sends the request for object i when the last bit of object i−1 arrives.">Sin canalización, el cliente envía la petición del objeto i cuando llega el último bit del objeto i−1.</li>
+          <li data-en="With pipelining, the client sends all N requests at once; the server answers them in the same order, one after another. In the diagram the requests are drawn slightly apart only so they can be told apart.">Con canalización, el cliente envía las N peticiones a la vez; el servidor las responde en el mismo orden, una tras otra. En el diagrama las peticiones se dibujan ligeramente separadas solo para distinguirlas.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+/*@@MOTOR@@*/
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const U_T = { 'µs': 1e-6, 'ms': 1e-3, 's': 1 };
+  const U_R = { bps: 1, kbps: 1e3, Mbps: 1e6, Gbps: 1e9 };
+  const U_L = { bits: 1, B: 8, KB: 8000, MB: 8e6 };
+  const CLAVE = 'httpPersistente.v1';
+  const CLARO = { '--lienzo': '#ffffff', '--fg': '#16202a', '--muted': '#5a6876', '--line': '#c8d1d9', '--trama': '#1f5fbf', '--ack': '#17855a', '--html': '#7a4fb5', '--sel': '#c97a00', '--aviso': '#b4482a' };
+
+  const num = v => { const n = parseFloat(String(v ?? '').trim().replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduceMov = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ------------------------------------------------------------ estado
+  function base() {
+    return {
+      enlace: { R: '10', uR: 'Mbps', dprop: '25', uProp: 'ms' },
+      pagina: { modoTam: 'iguales', N: '4', L: '50', uL: 'KB', lista: '50; 20; 100; 10', uLista: 'KB', html: '25', uHtml: 'KB' },
+      sup: { tcp: true, tproc: '0', uProc: 'ms' },
+      vista: { idioma: 'es', modos: 'ambos', anot: 'llaves', ocio: true, misma: true, uT: 'auto', alto: 620, claro: true },
+      oculto: false
+    };
+  }
+  function normalizar(o) {
+    if (!o || typeof o !== 'object' || !o.enlace) return null;
+    const b = base();
+    return { enlace: { ...b.enlace, ...o.enlace }, pagina: { ...b.pagina, ...o.pagina }, sup: { ...b.sup, ...o.sup }, vista: { ...b.vista, ...o.vista }, oculto: !!o.oculto };
+  }
+  function cargarLocal() { try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; } }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  let estado = cargarLocal() || base();
+  let tCursor = null;      // null = diagrama completo
+  let animando = null;
+  let ultimoSVG = '';
+  let ultimo = null;       // último cálculo válido
+
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const leer = k => k.split('.').reduce((o, p) => o[p], estado);
+  const escribir = (k, v) => { const p = k.split('.'); p.slice(0, -1).reduce((o, q) => o[q], estado)[p.at(-1)] = v; };
+
+  // ------------------------------------------------------------ formato
+  function fmtNum(v, dec = 3) {
+    return Number(v.toPrecision(7)).toLocaleString(L('es-ES', 'en-GB'), { maximumFractionDigits: dec, useGrouping: false });
+  }
+  function uAuto(s) { let u = estado.vista.uT; if (u === 'auto') u = Math.abs(s) < 1e-3 ? 'µs' : Math.abs(s) < 1 ? 'ms' : 's'; return u; }
+  function fmtT(s, u) {
+    if (!Number.isFinite(s)) return '—';
+    if (Math.abs(s) < 1e-15) return '0';
+    u = u || uAuto(s);
+    return fmtNum(s / U_T[u]) + ' ' + u;
+  }
+  function fmtR(R) { const u = R >= 1e9 ? 'Gbps' : R >= 1e6 ? 'Mbps' : R >= 1e3 ? 'kbps' : 'bps'; return fmtNum(R / U_R[u]) + ' ' + u; }
+  function fmtBits(b) {
+    if (b % 8) return fmtNum(b) + ' bits';
+    const B = b / 8;
+    return B >= 1e6 ? fmtNum(B / 1e6) + ' MB' : B >= 1e3 ? fmtNum(B / 1e3) + ' KB' : fmtNum(B) + ' B';
+  }
+  const pct = v => fmtNum(v * 100, 1) + ' %';
+
+  // ------------------------------------------------------------ parámetros
+  function parametros() {
+    const e = estado.enlace, pg = estado.pagina, sp = estado.sup;
+    const err = { enlace: null, pagina: null };
+    const R = num(e.R) * U_R[e.uR];
+    const dp = num(e.dprop) * U_T[e.uProp];
+    if (!(R > 0)) err.enlace = L('La velocidad R debe ser un número mayor que 0.', 'The data rate R must be a number greater than 0.');
+    else if (!(dp >= 0)) err.enlace = L('d_prop debe ser un número mayor o igual que 0.', 'd_prop must be a number greater than or equal to 0.');
+    const tpIn = String(sp.tproc ?? '').trim();
+    const tproc = tpIn === '' ? 0 : num(tpIn) * U_T[sp.uProc];
+    if (!err.enlace && !(tproc >= 0)) err.enlace = L('t_proc debe ser un número mayor o igual que 0.', 't_proc must be a number greater than or equal to 0.');
+    let bits = [];
+    if (pg.modoTam === 'iguales') {
+      const N = Number(pg.N), Lb = num(pg.L) * U_L[pg.uL];
+      if (!(Number.isInteger(N) && N >= 1 && N <= 30)) err.pagina = L('N debe ser un entero entre 1 y 30.', 'N must be an integer between 1 and 30.');
+      else if (!(Lb > 0)) err.pagina = L('El tamaño L debe ser mayor que 0.', 'The size L must be greater than 0.');
+      else bits = Array(N).fill(Lb);
+    } else {
+      const partes = String(pg.lista).split(/[;\s]+/).filter(Boolean);
+      const v = partes.map(x => num(x) * U_L[pg.uLista]);
+      if (!partes.length) err.pagina = L('Escribe al menos un tamaño.', 'Enter at least one size.');
+      else if (v.some(x => !(x > 0))) err.pagina = L('Todos los tamaños deben ser números mayores que 0 (separados por «;» o espacios).', 'All sizes must be numbers greater than 0 (separated by “;” or spaces).');
+      else if (v.length > 30) err.pagina = L('Como máximo 30 objetos.', 'At most 30 objects.');
+      else bits = v;
+    }
+    const htmlBits = num(pg.html) * U_L[pg.uHtml];
+    if (!err.pagina && !(htmlBits > 0)) err.pagina = L('El tamaño del HTML debe ser mayor que 0.', 'The HTML size must be greater than 0.');
+    const p = { R, dp, bits, htmlBits, tcp: !!sp.tcp, html: true, tproc, iguales: pg.modoTam === 'iguales' };
+    return { p, err, ok: !err.enlace && !err.pagina };
+  }
+
+  // ------------------------------------------------------------ fórmulas
+  function formulas(p) {
+    const RTT = 2 * p.dp, tp = p.tproc, N = p.bits.length, X = p.bits.map(b => b / p.R), sumX = X.reduce((a, b) => a + b, 0);
+    const u = uAuto(Math.max(RTT, sumX, X[0] || 0));
+    const f = v => fmtT(v, u);
+    const conTp = tp > 0;
+    const out = {};
+    for (const canal of [false, true]) {
+      const sim = [], nums = [];
+      if (p.tcp) { sim.push('RTT'); nums.push(f(RTT)); }
+      if (p.html) { sim.push(conTp ? '(RTT + t_proc + X_html)' : '(RTT + X_html)'); nums.push(`(${f(RTT)}${conTp ? ' + ' + f(tp) : ''} + ${f(p.htmlBits / p.R)})`); }
+      const rt = conTp ? 'RTT + t_proc' : 'RTT';
+      const rtN = conTp ? `${f(RTT)} + ${f(tp)}` : f(RTT);
+      if (!canal) {
+        if (p.iguales) { sim.push(`N·(${rt} + X)`); nums.push(`${N}·(${rtN} + ${f(X[0])})`); }
+        else { sim.push(`N·(${rt}) + ΣXᵢ`); nums.push(`${N}·(${rtN}) + (${X.map(f).join(' + ')})`); }
+      } else {
+        sim.push(rt); nums.push(rtN);
+        if (p.iguales) { sim.push('N·X'); nums.push(`${N}·${f(X[0])}`); }
+        else { sim.push('ΣXᵢ'); nums.push(`(${X.map(f).join(' + ')})`); }
+      }
+      out[canal ? 'con' : 'sin'] = { sim: 'T = ' + sim.join(' + '), num: nums.join(' + '), T: MotorHTTP.formula({ ...p, canal }), u };
+    }
+    out.ahorroSim = conTp ? '(N − 1)·(RTT + t_proc)' : '(N − 1)·RTT';
+    out.ahorroNum = conTp ? `${N - 1}·(${f(RTT)} + ${f(tp)})` : `${N - 1}·${f(RTT)}`;
+    out.ahorro = out.sin.T - out.con.T;
+    out.u = u;
+    return out;
+  }
+
+  // ------------------------------------------------------------ dibujo
+  const WC = 470, GAP = 26;
+  function dibujar(res, modos) {
+    const v = estado.vista;
+    const H = v.alto, W = modos.length * WC + (modos.length - 1) * GAP;
+    const tMaxGlobal = Math.max(...modos.map(m => res[m].T)) || 1;
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Diagramas de retardos de HTTP persistente', 'Persistent HTTP delay diagrams'))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif">`;
+    s += `<defs><marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--fg)" stroke-width="1.6"/></marker>`;
+    for (const c of ['ack', 'muted']) s += `<marker id="pt-${c}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1,1 L9,5 L1,9 z" fill="var(--${c})"/></marker>`;
+    s += `</defs><rect x="0" y="0" width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    modos.forEach((m, i) => {
+      const x0 = i * (WC + GAP);
+      if (i) s += `<line x1="${x0 - GAP / 2}" y1="12" x2="${x0 - GAP / 2}" y2="${H - 12}" stroke="var(--line)" stroke-width="1"/>`;
+      s += carril(res[m], m, x0, v.misma ? tMaxGlobal : (res[m].T || 1), H);
+    });
+    return s + '</svg>';
+  }
+
+  function carril(r, modo, x0, tEsc, H) {
+    const v = estado.vista;
+    const xC = x0 + 122, xS = x0 + 380, arriba = 82, abajo = 34;
+    const k = (H - arriba - abajo) / tEsc;
+    const Y = t => arriba + t * k;
+    const F = n => Math.round(n * 100) / 100;
+    const mono = 'IBM Plex Mono, ui-monospace, Menlo, Consolas, monospace';
+    const halo = `paint-order="stroke" stroke="var(--lienzo)" stroke-width="3.5" stroke-linejoin="round"`;
+    const corte = tCursor === null ? Infinity : tCursor;
+    const completo = corte >= r.T - 1e-12;
+    let s = '';
+
+    // cabecera
+    s += `<text x="${(xC + xS) / 2}" y="24" text-anchor="middle" font-size="16" font-weight="700" fill="var(--fg)" font-family="Archivo, Helvetica Neue, Arial, sans-serif">${esc(modo === 'sin' ? L('Sin canalización', 'Without pipelining') : L('Con canalización', 'With pipelining'))}</text>`;
+    s += `<text x="${(xC + xS) / 2}" y="43" text-anchor="middle" font-size="12" font-family="${mono}" fill="var(--muted)">T = ${esc(fmtT(r.T))}</text>`;
+    for (const [x, n] of [[xC, L('Cliente', 'Client')], [xS, L('Servidor', 'Server')]]) {
+      s += `<text x="${x}" y="68" text-anchor="middle" font-size="13.5" font-weight="600" fill="var(--fg)">${esc(n)}</text>`;
+      s += `<line x1="${x}" y1="${arriba - 8}" x2="${x}" y2="${H - abajo + 18}" stroke="var(--fg)" stroke-width="1.6" marker-end="url(#flecha)"/>`;
+    }
+    s += `<text x="${xC - 9}" y="${H - abajo + 26}" text-anchor="end" font-size="12" font-style="italic" fill="var(--muted)">t</text>`;
+
+    const idClip = 'clip-' + modo;
+    const hClip = completo || tCursor === null ? H : Math.max(0, Y(corte));
+    s += `<clipPath id="${idClip}"><rect x="${x0}" y="0" width="${WC}" height="${F(hClip)}"/></clipPath><g clip-path="url(#${idClip})">`;
+
+    // enlace ocioso
+    if (v.ocio) r.huecos.forEach((h, i) => {
+      s += `<rect x="${xS - 5}" y="${F(Y(h.desde))}" width="10" height="${F(Y(h.hasta) - Y(h.desde))}" fill="var(--aviso)" fill-opacity="0.55" rx="2"/>`;
+      if (i === 0 && Y(h.hasta) - Y(h.desde) > 14) s += `<text x="${xS - 11}" y="${F((Y(h.desde) + Y(h.hasta)) / 2 + 4)}" text-anchor="end" font-size="11" font-style="italic" fill="var(--aviso)" ${halo}>${esc(L('ocioso', 'idle'))}</text>`;
+    });
+
+    // mensajes
+    const X = e => (e === 'C' ? xC : xS);
+    const grupos = new Map(); // peticiones que salen en el mismo instante (canalización)
+    let nObj = 0;
+    for (const g of r.segs) {
+      if (g.tipo === 'ctrl' || g.tipo === 'get') {
+        const clave = g.tipo + g.inicio.toPrecision(12);
+        const j = grupos.has(clave) ? grupos.get(clave).length : 0;
+        if (g.tipo === 'get') { if (!grupos.has(clave)) grupos.set(clave, []); grupos.get(clave).push(g); }
+        const dy = j * 3.2;
+        const color = g.tipo === 'get' ? 'var(--ack)' : 'var(--muted)';
+        const xs = X(g.de), xr = X(g.de === 'C' ? 'S' : 'C');
+        const y0 = Y(g.inicio) + dy, y1 = Y(g.llegada) + dy;
+        s += `<line x1="${xs}" y1="${F(y0)}" x2="${xr + (xr > xs ? -2 : 2)}" y2="${F(y1)}" stroke="${color}" stroke-width="1.5" marker-end="url(#pt-${g.tipo === 'get' ? 'ack' : 'muted'})"/>`;
+      } else {
+        const xs = xS, xr = xC;
+        const y0 = Y(g.inicio), y1 = Y(g.finTx), y2 = Y(g.llegada), y3 = Y(g.primerBit);
+        const color = g.tipo === 'html' ? 'var(--html)' : 'var(--trama)';
+        const op = g.tipo === 'html' ? 0.3 : (nObj++ % 2 ? 0.4 : 0.22);
+        s += `<polygon points="${xs},${F(y0)} ${xs},${F(y1)} ${xr},${F(y2)} ${xr},${F(y3)}" fill="${color}" fill-opacity="${op}" stroke="${color}" stroke-width="1.1" stroke-linejoin="round"><title>${esc((g.tipo === 'html' ? 'HTML' : L('Objeto ', 'Object ') + g.etq) + ' · ' + fmtBits(g.bits) + ' · X = ' + fmtT(g.X))}</title></polygon>`;
+        const cy = (y0 + y1 + y2 + y3) / 4;
+        if (y1 - y0 >= 11) s += `<text x="${(xs + xr) / 2}" y="${F(cy + 4.5)}" text-anchor="middle" font-size="12.5" font-weight="600" fill="${color}" ${halo}>${esc(g.tipo === 'html' ? 'HTML' : L('obj ', 'obj ') + g.etq)}</text>`;
+      }
+    }
+    // rótulos de las líneas (después, para que queden por encima)
+    const rotulo = (g, texto, color) => {
+      const xs = X(g.de), xr = X(g.de === 'C' ? 'S' : 'C');
+      const f = g.de === 'C' ? 0.3 : 0.7;
+      const x = xs + (xr - xs) * f, y = Y(g.inicio) + (Y(g.llegada) - Y(g.inicio)) * f;
+      return `<text x="${F(x)}" y="${F(y - 5)}" text-anchor="middle" font-size="11.5" font-weight="600" fill="${color}" ${halo}>${esc(texto)}</text>`;
+    };
+    for (const g of r.segs) if (g.tipo === 'ctrl') s += rotulo(g, g.etq, 'var(--muted)');
+    for (const lista of grupos.values()) {
+      const g = lista[0];
+      if (lista.length === 1) s += rotulo(g, g.etq, 'var(--ack)');
+      else {
+        const pre = g.etq.startsWith('ACK') ? 'ACK + ' : '';
+        s += rotulo(g, `${pre}GET 1…${lista.length}`, 'var(--ack)');
+      }
+    }
+
+    // lado del cliente: llaves RTT / X o instantes
+    if (v.anot === 'llaves') {
+      const xB = xC - 14;
+      const llave = (a, b, etq, color, x = xB) => {
+        const ya = Y(a), yb = Y(b);
+        if (yb - ya < 1) return '';
+        let c = `<path d="M${x + 5},${F(ya + 0.8)} H${x} V${F(yb - 0.8)} H${x + 5}" fill="none" stroke="${color}" stroke-width="1.4"/>`;
+        if (etq && yb - ya >= 12) c += `<text x="${x - 6}" y="${F((ya + yb) / 2 + 4)}" text-anchor="end" font-size="11.5" font-family="${mono}" fill="${color}" ${halo}>${esc(etq)}</text>`;
+        return c;
+      };
+      const xs = r.llaves.filter(l => l.clase === 'x' && l.obj !== undefined);
+      const apretado = modo === 'con' && xs.some(l => Y(l.hasta) - Y(l.desde) < 13);
+      for (const l of r.llaves) {
+        const color = l.clase === 'rtt' ? 'var(--muted)' : l.fase === 'html' ? 'var(--html)' : 'var(--trama)';
+        if (apretado && l.clase === 'x' && l.obj !== undefined) continue;
+        s += llave(l.desde, l.hasta, l.etq, color);
+      }
+      if (apretado && xs.length) {
+        s += llave(xs[0].desde, xs.at(-1).hasta, ultimo && ultimo.p.iguales ? 'N·X' : 'ΣXᵢ', 'var(--trama)');
+        for (const l of xs.slice(1)) s += `<line x1="${xB}" y1="${F(Y(l.desde))}" x2="${xB + 4}" y2="${F(Y(l.desde))}" stroke="var(--trama)" stroke-width="1.2"/>`;
+      }
+    } else if (v.anot === 'instantes') {
+      const ts = [];
+      for (const g of r.segs) { if (g.de === 'C') ts.push(g.inicio); else ts.push(g.llegada); }
+      const lista = [...new Set(ts.map(t => Number(t.toPrecision(10))))].sort((a, b) => a - b);
+      let ult = -Infinity;
+      const xEt = xC - 50;
+      for (const t of lista) {
+        const y = Y(t), ly = Math.max(y, ult + 13); ult = ly;
+        s += `<line x1="${xC}" y1="${F(y)}" x2="${xC - 7}" y2="${F(y)}" stroke="var(--fg)" stroke-width="1.2"/>`;
+        s += `<polyline points="${xC - 7},${F(y)} ${xEt + 4},${F(ly)}" fill="none" stroke="var(--muted)" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+        s += `<text x="${xEt}" y="${F(ly + 3.5)}" text-anchor="end" font-size="10.5" font-family="${mono}" fill="var(--muted)">${esc(fmtT(t))}</text>`;
+      }
+    }
+    s += `</g>`;
+
+    // tiempo total
+    if (completo) {
+      const xT = xS + 18, ya = Y(0), yb = Y(r.T);
+      s += `<path d="M${xT - 5},${F(ya)} H${xT} V${F(yb)} H${xT - 5}" fill="none" stroke="var(--fg)" stroke-width="1.5"/>`;
+      s += `<text x="${xT + 7}" y="${F((ya + yb) / 2)}" font-size="13" font-weight="700" fill="var(--fg)">T</text>`;
+      s += `<text x="${xT + 7}" y="${F((ya + yb) / 2 + 15)}" font-size="11" font-family="${mono}" fill="var(--fg)">${esc(fmtT(r.T))}</text>`;
+    }
+    // cursor de tiempo
+    if (tCursor !== null && !completo) {
+      const y = Y(corte);
+      s += `<line x1="${xC - 6}" y1="${F(y)}" x2="${xS + 6}" y2="${F(y)}" stroke="var(--sel)" stroke-width="1.6" stroke-dasharray="5,3"/>`;
+      s += `<text x="${xS + 10}" y="${F(y + 4)}" font-size="11" font-family="${mono}" fill="var(--sel)">${esc(fmtT(corte))}</text>`;
+    }
+    return s;
+  }
+
+  // ------------------------------------------------------------ interfaz
+  const modosVisibles = () => (estado.vista.modos === 'ambos' ? ['sin', 'con'] : [estado.vista.modos]);
+
+  function pintar() {
+    const { p, err, ok } = parametros();
+    for (const z of ['enlace', 'pagina']) { const el = $('#err-' + z); el.hidden = !err[z]; el.textContent = err[z] || ''; }
+    const iguales = estado.pagina.modoTam === 'iguales';
+    $('#fila-N').hidden = !iguales; $('#fila-L').hidden = !iguales;
+    $('#fila-lista').hidden = iguales; $('#nota-lista').hidden = iguales;
+    $('#b-ocultar').textContent = estado.oculto ? L('Mostrar resultados', 'Show results') : L('Ocultar resultados', 'Hide results');
+    guardarLocal();
+    if (!ok) return;
+
+    const res = { sin: MotorHTTP.simular({ ...p, canal: false }), con: MotorHTTP.simular({ ...p, canal: true }) };
+    const fo = formulas(p);
+    ultimo = { p, res, fo };
+    const oc = estado.oculto;
+    const RTT = 2 * p.dp, N = p.bits.length;
+    const sumX = p.bits.reduce((a, b) => a + b, 0) / p.R;
+
+    // resumen
+    // en modo ejercicio solo se muestran los datos del enunciado
+    const datos = oc ? [['R', fmtR(p.R)], ['d_prop', fmtT(p.dp)], ['N', String(N)], p.iguales ? ['L', fmtBits(p.bits[0])] : ['L', p.bits.map(fmtBits).join('; ')]]
+      : [['R', fmtR(p.R)], ['d_prop', fmtT(p.dp)], ['RTT', fmtT(RTT)], ['N', String(N)], p.iguales ? ['X = L/R', fmtT(p.bits[0] / p.R)] : ['ΣXᵢ', fmtT(sumX)]];
+    if (p.tproc > 0) datos.push(['t_proc', fmtT(p.tproc)]);
+    if (!oc) datos.push([L('T sin', 'T without'), fmtT(res.sin.T), 1], [L('T con', 'T with'), fmtT(res.con.T), 1],
+      [L('Ahorro', 'Saving'), fmtT(fo.ahorro), 1], [L('Uso del enlace', 'Link utilization'), pct(res.sin.uso) + ' → ' + pct(res.con.uso)]);
+    $('#resumen').innerHTML = datos.map(([b, v, f]) => `<div class="dato${f ? ' fuerte' : ''}"><b>${esc(b)}</b><span>${esc(v)}</span></div>`).join('');
+
+    // diagrama o enunciado
+    $('#con-diagrama').hidden = oc; $('#sin-diagrama').hidden = !oc;
+    $('#t-pred').hidden = !oc; $('#t-formulas').hidden = oc; $('#t-tabla').hidden = oc;
+    if (oc) { $('#enunciado').innerHTML = enunciado(p); return; }
+
+    const modos = modosVisibles();
+    const tMax = Math.max(...modos.map(m => res[m].T));
+    if (tCursor !== null && tCursor >= tMax - 1e-12) tCursor = null;
+    ultimoSVG = dibujar(res, modos);
+    $('#lienzo').innerHTML = ultimoSVG;
+    const svg = $('#lienzo svg'), W = +svg.getAttribute('width');
+    svg.style.maxWidth = W + 'px'; svg.style.minWidth = Math.round(0.8 * W) + 'px';
+    $('#r-t').value = tCursor === null ? 1000 : Math.round(1000 * tCursor / tMax);
+    $('#r-etq').textContent = 't = ' + fmtT(tCursor === null ? tMax : tCursor);
+    $('#r-play').textContent = animando ? '⏸' : '▶';
+    $('#r-play').setAttribute('aria-label', animando ? L('Pausa', 'Pause') : L('Reproducir', 'Play'));
+
+    const ley = [[`var(--muted)`, L('SYN / SYN+ACK (control TCP)', 'SYN / SYN+ACK (TCP control)'), p.tcp], ['var(--ack)', L('petición GET', 'GET request'), true],
+      ['var(--html)', L('fichero HTML base', 'HTML base file'), true], ['var(--trama)', L('objeto (X = L/R)', 'object (X = L/R)'), true],
+      ['var(--aviso)', L('enlace servidor→cliente ocioso', 'server→client link idle'), estado.vista.ocio]];
+    $('#leyenda').innerHTML = ley.filter(x => x[2]).map(([c, t]) => `<span><i style="background:${c};opacity:.75"></i>${esc(t)}</span>`).join('');
+
+    // fórmulas
+    $('#formulas').innerHTML = ['sin', 'con'].map(m => `<div><h3 class="mod">${esc(m === 'sin' ? L('Sin canalización', 'Without pipelining') : L('Con canalización', 'With pipelining'))}</h3>
+      <div class="form"><span></span><span>${esc(fo[m].sim)}</span><span class="ig">=</span><span>${esc(fo[m].num)}</span><span class="ig">=</span><span class="res">${esc(fmtT(fo[m].T))}</span></div></div>`).join('');
+    $('#ahorro').innerHTML = `${esc(L('Ahorro de la canalización', 'Saving with pipelining'))}: <b>${esc(fo.ahorroSim)} = ${esc(fo.ahorroNum)} = ${esc(fmtT(fo.ahorro))}</b>. ${esc(L(`El enlace servidor→cliente está ocupado ΣXᵢ = ${fmtT(sumX)} con los objetos en ambos casos: lo que cambia es el tiempo que pasa parado esperando peticiones.`, `The server→client link is busy for ΣXᵢ = ${fmtT(sumX)} with the objects in both cases: what changes is how long it sits idle waiting for requests.`))}`;
+
+    // tablas
+    const fila = (f, i) => {
+      const pend = tCursor !== null && f.rx > tCursor + 1e-12;
+      return `<tr class="${pend ? 'pend' : ''}"><td>${f.obj === 'html' ? 'HTML' : L('obj ', 'obj ') + (f.obj + 1)}</td><td class="n">${esc(fmtT(f.get))}</td><td class="n">${esc(fmtT(f.txIni))}</td><td class="n">${esc(fmtT(f.txFin))}</td><td class="n">${esc(fmtT(f.rx))}</td></tr>`;
+    };
+    $('#tablas').innerHTML = ['sin', 'con'].map(m => `<div><h3 class="mod">${esc(m === 'sin' ? L('Sin canalización', 'Without pipelining') : L('Con canalización', 'With pipelining'))}</h3><div class="tabla"><table><thead><tr>
+      <th></th><th class="n">${L('Sale GET', 'GET sent')}</th><th class="n">${L('Inicio tx', 'Tx start')}</th><th class="n">${L('Fin tx', 'Tx end')}</th><th class="n">${L('Recibido', 'Received')}</th></tr></thead>
+      <tbody>${res[m].filas.map(fila).join('')}</tbody></table></div></div>`).join('');
+  }
+
+  function enunciado(p) {
+    const N = p.bits.length;
+    const tam = p.iguales ? L(`${N} objetos de <code>${esc(fmtBits(p.bits[0]))}</code> cada uno`, `${N} objects of <code>${esc(fmtBits(p.bits[0]))}</code> each`)
+      : L(`${N} objetos de tamaños <code>${esc(p.bits.map(fmtBits).join('; '))}</code>`, `${N} objects of sizes <code>${esc(p.bits.map(fmtBits).join('; '))}</code>`);
+    let t = L(`Una página web contiene ${tam}, alojados en el mismo servidor que el HTML base. El enlace cliente–servidor tiene <code>R = ${esc(fmtR(p.R))}</code> y <code>d_prop = ${esc(fmtT(p.dp))}</code>.`,
+      `A web page contains ${tam}, hosted on the same server as the HTML base file. The client–server link has <code>R = ${esc(fmtR(p.R))}</code> and <code>d_prop = ${esc(fmtT(p.dp))}</code>.`);
+    t += ' ' + (p.tcp ? L('Cuenta el establecimiento de la conexión TCP (la primera petición viaja con el ACK).', 'Include the TCP connection setup (the first request travels with the ACK).') : L('La conexión TCP ya está abierta.', 'The TCP connection is already open.'));
+    t += ' ' + L(`El fichero HTML base ocupa <code>${esc(fmtBits(p.htmlBits))}</code> y hay que descargarlo antes de pedir los objetos.`, `The HTML base file is <code>${esc(fmtBits(p.htmlBits))}</code> and must be downloaded before requesting the objects.`);
+    if (p.tproc > 0) t += ' ' + L(`El servidor tarda <code>t_proc = ${esc(fmtT(p.tproc))}</code> en preparar cada respuesta.`, `The server needs <code>t_proc = ${esc(fmtT(p.tproc))}</code> to prepare each response.`);
+    t += ' ' + L('¿Cuánto tarda en descargarse la página con HTTP persistente sin canalización y con canalización?', 'How long does the page take to download with persistent HTTP without and with pipelining?');
+    return t;
+  }
+
+  // ------------------------------------------------------------ enlaces de controles
+  function rellenar() {
+    document.querySelectorAll('#panel [data-k]').forEach(el => {
+      const v = leer(el.dataset.k);
+      if (el.classList.contains('seg')) marcarSeg(el, v);
+      else if (el.type === 'checkbox') el.checked = !!v;
+      else el.value = v;
+    });
+  }
+  function marcarSeg(el, v) { el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
+  $('#panel').addEventListener('input', e => {
+    const el = e.target.closest('[data-k]'); if (!el) return;
+    escribir(el.dataset.k, el.type === 'checkbox' ? el.checked : el.type === 'range' ? Number(el.value) : el.value);
+    if (el.dataset.k !== 'vista.alto' && el.dataset.k !== 'vista.uT') parar(), tCursor = null;
+    pintar();
+  });
+  $('#panel').addEventListener('click', e => {
+    const b = e.target.closest('.seg[data-k] button'); if (!b) return;
+    const seg = b.closest('.seg');
+    escribir(seg.dataset.k, b.dataset.v); marcarSeg(seg, b.dataset.v);
+    if (seg.dataset.k === 'pagina.modoTam') { parar(); tCursor = null; }
+    pintar();
+  });
+
+  // ------------------------------------------------------------ reproducción
+  function eventos() {
+    if (!ultimo) return [];
+    const ts = new Set([0]);
+    for (const m of modosVisibles()) for (const g of ultimo.res[m].segs) for (const t of [g.inicio, g.finTx, g.primerBit, g.llegada]) ts.add(Number(t.toPrecision(12)));
+    return [...ts].sort((a, b) => a - b);
+  }
+  const tMaxVis = () => (ultimo ? Math.max(...modosVisibles().map(m => ultimo.res[m].T)) : 0);
+  function irA(t) { const M = tMaxVis(); tCursor = t >= M - 1e-12 ? null : Math.max(0, t); pintar(); }
+  function parar() { if (animando) cancelAnimationFrame(animando.id); animando = null; }
+  function reproducir() {
+    if (animando) { parar(); pintar(); return; }
+    const M = tMaxVis(); if (!(M > 0)) return;
+    if (reduceMov) { irA(siguiente()); return; }
+    const t0 = tCursor === null ? 0 : tCursor, dur = 9000 * (1 - t0 / M) || 1, ini = performance.now();
+    const paso = ahora => {
+      const f = Math.min(1, (ahora - ini) / dur);
+      tCursor = t0 + (M - t0) * f;
+      if (f >= 1) { animando = null; tCursor = null; pintar(); return; }
+      animando.id = requestAnimationFrame(paso); pintar();
+    };
+    animando = { id: requestAnimationFrame(paso) };
+    tCursor = t0; pintar();
+  }
+  const siguiente = () => { const ev = eventos(), t = tCursor === null ? -1 : tCursor; return ev.find(x => x > t + 1e-12) ?? tMaxVis(); };
+  const anterior = () => { const ev = eventos(), t = tCursor === null ? tMaxVis() : tCursor; return [...ev].reverse().find(x => x < t - 1e-12) ?? 0; };
+  $('#r-play').addEventListener('click', reproducir);
+  $('#r-ini').addEventListener('click', () => { parar(); irA(0); });
+  $('#r-fin').addEventListener('click', () => { parar(); irA(Infinity); });
+  $('#r-sig').addEventListener('click', () => { parar(); irA(tCursor === null ? 0 : siguiente()); });
+  $('#r-ant').addEventListener('click', () => { parar(); irA(anterior()); });
+  $('#r-t').addEventListener('input', e => { parar(); irA(tMaxVis() * Number(e.target.value) / 1000); });
+
+  // ------------------------------------------------------------ ejercicios
+  const azar = a => a[Math.floor(Math.random() * a.length)];
+  $('#b-ejercicio').addEventListener('click', () => {
+    parar(); tCursor = null;
+    Object.assign(estado.enlace, { R: azar(['1', '2', '5', '10', '20', '100']), uR: 'Mbps', dprop: azar(['5', '10', '15', '20', '25', '40', '50']), uProp: 'ms' });
+    Object.assign(estado.pagina, { modoTam: 'iguales', N: azar(['3', '4', '5', '6', '8', '10']), L: azar(['10', '20', '25', '50', '100', '125', '250']), uL: 'KB', html: azar(['5', '10', '20', '25', '50']), uHtml: 'KB' });
+    estado.oculto = true;
+    $('#pr-sin').value = ''; $('#pr-con').value = ''; $('#fb-sin').textContent = ''; $('#fb-con').textContent = '';
+    rellenar(); pintar();
+    toast(L('Nuevo ejercicio generado', 'New exercise generated'));
+  });
+  $('#b-ocultar').addEventListener('click', () => { estado.oculto = !estado.oculto; parar(); tCursor = null; pintar(); });
+  $('#b-solucion').addEventListener('click', () => { estado.oculto = false; pintar(); $('#lienzo').scrollIntoView({ behavior: reduceMov ? 'auto' : 'smooth', block: 'nearest' }); });
+  $('#b-comprobar').addEventListener('click', () => {
+    if (!ultimo) return;
+    const u = U_T[$('#pr-u').value];
+    for (const m of ['sin', 'con']) {
+      const el = $('#fb-' + m), v = num($('#pr-' + m).value) * u, T = ultimo.res[m].T;
+      const nombre = m === 'sin' ? L('Sin canalización', 'Without pipelining') : L('Con canalización', 'With pipelining');
+      if (!Number.isFinite(v)) { el.className = 'fb'; el.textContent = nombre + ': ' + L('escribe un valor.', 'enter a value.'); continue; }
+      if (Math.abs(v - T) <= 0.005 * T + 1e-12) { el.className = 'fb ok'; el.textContent = `✓ ${nombre}: ${L('correcto', 'correct')} (T = ${fmtT(T)}).`; continue; }
+      el.className = 'fb ko';
+      el.textContent = `✗ ${nombre}: ${L('no coincide.', 'does not match.')} ${pista(m, v) || L('Revisa qué tramos se repiten por cada objeto.', 'Check which parts repeat for every object.')}`;
+    }
+  });
+  // Errores típicos: si la respuesta coincide con una variante del problema, se da una pista concreta
+  function pista(m, v) {
+    const p = { ...ultimo.p, canal: m === 'con' };
+    const cerca = q => { const T = MotorHTTP.formula(q); return Math.abs(v - T) <= 0.005 * T + 1e-12; };
+    if (p.tcp && cerca({ ...p, tcp: false })) return L('¿Has contado el RTT del establecimiento de la conexión TCP?', 'Did you count the RTT of the TCP connection setup?');
+    if (cerca({ ...p, dp: p.dp / 2 })) return L('Recuerda que RTT = 2·d_prop (ida y vuelta).', 'Remember that RTT = 2·d_prop (there and back).');
+    if (cerca({ ...p, canal: !p.canal })) return m === 'con' ? L('Eso es lo que tarda sin canalización: con canalización las peticiones no esperan a la respuesta anterior.', 'That is the time without pipelining: with pipelining the requests do not wait for the previous response.') : L('Eso es lo que tarda con canalización: sin ella, cada petición espera a que llegue el objeto anterior.', 'That is the time with pipelining: without it, every request waits for the previous object.');
+    if (p.tproc > 0 && cerca({ ...p, tproc: 0 })) return L('Falta el tiempo de procesamiento del servidor.', 'The server processing time is missing.');
+    if (p.html && cerca({ ...p, html: false })) return L('Falta la descarga del HTML base.', 'The HTML base download is missing.');
+    if (cerca({ ...p, R: p.R * 8 }) || cerca({ ...p, R: p.R / 8 })) return L('Revisa el paso de bytes a bits en X = L/R.', 'Check the bytes-to-bits conversion in X = L/R.');
+    return '';
+  }
+
+  // ------------------------------------------------------------ exportar
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('vis'), 1800); }
+  function svgExportable() {
+    const cs = getComputedStyle(document.documentElement);
+    const color = n => (estado.vista.claro ? CLARO[n] : cs.getPropertyValue(n).trim()) || '#000';
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ultimoSVG.replace(/var\((--[\w-]+)\)/g, (_, n) => color(n));
+  }
+  function descargar(blob, nombreArchivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nombreArchivo;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  const sinDiagrama = () => { if (estado.oculto || !ultimoSVG) { toast(L('Muestra los resultados para exportar el diagrama', 'Show the results to export the diagram')); return true; } return false; };
+  $('#b-svg').addEventListener('click', () => { if (!sinDiagrama()) descargar(new Blob([svgExportable()], { type: 'image/svg+xml' }), L('http-persistente', 'persistent-http') + '.svg'); });
+  $('#b-png').addEventListener('click', () => {
+    if (sinDiagrama()) return;
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svgExportable()], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      const c = document.createElement('canvas'), f = 2;
+      c.width = img.width * f; c.height = img.height * f;
+      const ctx = c.getContext('2d'); ctx.scale(f, f); ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b && descargar(b, L('http-persistente', 'persistent-http') + '.png'), 'image/png');
+    };
+    img.onerror = () => toast(L('No se pudo generar el PNG', 'Could not create the PNG'));
+    img.src = url;
+  });
+  $('#b-json').addEventListener('click', () => descargar(new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' }), L('escenario-http', 'http-scenario') + '.json'));
+  $('#b-cargar').addEventListener('click', () => $('#f-archivo').click());
+  $('#f-archivo').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const s = normalizar(JSON.parse(await f.text()));
+      if (!s) throw new Error();
+      s.vista.idioma = estado.vista.idioma;
+      estado = s; parar(); tCursor = null; rellenar(); pintar(); toast(L('Escenario cargado', 'Scenario loaded'));
+    } catch { toast(L('El fichero no es un escenario válido', 'The file is not a valid scenario')); }
+  });
+  $('#b-reset').addEventListener('click', () => { const i = estado.vista.idioma; estado = base(); estado.vista.idioma = i; parar(); tCursor = null; rellenar(); pintar(); });
+
+  // ------------------------------------------------------------ idioma
+  const ORIG = new WeakMap();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'Persistent HTTP' : 'HTTP persistente';
+    marcarSeg($('#idioma'), estado.vista.idioma);
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 't', el.textContent); el.textContent = en ? el.dataset.en : es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+  }
+  $('#idioma').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    estado.vista.idioma = b.dataset.v;
+    aplicarIdioma(); pintar();
+  });
+
+  rellenar();
+  aplicarIdioma();
+  pintar();
+})();
+</script>

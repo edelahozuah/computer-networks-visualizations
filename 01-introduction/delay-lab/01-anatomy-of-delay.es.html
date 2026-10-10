@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomía del retardo</title>
+<meta name="description" content="Retardo de transmisión frente a retardo de propagación en un enlace A–B: dónde están el primer y el último bit (problema P6, Kurose). AR1, sesión S1.2.">
+<style>
+/* =====================================================================
+   RETARDOS · base común
+   Copiar este bloque <style> íntegro en cada visualización.
+   Paleta validada (CVD y contraste) en claro y oscuro.
+   ===================================================================== */
+:root {
+  color-scheme: light;
+  --surface: #f4f6f9;      /* fondo de página */
+  --panel: #ffffff;        /* paneles y escenario */
+  --ink: #14213d;          /* texto principal */
+  --ink-2: #5b6478;        /* texto secundario, ejes */
+  --rule: #d7dde8;         /* líneas de rejilla, bordes */
+  --rule-strong: #9aa5b8;  /* regla, ejes principales */
+  --packet: #e0602c;       /* cuerpo del paquete / bits de datos */
+  --head: #2a78d6;         /* primer bit (cabeza) */
+  --tail: #4a3aa7;         /* último bit (cola) */
+  --ack: #159c6b;          /* reconocimientos (ACK) */
+  --focus: #2a78d6;
+  --link-fill: #e9edf3;    /* interior de la tubería vacía */
+  --radius: 6px;
+  --fs: 18px;              /* tamaño base: pensado para proyectar */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #16191f; --panel: #1f242d; --ink: #eef1f6; --ink-2: #aab3c2;
+    --rule: #343b48; --rule-strong: #6b7590; --packet: #d95926; --head: #3987e5;
+    --tail: #9085e9; --ack: #199e70; --focus: #3987e5; --link-fill: #262c37;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #16191f; --panel: #1f242d; --ink: #eef1f6; --ink-2: #aab3c2;
+  --rule: #343b48; --rule-strong: #6b7590; --packet: #d95926; --head: #3987e5;
+  --tail: #9085e9; --ack: #199e70; --focus: #3987e5; --link-fill: #262c37;
+}
+
+* { box-sizing: border-box; }
+html { font-size: var(--fs); }
+body {
+  margin: 0; background: var(--surface); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums; line-height: 1.45;
+}
+.page { max-width: 1400px; margin: 0 auto; padding: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; margin-bottom: 12px; }
+header.top h1 { font-size: 1.5rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+header.top .sub { color: var(--ink-2); margin: 0; }
+header.top .tools { margin-left: auto; display: flex; gap: 8px; }
+
+/* Rejilla general: escenario arriba a todo el ancho; debajo controles + diagrama */
+.grid { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 16px; }
+.stage { grid-column: 1 / -1; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 16px; }
+.panel h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
+
+/* Controles */
+.field { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; margin: 8px 0; }
+.field label { color: var(--ink-2); }
+.field output { font-weight: 600; justify-self: end; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--head); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+button, .btn {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); padding: 6px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-2); }
+button[aria-pressed="true"], .btn.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+button.primary { background: var(--head); color: #fff; border-color: var(--head); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Lecturas numéricas */
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin-top: 8px; }
+.readout .k { color: var(--ink-2); font-size: 0.85rem; }
+.readout .v { font-size: 1.25rem; font-weight: 600; }
+.readout .v.head { color: var(--head); } .readout .v.tail { color: var(--tail); }
+/* Modo predicción: se ocultan los valores hasta pulsar «Revelar» */
+:root[data-predict="on"] .readout .v, :root[data-predict="on"] .reveal { visibility: hidden; }
+:root[data-predict="on"] .readout::after { content: "?"; color: var(--ink-2); font-size: 1.25rem; font-weight: 600; margin-top: -1.8rem; display: block; }
+
+/* Línea de tiempo (scrubber) */
+.timeline { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: center; margin-top: 10px; }
+.timeline input[type=range] { width: 100%; accent-color: var(--ink); }
+.timeline .t { min-width: 9ch; font-weight: 600; }
+.keyframes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.keyframes button { padding: 4px 10px; font-size: 0.9rem; }
+.speed { color: var(--ink-2); font-size: 0.9rem; }
+
+/* SVG */
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: inherit; font-size: 15px; fill: var(--ink); }
+svg text.muted { fill: var(--ink-2); font-size: 13px; }
+.axis line, .axis path { stroke: var(--rule-strong); stroke-width: 1; }
+.grid-line { stroke: var(--rule); stroke-width: 1; }
+.link-pipe { fill: var(--link-fill); stroke: var(--rule-strong); stroke-width: 1.5; }
+.host { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.packet { fill: var(--packet); }
+.bit-head { fill: var(--head); } .bit-tail { fill: var(--tail); }
+.ack { fill: var(--ack); stroke: var(--ack); }
+.now-line { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.st-data { stroke: var(--packet); fill: var(--packet); fill-opacity: 0.18; stroke-width: 1.5; }
+.st-ack { stroke: var(--ack); stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+.marker-label { font-weight: 600; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--ink-2); font-size: 0.9rem; margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; background: var(--c); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+/* =====================================================================
+   Estilos propios de esta pieza (01 · anatomía del retardo).
+   Solo añaden clases nuevas; no redefinen tokens ni clases de la base.
+   ===================================================================== */
+.stage-svg-wrap { position: relative; }
+.regime-box { margin: 10px 0 4px; }
+.regime { font-size: 1.4rem; font-weight: 600; margin: 0; line-height: 1.3; }
+.regime-sub { color: var(--ink-2); margin: 2px 0 0; }
+.answer { border-left: 4px solid var(--head); background: var(--surface); padding: 8px 12px; margin: 10px 0 4px; border-radius: 0 var(--radius) var(--radius) 0; font-size: 1.1rem; }
+.answer.idle { border-left-color: var(--rule-strong); color: var(--ink-2); font-size: 1rem; }
+.answer strong { font-weight: 600; }
+.answer .h { color: var(--head); } .answer .tl { color: var(--tail); }
+.pred-ph { display: none; color: var(--ink-2); margin: 0; font-size: 1.1rem; }
+:root[data-predict="on"] .pred-ph { display: block; }
+:root[data-predict="on"] .hide-pred { display: none; }
+.status { display: flex; flex-wrap: wrap; gap: 2px 18px; color: var(--ink-2); font-size: 0.9rem; margin: 6px 0 0; }
+.status b { color: var(--ink); font-weight: 600; }
+.row-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; margin-top: 8px; }
+.row-tools .keyframes { margin-top: 0; }
+.keyframes button.cur { border-color: var(--head); box-shadow: inset 0 -3px 0 var(--head); }
+.keyframes button:disabled { opacity: 0.45; cursor: not-allowed; }
+.kf-k { display: inline-block; min-width: 1.3em; padding: 0 3px; margin-right: 4px; border: 1px solid var(--rule-strong); border-radius: 3px; font-size: 0.75rem; text-align: center; color: var(--ink-2); }
+.hint { color: var(--ink-2); font-size: 0.85rem; margin: 6px 0 0; }
+.lupa-box { margin-top: 10px; border-top: 1px dashed var(--rule); padding-top: 8px; }
+.lupa-cap { color: var(--ink-2); font-size: 0.9rem; margin: 0 0 4px; }
+.readout .x { color: var(--ink-2); font-size: 0.8rem; }
+.field .unit-note { grid-column: 1 / -1; color: var(--ink-2); font-size: 0.8rem; }
+#btnReveal2 { margin-top: 6px; }
+#btnReveal { margin-top: 10px; }
+.speed { white-space: nowrap; }
+
+/* SVG propios */
+svg .st-head { stroke: var(--head); stroke-width: 2.5; fill: none; }
+svg .st-tail { stroke: var(--tail); stroke-width: 2.5; fill: none; }
+svg .st-slice { stroke: var(--packet); stroke-width: 6; stroke-linecap: butt; }
+svg .guide { stroke: var(--rule-strong); stroke-width: 1; stroke-dasharray: 2 3; fill: none; }
+svg .dot-head { fill: var(--head); stroke: var(--panel); stroke-width: 1.5; }
+svg .dot-tail { fill: var(--tail); stroke: var(--panel); stroke-width: 1.5; }
+svg text.st-lab { font-size: 14px; fill: var(--ink); }
+svg text.lupa-t { font-size: 13px; fill: var(--ink-2); }
+svg .edge { stroke: var(--ink); stroke-width: 2; }
+.legend span.ln::before { height: 4px; vertical-align: 3px; border-radius: 2px; }
+
+/* Calculadora */
+.calc { grid-column: 1 / -1; }
+.calc-intro { color: var(--ink-2); margin: 0 0 8px; font-size: 0.9rem; }
+.calc-grid { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 16px 24px; }
+@media (max-width: 900px) { .calc-grid { grid-template-columns: 1fr; } }
+.cfield { margin: 0 0 10px; }
+.cfield label { display: block; color: var(--ink-2); margin-bottom: 2px; }
+.cfield .row { display: flex; gap: 6px; }
+.cfield input, .cfield select {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); padding: 5px 8px; min-width: 0;
+}
+.cfield input { flex: 1 1 auto; width: 100%; }
+.cfield select { flex: 0 0 auto; }
+.cfield input[aria-invalid="true"] { border-color: var(--packet); border-width: 2px; }
+.cfield .parsed { color: var(--ink-2); font-size: 0.8rem; min-height: 1.2em; }
+.cfield .parsed.err { color: var(--packet); font-weight: 600; }
+.calc-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.calc .regime { font-size: 1.2rem; }
+
+@media (max-width: 600px) {
+  .timeline { grid-template-columns: auto auto 1fr; }
+  .timeline .speed { grid-column: 1 / -1; }
+  .regime { font-size: 1.2rem; }
+  header.top .tools { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Anatomía del retardo</h1>
+    <p class="sub">Transmisión frente a propagación: ¿dónde están el primer y el último bit? · problema P6 (Kurose)</p>
+    <div class="tools">
+      <button id="btnPredict" aria-pressed="false" title="Oculta los valores numéricos y las respuestas hasta revelarlos">Modo predicción</button>
+      <button id="btnTheme" title="Alternar claro / oscuro">Tema</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="stage panel" aria-labelledby="stageTitle">
+      <h2 id="stageTitle">Enlace A → B, dibujado a escala</h2>
+      <svg id="stage" viewBox="0 0 1200 170" role="img" aria-label="Tubería del enlace entre A y B con el paquete en tránsito"></svg>
+
+      <div class="regime-box">
+        <p class="regime hide-pred" id="regime"></p>
+        <p class="regime-sub hide-pred" id="regimeSub"></p>
+        <p class="pred-ph">¿El paquete es más corto o más largo que el enlace? Haz tu predicción antes de revelar.<br><button type="button" id="btnReveal2">Revelar valores</button></p>
+      </div>
+      <div class="answer idle" id="answer"></div>
+      <p class="status" id="status"></p>
+
+      <div class="legend">
+        <span style="--c: var(--packet)">bits del paquete en el enlace</span>
+        <span style="--c: var(--head)">primer bit (cabeza)</span>
+        <span style="--c: var(--tail)">último bit (cola)</span>
+      </div>
+      <div class="timeline">
+        <button id="btnPlay" class="primary" aria-label="Reproducir o pausar (espacio)">▶</button>
+        <span class="t" id="tNow" aria-live="off">t = 0 s</span>
+        <input id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="Instante de tiempo">
+        <span class="speed" id="speed"></span>
+      </div>
+      <div class="row-tools">
+        <div class="keyframes" id="keyframes" role="group" aria-label="Instantes clave"></div>
+        <button id="btnLupa" aria-pressed="false" hidden title="Amplía el tramo alrededor del primer bit y dibuja los bits uno a uno">Lupa</button>
+      </div>
+      <div class="lupa-box" id="lupaBox" hidden>
+        <p class="lupa-cap" id="lupaCap"></p>
+        <svg id="lupa" viewBox="0 0 1200 116" role="img" aria-label="Ampliación del enlace alrededor del primer bit, con los bits individuales"></svg>
+      </div>
+      <p class="hint">Teclado: espacio reproduce o pausa · flechas avanzan o retroceden · Inicio / Fin · 1–4 saltan a los instantes clave.</p>
+      <p class="visually-hidden" id="live" aria-live="polite"></p>
+    </section>
+
+    <aside class="panel" aria-labelledby="ctlTitle">
+      <h2 id="ctlTitle">Parámetros</h2>
+      <div class="presets" id="presets" role="group" aria-label="Datos predefinidos"></div>
+      <div class="field"><label for="L">Tamaño del paquete, L</label><output id="Lout" for="L"></output>
+        <input id="L" type="range" min="0" max="6" step="0.01" value="2.079"></div>
+      <div class="field"><label for="R">Tasa de transmisión, R</label><output id="Rout" for="R"></output>
+        <input id="R" type="range" min="3" max="9" step="0.01" value="4.748"></div>
+      <div class="field"><label for="l">Longitud del enlace, l</label><output id="lout" for="l"></output>
+        <input id="l" type="range" min="0" max="7.60206" step="0.01" value="5.729"></div>
+      <div class="field"><label for="vp">Velocidad de propagación, v<sub>p</sub></label><output id="vpout" for="vp"></output>
+        <input id="vp" type="range" min="8.30103" max="8.47712" step="0.001" value="8.39794"></div>
+      <div class="readouts">
+        <div class="readout"><div class="k">d<sub>trans</sub> = L / R</div><div class="v" id="dtrans"></div></div>
+        <div class="readout"><div class="k">d<sub>prop</sub> = l / v<sub>p</sub></div><div class="v" id="dprop"></div></div>
+        <div class="readout"><div class="k">extremo a extremo = d<sub>trans</sub> + d<sub>prop</sub></div><div class="v" id="dtot"></div></div>
+        <div class="readout"><div class="k">longitud del paquete = v<sub>p</sub>·L / R</div><div class="v" id="plen"></div></div>
+        <div class="readout"><div class="k">equilibrio: l para d<sub>prop</sub> = d<sub>trans</sub></div><div class="v" id="deq"></div></div>
+      </div>
+      <button id="btnReveal" hidden>Revelar valores</button>
+    </aside>
+
+    <section class="panel" aria-labelledby="stTitle">
+      <h2 id="stTitle">Diagrama espacio-tiempo</h2>
+      <svg id="st" viewBox="0 0 520 360" role="img" aria-label="Diagrama espacio-tiempo del envío: A a la izquierda, B a la derecha, el tiempo crece hacia abajo"></svg>
+      <div class="legend">
+        <span style="--c: var(--packet)">paquete ocupando el enlace</span>
+        <span class="ln" style="--c: var(--head)">primer bit</span>
+        <span class="ln" style="--c: var(--tail)">último bit</span>
+        <span class="ln" style="--c: var(--ink)">ahora (línea discontinua)</span>
+      </div>
+    </section>
+
+    <section class="panel calc" aria-labelledby="calcTitle">
+      <h2 id="calcTitle">Calculadora</h2>
+      <p class="calc-intro">Introduce los datos de cualquier problema para verificarlo. Admite coma decimal y notación 2,5·10^8 o 2.5e8. Sin procesamiento ni colas.</p>
+      <div class="calc-grid">
+        <form id="calcForm" novalidate>
+          <div class="cfield"><label for="cL">Tamaño del paquete, L</label>
+            <div class="row"><input id="cL" type="text" inputmode="decimal" autocomplete="off" value="120" aria-describedby="cLp">
+              <select id="cLu" aria-label="Unidad de L"><option value="1" selected>bits</option><option value="1e3">kbit</option><option value="1e6">Mbit</option></select></div>
+            <div class="parsed" id="cLp"></div></div>
+          <div class="cfield"><label for="cR">Tasa de transmisión, R</label>
+            <div class="row"><input id="cR" type="text" inputmode="decimal" autocomplete="off" value="56" aria-describedby="cRp">
+              <select id="cRu" aria-label="Unidad de R"><option value="1">bps</option><option value="1e3" selected>kbps</option><option value="1e6">Mbps</option><option value="1e9">Gbps</option></select></div>
+            <div class="parsed" id="cRp"></div></div>
+          <div class="cfield"><label for="cl">Longitud del enlace, l</label>
+            <div class="row"><input id="cl" type="text" inputmode="decimal" autocomplete="off" value="535714" aria-describedby="clp">
+              <select id="clu" aria-label="Unidad de l"><option value="1" selected>m</option><option value="1e3">km</option></select></div>
+            <div class="parsed" id="clp"></div></div>
+          <div class="cfield"><label for="cv">Velocidad de propagación, v<sub>p</sub> (m/s)</label>
+            <div class="row"><input id="cv" type="text" inputmode="decimal" autocomplete="off" value="2,5·10^8" aria-describedby="cvp"></div>
+            <div class="parsed" id="cvp"></div></div>
+          <div class="calc-btns">
+            <button type="button" id="cFromAnim">Copiar de la animación</button>
+            <button type="button" id="cToAnim">Llevar a la animación</button>
+          </div>
+        </form>
+        <div>
+          <div class="readouts" id="cOut">
+            <div class="readout"><div class="k">d<sub>trans</sub> = L / R</div><div class="v" id="cdT"></div><div class="x reveal" id="cdTx"></div></div>
+            <div class="readout"><div class="k">d<sub>prop</sub> = l / v<sub>p</sub></div><div class="v" id="cdP"></div><div class="x reveal" id="cdPx"></div></div>
+            <div class="readout"><div class="k">extremo a extremo</div><div class="v" id="cT"></div><div class="x reveal" id="cTx"></div></div>
+            <div class="readout"><div class="k">longitud del paquete v<sub>p</sub>·L/R</div><div class="v" id="cpl"></div><div class="x reveal" id="cplx"></div></div>
+          </div>
+          <div class="regime-box">
+            <p class="regime hide-pred" id="cRegime"></p>
+            <p class="regime-sub hide-pred" id="cRegimeSub"></p>
+            <p class="pred-ph">Régimen y respuesta ocultos en modo predicción.</p>
+          </div>
+          <div class="answer hide-pred" id="cAnswer"></div>
+          <svg id="cst" viewBox="0 0 640 380" role="img" aria-label="Diagrama espacio-tiempo estático con los cuatro instantes clave marcados"></svg>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   RT · utilidades comunes. Copiar íntegro en cada visualización.
+   ===================================================================== */
+const RT = (() => {
+  const nf = (d) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const sig = (x, n = 3) => { if (x === 0) return '0'; const d = Math.max(0, n - 1 - Math.floor(Math.log10(Math.abs(x)))); return nf(d).format(x); };
+  const fmt = {
+    time: (s) => s === 0 ? '0' : s >= 1 ? `${sig(s)} s` : s >= 1e-3 ? `${sig(s * 1e3)} ms` : s >= 1e-6 ? `${sig(s * 1e6)} µs` : `${sig(s * 1e9)} ns`,
+    dist: (m) => m === 0 ? '0' : Math.abs(m) >= 1000 ? `${sig(m / 1000)} km` : m >= 1 ? `${sig(m)} m` : `${sig(m * 100)} cm`,
+    bits: (b) => b >= 1e6 ? `${sig(b / 1e6)} Mbit` : b >= 1e3 ? `${sig(b / 1e3)} kbit` : `${nf(0).format(b)} bits`,
+    bitsExact: (b) => `${nf(0).format(b)} bits`,
+    rate: (r) => r >= 1e9 ? `${sig(r / 1e9)} Gbps` : r >= 1e6 ? `${sig(r / 1e6)} Mbps` : r >= 1e3 ? `${sig(r / 1e3)} kbps` : `${sig(r)} bps`,
+    speed: (v) => `${sig(v / 1e8)}·10⁸ m/s`,
+    num: (x, d = 2) => nf(d).format(x),
+  };
+
+  /* Tema y modo predicción, persistidos por navegador (opcional, protegido) */
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  const root = document.documentElement;
+  function initChrome({ theme = 'btnTheme', predict = 'btnPredict', reveal = 'btnReveal' } = {}) {
+    const t = store.get('rt-theme'); if (t) root.dataset.theme = t;
+    const bt = document.getElementById(theme);
+    if (bt) bt.addEventListener('click', () => {
+      const dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+      root.dataset.theme = dark ? 'light' : 'dark'; store.set('rt-theme', root.dataset.theme);
+    });
+    const bp = document.getElementById(predict), br = document.getElementById(reveal);
+    const setPredict = (on) => { root.dataset.predict = on ? 'on' : 'off'; if (bp) bp.setAttribute('aria-pressed', String(on)); if (br) br.hidden = !on; };
+    if (bp) bp.addEventListener('click', () => setPredict(root.dataset.predict !== 'on'));
+    if (br) br.addEventListener('click', () => setPredict(false));
+  }
+
+  /* Reloj de animación: tiempo simulado en segundos, cámara lenta explícita */
+  function Clock({ duration, onTick, slow = 1, playBtn, scrub, tLabel, speedLabel, keyframesEl }) {
+    let t = 0, playing = false, last = null, raf = null, keyframes = [];
+    const st = { get t() { return t; }, get duration() { return duration; } };
+    function set(x, emit = true) { t = Math.max(0, Math.min(duration, x)); if (scrub) scrub.value = Math.round(1000 * t / duration); if (tLabel) tLabel.textContent = `t = ${fmt.time(t)}`; if (emit) onTick(t); }
+    function frame(now) { if (!playing) return; if (last != null) set(t + (now - last) / 1000 / slow); last = now; if (t >= duration) { pause(); return; } raf = requestAnimationFrame(frame); }
+    function play() { if (t >= duration) set(0); playing = true; last = null; if (playBtn) playBtn.textContent = '❚❚'; raf = requestAnimationFrame(frame); }
+    function pause() { playing = false; last = null; if (raf) cancelAnimationFrame(raf); if (playBtn) playBtn.textContent = '▶'; }
+    function toggle() { playing ? pause() : play(); }
+    function setDuration(d) { duration = d; set(Math.min(t, d)); renderSpeed(); }
+    function setSlow(s) { slow = s; renderSpeed(); }
+    function renderSpeed() { if (speedLabel) speedLabel.textContent = slow === 1 ? 'tiempo real' : `cámara lenta ×${fmt.num(slow, 0)}`; }
+    function setKeyframes(list) {  // [{label, t}]
+      keyframes = list; if (!keyframesEl) return; keyframesEl.replaceChildren();
+      list.forEach(k => { const b = document.createElement('button'); b.textContent = k.label; b.addEventListener('click', () => { pause(); set(k.t); }); keyframesEl.appendChild(b); });
+    }
+    if (playBtn) playBtn.addEventListener('click', toggle);
+    if (scrub) scrub.addEventListener('input', () => { pause(); set(scrub.value / 1000 * duration); });
+    document.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, textarea, select, button, a, summary')) return;
+      if (e.key === ' ') { e.preventDefault(); toggle(); }
+      else if (e.key === 'ArrowRight') { pause(); set(t + duration / 100); }
+      else if (e.key === 'ArrowLeft') { pause(); set(t - duration / 100); }
+      else if (e.key === 'Home') { pause(); set(0); } else if (e.key === 'End') { pause(); set(duration); }
+      else if (/^[1-9]$/.test(e.key) && keyframes[e.key - 1]) { pause(); set(keyframes[e.key - 1].t); }
+    });
+    renderSpeed();
+    return Object.assign(st, { set, play, pause, toggle, setDuration, setSlow, setKeyframes });
+  }
+
+  /* SVG helpers */
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); for (const k of kids) e.append(k); return e; };
+  const scale = (d0, d1, r0, r1) => (x) => r0 + (x - d0) / (d1 - d0) * (r1 - r0);
+
+  /* Regla con marcas «bonitas» (para distancia o tiempo) */
+  function ticks(max, n = 6) { const raw = max / n, p = 10 ** Math.floor(Math.log10(raw)); const step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => max / s <= n) || p * 10; const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toPrecision(12)); return out; }
+
+  /* Tubería: dibuja hosts, tubería, regla de distancia y los segmentos ocupados.
+     segments: [{from, to, cls}] en metros; markers: [{x, cls, label, above}] */
+  function drawLink(el, { length, segments = [], markers = [], y = 60, h = 34, pad = 90, w = 1200, rulerFmt = fmt.dist }) {
+    el.replaceChildren();
+    const x = scale(0, length, pad, w - pad);
+    el.append(svg('rect', { x: pad, y, width: w - 2 * pad, height: h, class: 'link-pipe', rx: 3 }));
+    for (const s of segments) { const a = Math.max(0, Math.min(length, s.from)), b = Math.max(0, Math.min(length, s.to)); if (b > a) el.append(svg('rect', { x: x(a), y: y + 2, width: Math.max(1, x(b) - x(a)), height: h - 4, class: s.cls || 'packet' })); }
+    for (const m of markers) { if (m.x < 0 || m.x > length) continue; const cx = x(m.x); el.append(svg('rect', { x: cx - 2, y: y - 4, width: 4, height: h + 8, class: m.cls })); if (m.label) el.append(svg('text', { x: cx, y: m.above ? y - 10 : y + h + 22, 'text-anchor': 'middle', class: 'marker-label' }, m.label)); }
+    // hosts
+    for (const [hx, name] of [[pad - 46, 'A'], [w - pad + 6, 'B']]) { el.append(svg('rect', { x: hx, y: y - 6, width: 40, height: h + 12, rx: 4, class: 'host' })); el.append(svg('text', { x: hx + 20, y: y + h / 2 + 6, 'text-anchor': 'middle', 'font-weight': '600' }, name)); }
+    // regla
+    const ry = y + h + 34; const g = svg('g', { class: 'axis' }); g.append(svg('line', { x1: pad, x2: w - pad, y1: ry, y2: ry }));
+    for (const v of ticks(length)) { g.append(svg('line', { x1: x(v), x2: x(v), y1: ry, y2: ry + 6 })); g.append(svg('text', { x: x(v), y: ry + 22, 'text-anchor': 'middle', class: 'muted' }, rulerFmt(v))); }
+    el.append(g);
+    return x;
+  }
+
+  /* Diagrama espacio-tiempo: emisor a la izquierda, receptor a la derecha, tiempo hacia abajo.
+     polys: [{pts: [[t,x],...], cls}] con x en [0,1] (fracción del enlace), t en segundos. */
+  function drawSpaceTime(el, { tMax, polys = [], labels = [], now = null, w = 520, h = 360, pad = { l: 70, r: 20, t: 30, b: 20 } }) {
+    el.replaceChildren();
+    const x = scale(0, 1, pad.l, w - pad.r), y = scale(0, tMax, pad.t, h - pad.b);
+    el.append(svg('text', { x: x(0), y: 18, 'text-anchor': 'middle', 'font-weight': '600' }, 'A'), svg('text', { x: x(1), y: 18, 'text-anchor': 'middle', 'font-weight': '600' }, 'B'));
+    const ax = svg('g', { class: 'axis' }); ax.append(svg('line', { x1: x(0), x2: x(0), y1: y(0), y2: y(tMax) }), svg('line', { x1: x(1), x2: x(1), y1: y(0), y2: y(tMax) }));
+    for (const v of ticks(tMax, 5)) { ax.append(svg('line', { x1: x(0) - 5, x2: x(0), y1: y(v), y2: y(v) }), svg('text', { x: x(0) - 9, y: y(v) + 5, 'text-anchor': 'end', class: 'muted' }, fmt.time(v))); }
+    el.append(ax);
+    for (const p of polys) el.append(svg(p.pts.length > 2 ? 'polygon' : 'polyline', { points: p.pts.map(([t, f]) => `${x(f)},${y(t)}`).join(' '), class: p.cls }));
+    for (const lb of labels) el.append(svg('text', { x: x(lb.x), y: y(lb.t), class: 'muted', 'text-anchor': lb.anchor || 'start', dx: lb.dx || 0 }, lb.text));
+    if (now != null) el.append(svg('line', { x1: x(0) - 5, x2: x(1) + 5, y1: y(now), y2: y(now), class: 'now-line' }));
+    return { x, y };
+  }
+
+  /* Deslizadores logarítmicos: el valor del input es log10 */
+  const log = { toVal: (inp) => 10 ** parseFloat(inp.value), fromVal: (inp, v) => { inp.value = Math.log10(v); } };
+
+  return { fmt, initChrome, Clock, svg, scale, ticks, drawLink, drawSpaceTime, log };
+})();
+
+/* =====================================================================
+   01 · Anatomía del retardo (P6, Kurose) · lógica propia de la pieza
+   ===================================================================== */
+(() => {
+  RT.initChrome();
+  const $ = (id) => document.getElementById(id);
+  const { fmt, svg } = RT;
+  const root = document.documentElement;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const REAL_SECONDS = 6;          // la reproducción completa dura ~6 s reales
+  const EQ_TOL = 0.005;            // |d_prop − d_trans| ≤ 0,5 % → punto de equilibrio
+  const nf = (d, g = true) => new Intl.NumberFormat('es-ES', g ? { maximumFractionDigits: d } : { maximumFractionDigits: d, useGrouping: false });
+  const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const sup = (n) => String(n).split('').map(c => SUP[c] || c).join('');
+  /* notación científica con n cifras significativas, p. ej. 2,142857·10⁻³ */
+  const sci = (x, n = 7) => {
+    if (!isFinite(x) || x === 0) return '0';
+    const e = Math.floor(Math.log10(Math.abs(x) * (1 + 1e-12)));
+    const m = x / 10 ** e;
+    return e === 0 ? nf(n - 1).format(m) : `${nf(n - 1).format(m)}·10${sup(e)}`;
+  };
+  const groupInt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const factorTxt = (f) => f >= 1e6 ? sci(f, 2) : groupInt(Math.round(f));
+
+  /* ---------- modelo ---------- */
+  const S = { L: 120, R: 56e3, l: 535714, vp: 2.5e8 };
+  function derive(s) {
+    const dT = s.L / s.R, dP = s.l / s.vp, T = dT + dP;
+    const eq = Math.abs(dP - dT) <= EQ_TOL * Math.max(dP, dT);
+    return { ...s, dT, dP, T, pl: s.vp * s.L / s.R, bl: s.vp / s.R, eq, regime: eq ? 'eq' : dP > dT ? 'short' : 'long' };
+  }
+  let D = derive(S);
+
+  const DT = 'd<sub>trans</sub>', DP = 'd<sub>prop</sub>';
+  const REGIME = {
+    short: `paquete más corto que el enlace (${DP} &gt; ${DT})`,
+    long: `paquete más largo que el enlace (${DP} &lt; ${DT})`,
+    eq: `punto de equilibrio (${DP} = ${DT})`,
+  };
+  const REGIME_PLAIN = {
+    short: 'paquete más corto que el enlace (d prop mayor que d trans)',
+    long: 'paquete más largo que el enlace (d prop menor que d trans)',
+    eq: 'punto de equilibrio (d prop igual a d trans)',
+  };
+  function regimeSub(d) {
+    const pl = `v<sub>p</sub>·L/R = ${fmt.dist(d.pl)}`, ll = `l = ${fmt.dist(d.l)}`;
+    if (d.regime === 'short') return `el paquete mide ${pl}, menos que el enlace (${ll}): cabe entero dentro.`;
+    if (d.regime === 'long') return `el paquete mide ${pl}, más que el enlace (${ll}): su cabeza llega a B mientras la cola aún sale de A.`;
+    return `el paquete mide ${pl}, lo mismo que el enlace (${ll}).`;
+  }
+  /* Respuesta literal a P6 d) y e)/f): posiciones en t = d_trans */
+  function firstBitAtDT(d) {
+    if (d.regime === 'long') return { html: 'ya en B', plain: 'ya en B' };
+    if (d.regime === 'eq') return { html: `a ${fmt.dist(d.l)} de A, justo llegando a B`, plain: `a ${fmt.dist(d.l)} de A, justo llegando a B` };
+    const x = fmt.dist(d.vp * d.dT);
+    return { html: `a ${x} de A`, plain: `a ${x} de A` };
+  }
+  function answerHTML(d) {
+    return `En t = ${DT} = ${fmt.time(d.dT)}: <strong class="tl">último bit: en A.</strong> <strong class="h">Primer bit: ${firstBitAtDT(d).html}.</strong>`;
+  }
+
+  /* ---------- reloj ---------- */
+  const clock = RT.Clock({ duration: D.T, onTick: render, playBtn: $('btnPlay'), scrub: $('scrub'), tLabel: $('tNow'), keyframesEl: $('keyframes') });
+  // Espacio sobre un botón con foco: que actúe el botón (activación nativa), no el reproductor global.
+  window.addEventListener('keydown', (e) => { if (e.key === ' ' && e.target.closest && e.target.closest('button, a, summary')) e.stopPropagation(); }, true);
+
+  function renderSpeed() {
+    const f = REAL_SECONDS / D.T;
+    const el = $('speed');
+    el.textContent = Math.abs(f - 1) < 0.005 ? 'tiempo real' : f > 1 ? `cámara lenta ×${factorTxt(f)}` : `cámara rápida ×${factorTxt(1 / f)}`;
+    el.title = `${REAL_SECONDS} s reales equivalen a ${fmt.time(D.T)} simulados`;
+  }
+
+  const KF = [
+    { html: 't = 0', t: (d) => 0 },
+    { html: `t = ${DT}`, t: (d) => d.dT },
+    { html: `t = ${DP}`, t: (d) => d.dP },
+    { html: `t = ${DT} + ${DP}`, t: (d) => d.T },
+  ];
+  function setKeyframes() {
+    clock.setKeyframes(KF.map((k, i) => ({ label: `${i + 1}`, t: i === 2 && D.eq ? D.dT : k.t(D) })));   // en equilibrio, 3 ≡ 2
+    [...$('keyframes').children].forEach((b, i) => {
+      b.innerHTML = `<span class="kf-k" aria-hidden="true">${i + 1}</span>${KF[i].html}`;
+      b.setAttribute('aria-keyshortcuts', String(i + 1));
+      if (i === 2 && D.eq) { b.disabled = true; b.title = 'En el punto de equilibrio d_prop coincide con d_trans'; }
+    });
+  }
+
+  /* ---------- parámetros ---------- */
+  const PRESETS = [
+    { name: 'P6 g', L: 120, R: 56e3, l: 535714, vp: 2.5e8 },
+    { name: 'Paquete corto', L: 120, R: 56e3, l: 2000e3, vp: 2.5e8 },
+    { name: 'Paquete largo', L: 12000, R: 56e3, l: 100e3, vp: 2.5e8 },
+    { name: 'Fibra 1 Gbps', L: 12000, R: 1e9, l: 100e3, vp: 2.5e8 },
+  ];
+  const presetBtns = PRESETS.map(p => {
+    const b = document.createElement('button');
+    b.textContent = p.name; b.setAttribute('aria-pressed', 'false');
+    b.title = `L = ${fmt.bitsExact(p.L)}, R = ${fmt.rate(p.R)}, l = ${nf(0).format(p.l)} m, vp = ${fmt.speed(p.vp)}`;
+    b.addEventListener('click', () => { applyParams(p); presetBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+    $('presets').appendChild(b); return b;
+  });
+  function syncSliders() { RT.log.fromVal($('L'), S.L); RT.log.fromVal($('R'), S.R); RT.log.fromVal($('l'), S.l); RT.log.fromVal($('vp'), S.vp); }
+  function applyParams(p, resetT = true) {
+    Object.assign(S, { L: p.L, R: p.R, l: p.l, vp: p.vp });
+    syncSliders(); update(resetT);
+  }
+  const nice3 = (x) => +x.toPrecision(3);
+  const readers = {
+    L: () => Math.max(1, Math.round(nice3(RT.log.toVal($('L'))))),
+    R: () => nice3(RT.log.toVal($('R'))),
+    l: () => nice3(RT.log.toVal($('l'))),
+    vp: () => nice3(RT.log.toVal($('vp'))),
+  };
+  ['L', 'R', 'l', 'vp'].forEach(id => $(id).addEventListener('input', () => {
+    S[id] = readers[id](); presetBtns.forEach(x => x.setAttribute('aria-pressed', 'false')); update(false);
+  }));
+
+  function update(resetT) {
+    const frac = D.T > 0 ? clock.t / D.T : 0;
+    D = derive(S);
+    $('Lout').textContent = fmt.bitsExact(S.L); $('Rout').textContent = fmt.rate(S.R);
+    $('lout').textContent = S.l >= 1000 ? `${nf(3).format(S.l / 1000)} km` : `${nf(2).format(S.l)} m`;
+    $('vpout').textContent = fmt.speed(S.vp);
+    $('dtrans').textContent = fmt.time(D.dT); $('dprop').textContent = fmt.time(D.dP);
+    $('dtot').textContent = fmt.time(D.T); $('plen').textContent = fmt.dist(D.pl); $('deq').textContent = fmt.dist(D.pl);
+    $('regime').innerHTML = REGIME[D.regime]; $('regimeSub').innerHTML = regimeSub(D);
+    clock.setSlow(REAL_SECONDS / D.T);
+    clock.setDuration(D.T);
+    renderSpeed(); setKeyframes();
+    clock.set(resetT ? 0 : frac * D.T);
+  }
+
+  /* ---------- utilidades SVG ---------- */
+  /* texto con subíndices: parts = ['t = d', {sub:'trans'}, {cls:'reveal', text:' = 2 ms'}, {br:true}, ...] */
+  function stext(attrs, parts) {
+    const t = svg('text', attrs);
+    let cur = t;
+    for (const p of parts) {
+      if (typeof p === 'string') cur.append(p);
+      else if (p.sub) cur.append(svg('tspan', { 'baseline-shift': 'sub', 'font-size': '75%' }, p.sub));
+      else if (p.br) { cur = svg('tspan', { x: attrs.x, dy: '1.5em' }); t.append(cur); }
+      else if (p.text != null) cur.append(svg('tspan', { class: p.cls || '' }, p.text));
+    }
+    return t;
+  }
+  /* evita que las etiquetas de la regla se pisen (anchos estrechos) */
+  function thinTicks(el) {
+    const tx = [...el.querySelectorAll('g.axis text')], bb = tx.map(t => t.getBBox());
+    for (let k = 1; k <= tx.length; k++) {           // muestra una de cada k, uniforme
+      let right = -Infinity, ok = true;
+      for (let i = 0; i < tx.length; i += k) { if (bb[i].x < right + 12) { ok = false; break; } right = bb[i].x + bb[i].width; }
+      if (ok) { tx.forEach((t, i) => { t.style.display = i % k ? 'none' : ''; }); return; }
+    }
+  }
+  function keepInside(el, w) {
+    el.querySelectorAll('text.marker-label').forEach(tx => {
+      const b = tx.getBBox(), x = +tx.getAttribute('x');
+      if (b.x < 2) tx.setAttribute('x', x + (2 - b.x));
+      else if (b.x + b.width > w - 2) tx.setAttribute('x', x - (b.x + b.width - w + 2));
+    });
+  }
+  const widthOf = (el) => Math.max(300, Math.round(el.getBoundingClientRect().width || 1200));
+
+  /* ---------- escenario: tubería ---------- */
+  const EPS = 1e-9;
+  function positions(d, t) {
+    const head = d.vp * t, tail = d.vp * (t - d.dT);
+    const sent = Math.min(d.L, Math.floor(d.R * t * (1 + EPS) + EPS));
+    const recv = Math.max(0, Math.min(d.L, Math.floor(d.R * (t - d.dP) * (1 + EPS) + EPS)));
+    return { head, tail, inA: d.L - sent, inLink: sent - recv, inB: recv };
+  }
+  function headText(d, t, p) {
+    if (t <= 0) return 'en A (aún no ha salido)';
+    if (p.head >= d.l * (1 - 1e-9)) return 'ya en B';
+    return `a ${fmt.dist(p.head)} de A`;
+  }
+  function tailText(d, t, p) {
+    if (t < d.dT * (1 - 1e-9)) return 'en A (aún no ha salido)';
+    if (p.tail <= d.l * 1e-9) return 'en A (acaba de salir)';
+    if (p.tail >= d.l * (1 - 1e-9)) return 'ya en B';
+    return `a ${fmt.dist(p.tail)} de A`;
+  }
+
+  let lupaOn = false;
+  $('btnLupa').addEventListener('click', () => { lupaOn = !lupaOn; $('btnLupa').setAttribute('aria-pressed', String(lupaOn)); render(clock.t); });
+
+  function render(t) {
+    const d = D, stage = $('stage');
+    const w = widthOf(stage), narrow = w < 640, pad = narrow ? 60 : 90;
+    stage.setAttribute('viewBox', `0 0 ${w} 170`);
+    const p = positions(d, t);
+    const hx = Math.max(0, Math.min(d.l, p.head)), tx = Math.max(0, Math.min(d.l, p.tail));
+    const pxPerBit = d.bl / d.l * (w - 2 * pad);          // 1 unidad del viewBox = 1 px en pantalla
+    const cells = d.L <= 200 && pxPerBit >= 4;
+    const headLbl = t <= 0 ? 'primer bit (en A)' : p.head >= d.l ? 'primer bit (en B)' : 'primer bit';
+    const tailLbl = p.tail <= 0 ? 'último bit (en A)' : p.tail >= d.l ? 'último bit (en B)' : 'último bit';
+    const x = RT.drawLink(stage, {
+      length: d.l, w, pad,
+      segments: cells ? [] : [{ from: tx, to: hx }],
+      markers: [{ x: hx, cls: 'bit-head', label: headLbl, above: true }, { x: tx, cls: 'bit-tail', label: tailLbl }],
+    });
+    if (cells) {
+      const g = svg('g', { 'aria-hidden': 'true' });
+      const i0 = Math.max(0, Math.floor((p.head - d.l) / d.bl)), i1 = Math.min(d.L - 1, Math.ceil(p.head / d.bl) - 1);
+      for (let i = i0; i <= i1; i++) {
+        const a = Math.max(0, p.head - (i + 1) * d.bl), b = Math.min(d.l, p.head - i * d.bl);
+        if (b <= a) continue;
+        const wpx = x(b) - x(a) - 1;
+        if (wpx <= 0.3) continue;
+        g.append(svg('rect', { x: x(a) + 0.5, y: 62, width: wpx, height: 30, class: i === 0 ? 'bit-head' : i === d.L - 1 ? 'bit-tail' : 'packet' }));
+      }
+      stage.insertBefore(g, stage.children[1]);
+    }
+    keepInside(stage, w); thinTicks(stage);
+
+    // lupa: solo cuando el paquete se dibuja como relleno continuo
+    $('btnLupa').hidden = cells;
+    const showLupa = !cells && lupaOn;
+    $('lupaBox').hidden = !showLupa;
+    if (showLupa) drawLupa(d, t, p);
+
+    // rótulos
+    const atDT = Math.abs(t - d.dT) <= d.T / 2000 + 1e-15;
+    const ans = $('answer');
+    ans.classList.toggle('idle', !atDT);
+    ans.classList.toggle('reveal', atDT);
+    if (atDT && root.dataset.predict === 'on') ans.innerHTML = `En t = ${DT}: ¿dónde están el último y el primer bit? Predice y pulsa «Revelar valores».`;
+    else ans.innerHTML = atDT ? answerHTML(d) : `Pulsa «t = ${DT}» (tecla 2) para ver dónde están el último y el primer bit en ese instante (P6 d y e/f).`;
+    if (atDT && root.dataset.predict === 'on') { ans.classList.remove('reveal'); ans.classList.add('idle'); }
+
+    const ht = headText(d, t, p), tt = tailText(d, t, p);
+    $('status').innerHTML = `<span>ahora: primer bit <b>${ht}</b></span><span>último bit <b>${tt}</b></span>` +
+      `<span>por transmitir en A: <b>${nf(0).format(p.inA)}</b> · en el enlace: <b>${nf(0).format(p.inLink)}</b> · recibidos en B: <b>${nf(0).format(p.inB)}</b> bits</span>`;
+    if (root.dataset.predict === 'on') $('status').innerHTML = `<span>ahora: posición de los bits oculta en modo predicción</span>`;
+
+    [...$('keyframes').children].forEach((b, i) => b.classList.toggle('cur', !b.disabled && Math.abs(t - KF[i].t(d)) <= d.T / 2000 + 1e-15));
+
+    const stw = widthOf($('st'));
+    drawST($('st'), d, { now: t, values: false, h: Math.round(Math.max(340, Math.min(540, stw * 0.55))) });
+    announce(t, ht, tt);
+  }
+
+  function drawLupa(d, t, p) {
+    const el = $('lupa'), w = widthOf(el), H = 116, m = 24;
+    el.setAttribute('viewBox', `0 0 ${w} ${H}`); el.replaceChildren();
+    const span = Math.min(32 * d.bl, d.l);
+    const f = Math.max(0, Math.min(d.l, p.head));
+    const a = Math.max(0, Math.min(d.l - span, f - 0.7 * span)), b = a + span;
+    const x = RT.scale(a, b, m, w - m);
+    const y = 34, h = 30;
+    el.append(svg('rect', { x: m, y, width: w - 2 * m, height: h, class: 'link-pipe', rx: 3 }));
+    const lo = Math.max(a, 0, p.tail), hi = Math.min(b, d.l, p.head);
+    if (hi > lo) {
+      const i0 = Math.max(0, Math.floor((p.head - hi) / d.bl)), i1 = Math.min(d.L - 1, Math.ceil((p.head - lo) / d.bl));
+      for (let i = i0; i <= i1; i++) {
+        const s = Math.max(lo, p.head - (i + 1) * d.bl), e = Math.min(hi, p.head - i * d.bl);
+        if (e <= s) continue;
+        const cls = i === 0 ? 'bit-head' : i === d.L - 1 ? 'bit-tail' : 'packet';
+        el.append(svg('rect', { x: x(s) + 0.5, y: y + 2, width: Math.max(0.5, x(e) - x(s) - 1), height: h - 4, class: cls }));
+        if (i === 0 && e - s > 0) el.append(svg('text', { x: (x(s) + x(e)) / 2, y: y - 8, 'text-anchor': 'middle', class: 'marker-label' }, 'bit 1'));
+        if (i === d.L - 1 && d.L > 1) el.append(svg('text', { x: (x(s) + x(e)) / 2, y: y + h + 18, 'text-anchor': 'middle', class: 'marker-label' }, `bit ${nf(0).format(d.L)}`));
+      }
+    }
+    if (a <= 0) { el.append(svg('line', { x1: m, x2: m, y1: y - 6, y2: y + h + 6, class: 'edge' }), svg('text', { x: m - 6, y: y + h / 2 + 5, 'text-anchor': 'end', 'font-weight': '600' }, 'A')); }
+    if (b >= d.l * (1 - 1e-12)) { el.append(svg('line', { x1: w - m, x2: w - m, y1: y - 6, y2: y + h + 6, class: 'edge' }), svg('text', { x: w - m + 6, y: y + h / 2 + 5, 'font-weight': '600' }, 'B')); }
+    el.append(svg('text', { x: m, y: H - 4, class: 'lupa-t' }, `${fmt.dist(a)} de A`), svg('text', { x: w - m, y: H - 4, class: 'lupa-t', 'text-anchor': 'end' }, `${fmt.dist(b)} de A`));
+    keepInside(el, w);
+    const zoom = d.l / span;
+    $('lupaCap').innerHTML = `Lupa ×${factorTxt(zoom)}: tramo de ${fmt.dist(span)} junto a la cabeza. Cada celda es un bit y ocupa v<sub>p</sub>/R = ${fmt.dist(d.bl)}.`;
+  }
+
+  /* ---------- diagrama espacio-tiempo (animado y estático) ---------- */
+  function drawST(el, d, { now = null, values = false, h = 360 }) {
+    const w = widthOf(el), compact = w < 560;
+    el.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const pad = { l: 74, r: values ? (compact ? 130 : 250) : (compact ? 120 : 175), t: 34, b: 22 };
+    const { x, y } = RT.drawSpaceTime(el, { tMax: d.T, now, w, h, pad, polys: [{ pts: [[0, 0], [d.dP, 1], [d.T, 1], [d.dT, 0]], cls: 'st-data' }] });
+    el.append(svg('text', { x: 6, y: 18, class: 'muted' }, 'tiempo ↓'));
+    el.append(svg('line', { x1: x(0), y1: y(0), x2: x(1), y2: y(d.dP), class: 'st-head' }));
+    el.append(svg('line', { x1: x(0), y1: y(d.dT), x2: x(1), y2: y(d.T), class: 'st-tail' }));
+
+    const pre = compact ? [] : ['t = '];
+    const items = [];
+    if (values) items.push({ t: 0, name: [...pre, '0'], ev: [[0, 'dot-head']], val: null });
+    if (d.eq) items.push({ t: d.dT, name: [...pre, 'd', { sub: 'trans' }, ' = d', { sub: 'prop' }], ev: [[0, 'dot-tail'], [1, 'dot-head']], val: d.dT });
+    else items.push({ t: d.dT, name: [...pre, 'd', { sub: 'trans' }], ev: [[0, 'dot-tail']], val: d.dT },
+                    { t: d.dP, name: [...pre, 'd', { sub: 'prop' }], ev: [[1, 'dot-head']], val: d.dP });
+    items.push({ t: d.T, name: [...pre, 'd', { sub: 'trans' }, ' + d', { sub: 'prop' }], ev: [[1, 'dot-tail']], val: d.T });
+    items.sort((a, b) => a.t - b.t);
+    const lineH = 21, twoLines = values && compact;
+    items.forEach(it => { it.y0 = y(it.t) + 5; it.h = (twoLines && it.val != null ? 2 : 1) * lineH; });
+    const minY = 14, maxY = h - 4;
+    let prev = -Infinity;
+    items.forEach(it => { it.y = Math.max(it.y0, prev); prev = it.y + it.h; });
+    let next = Infinity;
+    for (let i = items.length - 1; i >= 0; i--) { const it = items[i]; it.y = Math.min(it.y, next - it.h, maxY - it.h + lineH); next = it.y; }
+    items.forEach(it => { if (it.y < minY) it.y = minY; });
+    const lx = x(1) + 16;
+    for (const it of items) {
+      el.append(svg('line', { x1: x(0), x2: x(1) + 6, y1: y(it.t), y2: y(it.t), class: 'guide' }));
+      if (Math.abs(it.y - it.y0) > 1) el.append(svg('polyline', { points: `${x(1) + 6},${y(it.t)} ${lx - 3},${it.y - 5}`, class: 'guide' }));
+      const parts = [...it.name];
+      if (values && it.val != null) { if (twoLines) parts.push({ br: true }); parts.push({ cls: 'reveal', text: ` = ${fmt.time(it.val)}` }); }
+      el.append(stext({ x: lx, y: it.y, class: 'st-lab' }, parts));
+    }
+    for (const it of items) for (const [f, cls] of it.ev) el.append(svg('circle', { cx: x(f), cy: y(it.t), r: 5, class: cls }));
+    if (now != null) {
+      const hf = d.dP > 0 ? Math.min(1, now / d.dP) : 1;
+      const tf = now < d.dT ? 0 : d.dP > 0 ? Math.min(1, (now - d.dT) / d.dP) : 1;
+      if (hf > tf) el.append(svg('line', { x1: x(tf), x2: x(hf), y1: y(now), y2: y(now), class: 'st-slice' }));
+      el.append(svg('circle', { cx: x(hf), cy: y(now), r: 5, class: 'dot-head' }), svg('circle', { cx: x(tf), cy: y(now), r: 5, class: 'dot-tail' }));
+    }
+  }
+
+  /* ---------- resumen accesible ---------- */
+  let annTimer = null;
+  function announce(t, ht, tt) {
+    clearTimeout(annTimer);
+    annTimer = setTimeout(() => {
+      const pred = root.dataset.predict === 'on';
+      const msg = pred
+        ? `t = ${fmt.time(t)}. Modo predicción activo: régimen y posiciones ocultos.`
+        : `t = ${fmt.time(t)}. ${REGIME_PLAIN[D.regime]}. Primer bit ${ht}; último bit ${tt}.`;
+      $('live').textContent = msg;
+      $('stage').setAttribute('aria-label', pred ? `Tubería de A a B de ${fmt.dist(D.l)} con el paquete en tránsito` : `Tubería de A a B de ${fmt.dist(D.l)}. ${msg}`);
+    }, 400);
+  }
+
+  /* ---------- calculadora ---------- */
+  const SUPMAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁻': '-', '⁺': '+' };
+  function parseNum(raw) {
+    let s = String(raw).trim().replace(/[\s  ]/g, '').replace(/−/g, '-');
+    if (!s) return NaN;
+    s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+/g, (m) => '^' + [...m].map(c => SUPMAP[c]).join(''));
+    let mant = s, exp = 0;
+    const m = s.match(/^(.*?)[·x×*]10\^?([+-]?\d+)$/i) || s.match(/^()10\^([+-]?\d+)$/);
+    if (m) { mant = m[1] === '' ? '1' : m[1]; exp = +m[2]; }
+    if (mant.includes(',')) mant = mant.replace(/\./g, '').replace(',', '.');
+    else if ((mant.match(/\./g) || []).length > 1) mant = mant.replace(/\./g, '');
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(mant)) return NaN;
+    return Number(mant) * 10 ** exp;
+  }
+  const CF = [
+    { id: 'cL', unit: 'cLu', out: 'cLp', show: (v) => `${nf(3).format(v)} bits` },
+    { id: 'cR', unit: 'cRu', out: 'cRp', show: (v) => `${nf(3).format(v)} bps` },
+    { id: 'cl', unit: 'clu', out: 'clp', show: (v) => `${nf(3).format(v)} m` },
+    { id: 'cv', unit: null, out: 'cvp', show: (v) => `${fmt.speed(v)}` },
+  ];
+  function readCalc() {
+    const vals = CF.map(f => {
+      const v = parseNum($(f.id).value) * (f.unit ? +$(f.unit).value : 1);
+      const ok = isFinite(v) && v > 0;
+      $(f.id).setAttribute('aria-invalid', String(!ok));
+      $(f.out).textContent = ok ? `= ${f.show(v)}` : 'valor no válido: escribe un número positivo';
+      $(f.out).classList.toggle('err', !ok);
+      return ok ? v : null;
+    });
+    return vals.includes(null) ? null : { L: vals[0], R: vals[1], l: vals[2], vp: vals[3] };
+  }
+  function renderCalc() {
+    const s = readCalc(), ids = ['cdT', 'cdP', 'cT', 'cpl'];
+    if (!s) {
+      ids.forEach(i => { $(i).textContent = '—'; $(i + 'x').textContent = ''; });
+      $('cRegime').textContent = 'Revisa los datos marcados.'; $('cRegimeSub').textContent = ''; $('cAnswer').innerHTML = '';
+      $('cst').replaceChildren(); return;
+    }
+    const d = derive(s);
+    $('cdT').textContent = fmt.time(d.dT); $('cdTx').textContent = `= ${sci(d.dT)} s`;
+    $('cdP').textContent = fmt.time(d.dP); $('cdPx').textContent = `= ${sci(d.dP)} s`;
+    $('cT').textContent = fmt.time(d.T); $('cTx').textContent = `= ${sci(d.T)} s`;
+    $('cpl').textContent = fmt.dist(d.pl); $('cplx').textContent = `= ${nf(1).format(d.pl)} m (distancia de equilibrio)`;
+    $('cRegime').innerHTML = REGIME[d.regime]; $('cRegimeSub').innerHTML = regimeSub(d);
+    $('cAnswer').innerHTML = answerHTML(d);
+    drawST($('cst'), d, { values: true, h: 380 });
+  }
+  CF.forEach(f => { $(f.id).addEventListener('input', renderCalc); if (f.unit) $(f.unit).addEventListener('change', renderCalc); });
+  $('calcForm').addEventListener('submit', (e) => e.preventDefault());
+  const toInput = (v) => v >= 1e6 && !Number.isInteger(v / 1e6) ? `${nf(6, false).format(v / 10 ** Math.floor(Math.log10(v)))}·10^${Math.floor(Math.log10(v))}` : nf(6, false).format(v);
+  function pickUnit(v, units) { for (const u of units) if (v >= u && Math.abs(v / u - Math.round(v / u * 1000) / 1000) < 1e-9) return u; return 1; }
+  $('cFromAnim').addEventListener('click', () => {
+    const uL = pickUnit(S.L, [1e6, 1e3]), uR = pickUnit(S.R, [1e9, 1e6, 1e3]), ul = S.l >= 1000 ? 1e3 : 1;
+    $('cL').value = nf(6, false).format(S.L / uL); $('cLu').value = String(uL === 1 ? 1 : uL === 1e3 ? '1e3' : '1e6');
+    $('cR').value = nf(6, false).format(S.R / uR); $('cRu').value = uR === 1 ? '1' : uR === 1e3 ? '1e3' : uR === 1e6 ? '1e6' : '1e9';
+    $('cl').value = nf(6, false).format(S.l / ul); $('clu').value = ul === 1 ? '1' : '1e3';
+    $('cv').value = toInput(S.vp);
+    renderCalc();
+  });
+  $('cToAnim').addEventListener('click', () => {
+    const s = readCalc(); if (!s) return;
+    presetBtns.forEach(x => x.setAttribute('aria-pressed', 'false'));
+    applyParams({ ...s, L: Math.max(1, Math.round(s.L)) });
+    $('stageTitle').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  /* ---------- modo predicción: refrescar textos dependientes ---------- */
+  $('btnReveal2').addEventListener('click', () => $('btnReveal').click());
+  new MutationObserver(() => { render(clock.t); }).observe(root, { attributes: true, attributeFilter: ['data-predict', 'data-theme'] });
+
+  /* ---------- redimensionado ---------- */
+  let lastW = 0;
+  new ResizeObserver(() => {
+    const w = Math.round($('stage').getBoundingClientRect().width);
+    if (w && w !== lastW) { lastW = w; render(clock.t); renderCalc(); }
+  }).observe(document.body);
+
+  /* ---------- arranque ---------- */
+  applyParams(PRESETS[0]); presetBtns[0].setAttribute('aria-pressed', 'true');
+  renderCalc();
+  if (!reduced) setTimeout(() => clock.play(), 600);
+})();
+</script>
+</body>
+</html>

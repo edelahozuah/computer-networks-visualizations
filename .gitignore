@@ -1,0 +1,10 @@
+.DS_Store
+# Build outputs of the modular sources (reproducible with src/*/build.sh)
+src/*/dist/
+src/dns-step-by-step/Guion_narracion_DNS.md
+# Local tooling
+.playwright-mcp/
+node_modules/
+__pycache__/
+# Local planning notes (not part of the published repository)
+PLAN.md

@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anatomy of a name: from labels to the tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#EEF0F2; --surface:#FFFFFF; --surface2:#F6F7F8; --ink:#1B2129; --muted:#5E6873; --line:#D5DAE0;
+  --rust:#B5541F; --ans:#1D66A8; --ok:#1F8A4C; --err:#B3261E; --warn:#9A6E00;
+  /* one ink per tree level */
+  --l0:#6F7B88; --l1:#B5541F; --l2:#1D66A8; --l3:#2E8B4A; --l4:#7E5FB0; --l5:#2C8686; --l6:#A8457A; --l7:#857314;
+  --f-disp:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+    --rust:#E27B45; --ans:#5DA9EC; --ok:#4CC27E; --err:#F07A70; --warn:#E0B03C;
+    --l0:#9AA5B1; --l1:#E27B45; --l2:#5DA9EC; --l3:#5CC77F; --l4:#A98BDB; --l5:#4FC0C0; --l6:#E07BB0; --l7:#C9B545;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11151A; --surface:#1A2027; --surface2:#151A20; --ink:#E6E9ED; --muted:#9AA4AF; --line:#2E3740;
+  --rust:#E27B45; --ans:#5DA9EC; --ok:#4CC27E; --err:#F07A70; --warn:#E0B03C;
+  --l0:#9AA5B1; --l1:#E27B45; --l2:#5DA9EC; --l3:#5CC77F; --l4:#A98BDB; --l5:#4FC0C0; --l6:#E07BB0; --l7:#C9B545;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);margin:0;padding-inline:16px;padding-block:0 40px}
+.wrap{max-width:1320px;margin:0 auto}
+header{border-top:6px solid var(--rust);padding-block:18px 10px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:end;justify-content:space-between}
+h1{font:800 clamp(22px,3vw,30px)/1.1 var(--f-disp);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.rule{font-size:14px;color:var(--muted);max-width:56ch;margin:0}
+.rule b{color:var(--ink)}
+
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding-block:10px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:600 14px var(--f-body);border:0;background:transparent;color:var(--ink);padding:8px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ctrls{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btn{white-space:nowrap;font:600 14px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:42px}
+.btn.primary{background:var(--rust);border-color:var(--rust);color:#fff;min-width:150px}
+.btn:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible,.hit:focus-visible{outline:3px solid var(--ans);outline-offset:2px}
+.opt{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.opt input[type=checkbox]{accent-color:var(--rust);width:16px;height:16px}
+.counter{font:500 14px var(--f-mono);color:var(--muted);margin-left:auto}
+.counter b{color:var(--ink);font-size:18px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px}
+.panel h2{font:700 18px/1.2 var(--f-disp);margin:0 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.panel h2 small{font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.inrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.inrow input{font:500 18px var(--f-mono);padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);width:min(100%,460px)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{font:500 13px var(--f-mono);border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chips button:hover{border-color:var(--muted)}
+.chips span{font-size:13px;color:var(--muted);align-self:center}
+
+/* Name and brackets: monospace so that 1ch = 1 character */
+.namebox{overflow-x:auto;padding:18px 4px 8px;margin-top:10px}
+.name,.brs{font:500 clamp(20px,3.2vw,32px)/1.25 var(--f-mono);white-space:pre}
+.name{display:inline-block;padding-bottom:6px}
+.name .lab,.name .root{cursor:pointer;border-radius:4px;transition:opacity .25s,background .25s}
+.name .lab{color:var(--c);font-weight:600}
+.name .dot{color:var(--muted)}
+.name .root{color:var(--l0);font-weight:600}
+.name .root.ghost{opacity:.55;border-bottom:2px dotted var(--l0)}
+.name .off{opacity:.2}
+.name .cur{background:color-mix(in srgb,var(--c) 16%,transparent)}
+.name .hov{background:color-mix(in srgb,var(--c) 10%,transparent)}
+.brs{position:relative}
+.br{position:absolute;height:22px;border:2.5px solid var(--c);border-top:0;border-radius:0 0 6px 6px;transition:opacity .3s;cursor:pointer}
+.br .bl{position:absolute;left:calc(100% + 14px);top:2px;font:500 13.5px/1.2 var(--f-body);color:var(--muted);white-space:nowrap}
+.br .bl b{font:600 13.5px var(--f-mono);color:var(--c)}
+.br.cur{border-width:4px}
+.br.cur .bl{color:var(--ink)}
+.br.hov{background:color-mix(in srgb,var(--c) 8%,transparent)}
+.br.hide{opacity:0;pointer-events:none}
+.br.off{opacity:.3}
+.readdir{display:flex;flex-wrap:wrap;gap:4px 22px;font-size:13px;color:var(--muted);margin-top:6px}
+.readdir b{color:var(--ink)}
+
+.stage{display:grid;gap:16px;grid-template-columns:minmax(0,1.4fr) minmax(300px,1fr);align-items:start}
+.svgbox{overflow-x:auto}
+svg.tree{width:100%;height:auto;display:block;min-width:520px}
+.side{display:grid;gap:12px}
+.card{border:1px solid var(--line);border-radius:8px;background:var(--surface2);padding:12px 14px}
+.card .kind{font:600 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;display:inline-flex;gap:8px;align-items:center;color:var(--muted)}
+.card .kind i{width:18px;height:3px;border-radius:2px;background:currentColor;display:inline-block}
+.card h3{font:700 19px/1.25 var(--f-disp);margin:6px 0 8px;overflow-wrap:anywhere}
+.card h3.mono{font:600 18px/1.3 var(--f-mono)}
+.say{font-size:15px;margin:0 0 10px;padding-left:10px;border-left:3px solid var(--line)}
+.note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.note b{color:var(--ink)}
+.fields{display:flex;flex-wrap:wrap;gap:6px}
+.fields span{font:500 12.5px/1.2 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:4px 7px}
+.ask{font:700 17px/1.3 var(--f-disp)}
+ul.rules{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+ul.rules li{display:grid;grid-template-columns:20px 1fr;gap:8px;font-size:13.5px;align-items:start}
+ul.rules li i{font:700 13px/20px var(--f-mono);text-align:center;border-radius:50%;width:20px;height:20px;color:#fff;font-style:normal}
+ul.rules li.ok i{background:var(--ok)} ul.rules li.err i{background:var(--err)} ul.rules li.info i{background:var(--ans)} ul.rules li.warn i{background:var(--warn)}
+ul.rules code{font:500 12.5px var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+.legend{font-size:13px;color:var(--muted);margin-top:8px}
+footer{font-size:12.5px;color:var(--muted);margin-top:14px;max-width:95ch}
+
+/* SVG */
+.lvl{font:600 12.5px var(--f-mono);fill:var(--muted);letter-spacing:.03em}
+.lvlrule{stroke:var(--line);stroke-width:1;stroke-dasharray:2 5}
+.edge{stroke:var(--line);stroke-width:1.6;fill:none}
+.edge.path{stroke-width:3.4}
+.edge.ghost{stroke-dasharray:3 5}
+.nd .pill{fill:var(--surface);stroke:var(--muted);stroke-width:1.4}
+.nd .lb{font:500 14px var(--f-mono);fill:var(--muted);text-anchor:middle;dominant-baseline:central}
+.nd.ghost .pill{stroke-dasharray:3 4;fill:none}
+.nd.path .pill{stroke-width:2.6}
+.nd.path .lb{font-weight:600;fill:var(--ink)}
+.nd.path{cursor:pointer}
+.nd.cur .pill{stroke-width:4}
+.nd .halo{opacity:0;transition:opacity .3s}
+.nd.cur .halo{opacity:.18}
+.nd.hov .pill{stroke-width:3.4}
+.fq{font:600 13px var(--f-mono);dominant-baseline:central}
+.row{transition:opacity .35s}
+.row.hide{opacity:0}
+.row.off{opacity:.3}
+.row.fresh{animation:drop .6s ease-out}
+@keyframes drop{from{opacity:0;transform:translateY(-14px)}}
+@media (max-width:1020px){ .stage{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:700px){ .toolbar{position:static} }
+@media (max-width:560px){ .counter{margin-left:0} .btn.primary{min-width:0;flex:1} }
+@media (prefers-reduced-motion:reduce){ .row.fresh{animation:none} .row,.br,.name .lab{transition:none} }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Unit 2 · GG21 · DNS</div>
+      <h1>Anatomy of a name: from labels to the tree</h1>
+    </div>
+    <p class="rule">A name is written <b>from the specific to the general</b>; the tree is walked <b>from the root downwards</b>. Every suffix of the name is a domain, and every domain is a node of the tree.</p>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="Animation controls">
+    <div class="seg" role="group" aria-label="Direction of the walk">
+      <button data-dir="down" aria-pressed="true">From the root ↓</button>
+      <button data-dir="up" aria-pressed="false">From the name ↑</button>
+    </div>
+    <div class="ctrls">
+      <button class="btn" id="b-reset" title="Back to the start of the walk (Home)" aria-label="Back to the start">⏮</button>
+      <button class="btn" id="b-prev" title="Previous level (←)" aria-label="Previous level">◀</button>
+      <button class="btn primary" id="b-next" title="Next level (→)">Go down one level ▶</button>
+      <button class="btn" id="b-play" title="Play / pause (space)" aria-label="Play">▶▶</button>
+      <label class="opt" for="o-ask"><input type="checkbox" id="o-ask"> Pause to predict</label>
+    </div>
+    <div class="counter" aria-live="polite">level <b id="c-k">0</b> / <span id="c-n">0</span></div>
+  </div>
+
+  <section class="panel">
+    <h2>The name <small>each colour is one level of the tree</small></h2>
+    <div class="inrow">
+      <input id="in" type="text" value="cisneros.aut.uah.es" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Domain name">
+      <div class="chips" id="chips"><span>Try:</span></div>
+    </div>
+    <div class="namebox"><div class="name" id="name"></div><div class="brs" id="brs"></div></div>
+    <div class="readdir"><span>← <b>written</b>: from the specific (left) to the general (right)</span><span><b>the tree</b>: from the root (the trailing dot) leftwards →</span></div>
+  </section>
+
+  <section class="stage">
+    <div class="panel" style="margin:0">
+      <h2>The same name in the tree <small>the path from the root; other branches in grey</small></h2>
+      <div class="svgbox"><svg class="tree" id="tree" viewBox="0 0 820 500" role="img" aria-label="Path of the name in the domain tree"></svg></div>
+      <p class="legend">Click any label, bracket or node to jump to that level.</p>
+    </div>
+    <div class="side">
+      <div class="card" id="card" aria-live="polite"></div>
+      <div class="card"><div class="kind">Name rules</div><ul class="rules" id="rules"></ul></div>
+    </div>
+  </section>
+
+  <footer>Rules: RFC 1035 (63 characters per label; 255 octets in total in the message, which is 253 written characters), RFC 1123 (letters, digits and hyphen in host names) and RFC 5890 (internationalized names, encoded in punycode). Grey branches are context only. Keyboard: → next, ← previous, space play/pause, Home back to the start.</footer>
+</div>
+
+<script>
+(() => {
+/* ---------- Example knowledge ---------- */
+const EXAMPLES = ['cisneros.aut.uah.es', 'www.uah.es.', 'gaia.cs.umass.edu', 'www.bbc.co.uk', 'turismo.madrid', 'WWW.UAH.ES', 'año.es', 'www..uah.es'];
+const TLD = {
+  es:'Country-code top-level domain (ccTLD) of Spain. It is run by Red.es, which hands out second-level domains such as uah.es.',
+  com:'Historic generic top-level domain (gTLD), open to anyone. Run by Verisign.',
+  org:'Historic gTLD, intended for organisations. Run by Public Interest Registry.',
+  net:'Historic gTLD, intended for networks. Run by Verisign.',
+  edu:'gTLD reserved for US higher-education institutions. Run by EDUCAUSE.',
+  gov:'gTLD reserved for the US government.',
+  uk:'ccTLD of the United Kingdom. Run by Nominet.',
+  fr:'ccTLD of France.', de:'ccTLD of Germany.', pt:'ccTLD of Portugal.', eu:'ccTLD of the European Union.',
+  io:'ccTLD of the British Indian Ocean Territory, popular with tech companies because "io" suggests input/output.',
+  madrid:'One of the more than 1,200 new gTLDs approved since 2012; this one is run by the Madrid regional government.',
+  cat:'gTLD for the Catalan language and culture; one of the first thematic ones, in 2005.',
+  eus:'New gTLD for the Basque language and culture.', gal:'New gTLD for the Galician language and culture.',
+  app:'New gTLD run by Google: browsers enforce HTTPS on all of its names.', dev:'New gTLD run by Google for developers: HTTPS is mandatory.',
+  arpa:'Internet infrastructure domain. in-addr.arpa hangs from it and is used for reverse resolution (from address to name).',
+};
+const DOM = {
+  'uah.es':'The University of Alcalá registered uah.es through a registrar accredited by Red.es. Everything below this point is decided by the UAH.',
+  'upm.es':'Domain of the Technical University of Madrid, registered with Red.es.',
+  'aut.uah.es':'Subdomain of the Department of Automation. The UAH created it inside uah.es without asking anyone above for permission.',
+  'cc.uah.es':'Subdomain of Computer Science, created by the UAH inside uah.es.',
+  'umass.edu':'Domain of the University of Massachusetts, registered with EDUCAUSE.',
+  'cs.umass.edu':'Subdomain of the Computer Science department, created by UMass inside umass.edu.',
+  'google.com':'Google\'s domain, registered with Verisign through a registrar.',
+  'co.uk':'In .uk the registry itself uses the second level to classify: co.uk (companies), ac.uk (universities), gov.uk… That is why the organisation\'s domain sits at level 3 here.',
+  'ac.uk':'Second level reserved for British universities, inside .uk.',
+  'bbc.co.uk':'The BBC\'s domain inside co.uk: in the UK, the organisation\'s domain is at level 3.',
+  'in-addr.arpa':'IPv4 reverse-resolution branch: below it, addresses are written backwards, one byte per label.',
+};
+// Context siblings for drawing the tree (key: parent domain, '' is the root)
+const SIB = {
+  '':['com','org','net','edu','es','uk'],
+  'es':['upm','uah','gob'], 'uah.es':['www','aut','cc'], 'aut.uah.es':['cisneros','dns','lab'], 'cc.uah.es':['lab','web'],
+  'edu':['mit','umass'], 'umass.edu':['cs','www'], 'cs.umass.edu':['gaia','www'],
+  'com':['amazon','google'], 'google.com':['www','mail'],
+  'uk':['ac','co','gov'], 'co.uk':['bbc'], 'ac.uk':['ox','cam'],
+};
+
+/* ---------- Parsing the name ---------- */
+const LDH = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
+function puny(label){ try { return new URL('http://' + label + '.x').hostname.split('.')[0]; } catch { return null; } }
+function parse(raw){
+  const typed = raw.trim();
+  const fqdn = typed.endsWith('.') && typed.length > 0;
+  const body = fqdn ? typed.slice(0, -1) : typed;
+  const parts = body === '' ? [] : body.split('.');
+  const empty = parts.some(p => p === '');
+  const labels = parts.filter(p => p !== '');
+  const ascii = labels.map(l => /^[\x00-\x7f]*$/.test(l) ? l.toLowerCase() : (puny(l) || l.toLowerCase()));
+  return {typed, fqdn, labels, ascii, empty, n: labels.length};
+}
+
+/* ---------- State ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const lc = d => d === 0 ? 'var(--l0)' : `var(--l${1 + (d - 1) % 7})`;
+const app = {P:null, cur:0, dir:'down', asking:false, playing:false, timer:null, fresh:-1, hov:null};
+window.app = app;
+// Domain at depth d: the d rightmost labels
+const suffix = d => d === 0 ? '.' : app.P.labels.slice(app.P.n - d).join('.') + '.';
+const suffixKey = d => app.P.ascii.slice(app.P.n - d).join('.');
+// In prose, without the trailing dot so it does not clash with punctuation
+const prose = d => d === 0 ? 'the root' : `<span class="mono">${esc(suffix(d).slice(0, -1))}</span>`;
+const labelAt = d => app.P.labels[app.P.n - d];
+const levelName = d => d === 0 ? 'root' : d === 1 ? 'level 1 · TLD' : `level ${d}`;
+const hidden = d => app.dir === 'down' && d > app.cur;
+const dimmed = d => app.dir === 'up' && d > app.cur;
+
+/* ---------- Name and brackets ---------- */
+function drawName(){
+  const P = app.P, box = $('name'), brs = $('brs');
+  let html = '', pos = 0; const start = [];
+  P.labels.forEach((l, i) => {
+    const d = P.n - i; start[d] = pos;
+    const cls = ['lab', 'hit']; if (hidden(d) || dimmed(d)) cls.push('off'); if (d === app.cur) cls.push('cur'); if (d === app.hov) cls.push('hov');
+    html += `<span class="${cls.join(' ')}" data-d="${d}" style="--c:${lc(d)}">${esc(l)}</span><span class="dot">${i < P.n - 1 ? '.' : ''}</span>`;
+    pos += l.length + (i < P.n - 1 ? 1 : 0);
+  });
+  start[0] = pos;
+  const rc = ['root', 'hit']; if (!P.fqdn) rc.push('ghost'); if (app.cur === 0) rc.push('cur'); if (app.hov === 0) rc.push('hov');
+  html += `<span class="${rc.join(' ')}" data-d="0" style="--c:var(--l0)" title="${P.fqdn ? 'The trailing dot: the root' : 'Implicit trailing dot: the root is always there'}">.</span>`;
+  box.innerHTML = html;
+  const L = pos + 1;
+  let bh = '';
+  for (let d = 0; d <= P.n; d++){
+    const cls = ['br', 'hit']; if (hidden(d)) cls.push('hide'); if (dimmed(d)) cls.push('off'); if (d === app.cur) cls.push('cur'); if (d === app.hov) cls.push('hov');
+    const what = d === 0 ? 'empty label: the trailing dot' : d === P.n && P.n > 1 ? 'the full name' : 'domain';
+    bh += `<div class="${cls.join(' ')}" data-d="${d}" style="--c:${lc(d)};left:${start[d]}ch;width:${L - start[d]}ch;top:${d * 32}px"><span class="bl"><b>${esc(suffix(d))}</b> · ${levelName(d)} · ${what}</span></div>`;
+  }
+  brs.innerHTML = bh;
+  brs.style.height = (P.n + 1) * 32 + 'px';
+  brs.style.width = `calc(${L}ch + 400px)`;
+}
+
+/* ---------- Tree ---------- */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (n, a={}, p) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const W = 820, LEFT = 140, RIGHT = 20, TOP = 44, LEVEL = 84, GAP = 22;
+const short = l => l.length > 18 ? l.slice(0, 16) + '…' : l;
+const pw = l => Math.max(34, short(l).length * 8.6 + 22);
+
+function treeRows(){
+  const P = app.P, rows = [[{l:'.', path:true, x:(LEFT + W - RIGHT) / 2}]];
+  for (let d = 1; d <= P.n; d++){
+    const lab = P.ascii[P.n - d], shown = labelAt(d), parentX = rows[d-1].find(x => x.path).x;
+    let sib = SIB[suffixKey(d - 1)] ? [...SIB[suffixKey(d - 1)]] : null;
+    let nodes;
+    if (sib){
+      if (!sib.includes(lab)) sib.splice(Math.ceil(sib.length / 2), 0, lab);
+      nodes = sib.map(l => ({l: l === lab ? shown : l, path: l === lab}));
+    } else nodes = [{l:'…', ghost:true}, {l:shown, path:true}, {l:'…', ghost:true}];
+    // If they do not fit, drop siblings from the ends
+    const width = ns => ns.reduce((s, x) => s + pw(x.l), 0) + GAP * (ns.length - 1);
+    while (nodes.length > 1 && width(nodes) > W - LEFT - RIGHT){
+      const pi = nodes.findIndex(x => x.path);
+      nodes.splice(pi > nodes.length / 2 - 0.5 ? 0 : nodes.length - 1, 1);
+    }
+    const tw = width(nodes);
+    let x = Math.min(Math.max(parentX - tw / 2, LEFT), W - RIGHT - tw);
+    for (const nd of nodes){ const w = pw(nd.l); nd.x = x + w / 2; x += w + GAP; }
+    rows.push(nodes);
+  }
+  return rows;
+}
+
+function drawTree(){
+  const P = app.P, svg = $('tree'), rows = treeRows();
+  const H = TOP + P.n * LEVEL + 40;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+  rows.forEach((nodes, d) => {
+    const y = TOP + d * LEVEL;
+    const cls = ['row']; if (hidden(d)) cls.push('hide'); if (dimmed(d)) cls.push('off'); if (d === app.fresh) cls.push('fresh');
+    const g = el('g', {class:cls.join(' ')}, svg);
+    el('line', {class:'lvlrule', x1:8, x2:W - 8, y1:y + 30, y2:y + 30}, g);
+    const t = el('text', {class:'lvl', x:10, y:y - 4}, g); t.textContent = levelName(d);
+    const f = suffix(d), t2 = el('text', {class:'fq', x:10, y:y + 14, style:`fill:${lc(d)}`}, g);
+    let sf = f; while (sf.length > 15 && sf.indexOf('.') < sf.length - 1) sf = sf.slice(sf.indexOf('.') + 1);
+    t2.textContent = sf === f ? f : '…' + sf;
+    if (d > 0){
+      const par = rows[d-1].find(x => x.path), py = TOP + (d - 1) * LEVEL + 14;
+      for (const nd of nodes){
+        el('line', {class:`edge${nd.path ? ' path' : ''}${nd.ghost ? ' ghost' : ''}`, x1:par.x, y1:py, x2:nd.x, y2:y - 14, style:nd.path ? `stroke:${lc(d)}` : ''}, g);
+      }
+    }
+    for (const nd of nodes){
+      const c = ['nd']; if (nd.path) c.push('path', 'hit'); if (nd.ghost) c.push('ghost'); if (nd.path && d === app.cur) c.push('cur'); if (nd.path && d === app.hov) c.push('hov');
+      const ng = el('g', {class:c.join(' '), transform:`translate(${nd.x},${y})`}, g);
+      if (nd.path){ ng.dataset.d = d; ng.setAttribute('tabindex', 0); ng.setAttribute('role', 'button'); ng.setAttribute('aria-label', `${suffix(d)}, ${levelName(d)}`); }
+      const w = pw(nd.l);
+      if (nd.path) el('rect', {class:'halo', x:-w/2 - 8, y:-22, width:w + 16, height:44, rx:22, style:`fill:${lc(d)}`}, ng);
+      el('rect', {class:'pill', x:-w/2, y:-14, width:w, height:28, rx:14, style:nd.path ? `stroke:${lc(d)}` : ''}, ng);
+      el('text', {class:'lb', y:1}, ng).textContent = short(nd.l);
+    }
+  });
+}
+
+/* ---------- Explanation card ---------- */
+function drawCard(){
+  const P = app.P, c = $('card'), d = app.cur;
+  if (app.asking){
+    const q = app.dir === 'down'
+      ? `Which domain is one level below ${prose(d)} on the path to ${prose(P.n)}?`
+      : `What is the parent domain of ${prose(d)}?`;
+    c.innerHTML = `<div class="kind">Before going on</div><h3 class="ask">${q}</h3><p class="note">Think about it and press "Go ${app.dir === 'down' ? 'down' : 'up'} one level" to check.</p>`;
+    return;
+  }
+  if (P.n === 0){
+    c.innerHTML = `<div class="kind" style="color:var(--l0)"><i></i>Root</div><h3 class="mono">.</h3><p class="say">Only the root. Type a name above, for example <span class="mono">cisneros.aut.uah.es</span>.</p>`;
+    return;
+  }
+  const key = suffixKey(d), lab = labelAt(d);
+  let kind, say;
+  if (d === 0){
+    kind = 'Root';
+    say = 'The root has no label: it is the empty label, which is why it is written as a trailing dot. It is almost never written, but it is always there: the fully qualified name (FQDN) of ' + `<span class="mono">${esc(P.labels.join('.'))}</span> is <span class="mono">${esc(suffix(P.n))}</span>. Every name on the Internet hangs from it.`;
+  } else if (d === 1){
+    kind = 'Level 1 · top-level domain (TLD)';
+    say = TLD[key] || `This page does not know the TLD "${esc(lab)}". If it does not exist in the root zone, the root will answer that the name does not exist (NXDOMAIN).`;
+  } else {
+    kind = d === 2 ? 'Level 2 · second-level domain' : `Level ${d}`;
+    say = DOM[key] || (d === 2
+      ? `Second-level domain: an organisation registers it with whoever runs ${prose(1)}, and from here on it decides which names to create below.`
+      : `${d === P.n ? 'Name inside' : 'Subdomain of'} ${prose(d - 1)}: created by whoever runs ${prose(d - 1)}, without asking anyone above for permission.`);
+  }
+  const fields = [];
+  if (d > 0){
+    fields.push(`label "${esc(lab)}" · ${[...lab].length} ${[...lab].length === 1 ? 'character' : 'characters'}`);
+    fields.push(`parent: ${esc(suffix(d - 1))}`);
+  }
+  if (d < P.n) fields.push(`contains: ${esc(suffix(d + 1))}`);
+  let note = app.dir === 'down'
+    ? (d === 0 ? 'Going down one level in the tree = <b>adding a label on the left</b>.' : `To get here from ${prose(d - 1)}, "${esc(lab)}" was added on the left.`)
+    : (d === 0 ? 'No labels left: you have reached the root.' : `Going up one level = <b>removing the leftmost label</b>: the parent of ${prose(d)} is ${prose(d - 1)}.`);
+  if (d === P.n && P.n >= 2) note += ` <b>"${esc(lab)}"</b> is the leftmost label: here it probably names a host, a specific machine. But the name itself does not say so: a name is a host if it has an address (A record), and at the same time it can be a domain with names below it.`;
+  c.innerHTML = `<div class="kind" style="color:${lc(d)}"><i></i>${kind}</div><h3 class="mono" style="color:${lc(d)}">${esc(suffix(d))}</h3><p class="say">${say}</p><div class="fields">${fields.map(f => `<span>${f}</span>`).join('')}</div><p class="note">${note}</p>`;
+}
+
+/* ---------- Rules ---------- */
+function drawRules(){
+  const P = app.P, R = [];
+  const add = (st, html) => R.push(`<li class="${st}"><i>${st === 'ok' ? '✓' : st === 'err' ? '✕' : st === 'warn' ? '!' : 'i'}</i><span>${html}</span></li>`);
+  add('info', `${P.n} ${P.n === 1 ? 'label' : 'labels'} + the root → <b>${P.n + 1} levels</b> in the tree, from the root to the name.`);
+  if (P.empty) add('err', 'There are two dots in a row or a leading dot: an empty label. The only empty label allowed is the root one, at the end.');
+  const lens = P.ascii.map(l => l.length), maxL = Math.max(0, ...lens);
+  add(maxL <= 63 ? 'ok' : 'err', `Each label has at most <b>63 characters</b>. The longest one here: ${maxL}.`);
+  const total = P.ascii.join('.').length;
+  add(total <= 253 ? 'ok' : 'err', `The whole name, at most <b>255</b> octets in the DNS message (253 written characters). Here: ${total}.`);
+  const bad = P.ascii.filter(l => !LDH.test(l));
+  if (P.n) add(bad.length ? 'warn' : 'ok', bad.length
+    ? `Host names may only use letters, digits and hyphens, with no leading or trailing hyphen. Not met by: ${bad.map(b => `<code>${esc(b)}</code>`).join(' ')}${bad.some(b => b.startsWith('_')) ? ' (the underscore is used in service names, such as <code>_sip._tcp</code>, which are not hosts)' : ''}.`
+    : 'Only letters, digits and hyphens, with no leading or trailing hyphen: valid as a host name.');
+  const idn = P.labels.map((l, i) => [l, P.ascii[i]]).filter(([l, a]) => l.toLowerCase() !== a);
+  if (idn.length) add('info', `Internationalized name: DNS only carries ASCII, so ${idn.map(([l, a]) => `<code>${esc(l)}</code> travels as <code>${esc(a)}</code>`).join(', ')} (punycode).`);
+  if (/[A-Z]/.test(P.labels.join(''))) add('info', `DNS is case-insensitive: <code>${esc(P.labels.join('.'))}</code> and <code>${esc(P.ascii.join('.'))}</code> are the same name.`);
+  add('info', P.fqdn
+    ? 'Ends with a dot: it is a fully qualified name (FQDN), with the root written out. This is how tools such as <code>dig</code> display it.'
+    : 'No trailing dot: the root is implicit (the dotted dot). The full name would be <code>' + esc(suffix(P.n)) + '</code>.');
+  $('rules').innerHTML = R.join('');
+}
+
+/* ---------- Render and controls ---------- */
+function render(){
+  const P = app.P;
+  drawName(); drawTree(); drawCard(); drawRules();
+  // On narrow screens, scroll the tree so the current node is visible
+  const box = document.querySelector('.svgbox'), cn = document.querySelector('#tree .nd.cur');
+  if (box.scrollWidth > box.clientWidth && cn){ const r = cn.getBoundingClientRect(), b = box.getBoundingClientRect(); box.scrollLeft += (r.left + r.width/2) - (b.left + b.width/2); }
+  $('c-k').textContent = app.cur; $('c-n').textContent = P.n;
+  const atEnd = app.dir === 'down' ? app.cur >= P.n : app.cur <= 0;
+  const atStart = app.dir === 'down' ? app.cur <= 0 : app.cur >= P.n;
+  $('b-next').disabled = atEnd && !app.asking;
+  $('b-prev').disabled = atStart && !app.asking;
+  $('b-next').textContent = app.dir === 'down' ? 'Go down one level ▶' : 'Go up one level ▶';
+  $('b-play').textContent = app.playing ? '❚❚' : '▶▶';
+  $('b-play').setAttribute('aria-label', app.playing ? 'Pause' : 'Play');
+  document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dir === app.dir));
+  app.fresh = -1;
+}
+function load(raw){
+  stop();
+  app.P = parse(raw); app.cur = app.P.n; app.asking = false;
+  render();
+}
+function step(){
+  const P = app.P, atEnd = app.dir === 'down' ? app.cur >= P.n : app.cur <= 0;
+  if (atEnd && !app.asking) return false;
+  if ($('o-ask').checked && !app.asking){ app.asking = true; render(); return true; }
+  app.asking = false;
+  app.cur += app.dir === 'down' ? 1 : -1;
+  if (app.dir === 'down') app.fresh = app.cur;
+  render();
+  return true;
+}
+function back(){
+  stop();
+  if (app.asking){ app.asking = false; render(); return; }
+  const atStart = app.dir === 'down' ? app.cur <= 0 : app.cur >= app.P.n;
+  if (atStart) return;
+  app.cur += app.dir === 'down' ? -1 : 1;
+  render();
+}
+function toStart(){ stop(); app.asking = false; app.cur = app.dir === 'down' ? 0 : app.P.n; render(); }
+function jump(d){ stop(); app.asking = false; app.cur = d; render(); }
+function stop(){ app.playing = false; clearTimeout(app.timer); }
+function play(){
+  if (app.playing){ stop(); render(); return; }
+  const atEnd = app.dir === 'down' ? app.cur >= app.P.n : app.cur <= 0;
+  if (atEnd) { app.cur = app.dir === 'down' ? 0 : app.P.n; app.fresh = 0; }
+  app.playing = true; render();
+  const tick = () => {
+    if (!app.playing) return;
+    const moved = step();
+    const atEnd = app.dir === 'down' ? app.cur >= app.P.n : app.cur <= 0;
+    if (!moved || (atEnd && !app.asking)){ stop(); render(); return; }
+    app.timer = setTimeout(tick, app.asking ? 2600 : 1400);
+  };
+  app.timer = setTimeout(tick, 900);
+}
+
+document.querySelectorAll('[data-dir]').forEach(b => b.addEventListener('click', () => { app.dir = b.dataset.dir; toStart(); }));
+$('b-next').addEventListener('click', () => { stop(); step(); });
+$('b-prev').addEventListener('click', back);
+$('b-reset').addEventListener('click', toStart);
+$('b-play').addEventListener('click', play);
+$('in').addEventListener('input', e => load(e.target.value));
+const chips = $('chips');
+for (const ex of EXAMPLES){
+  const b = document.createElement('button'); b.textContent = ex;
+  b.addEventListener('click', () => { $('in').value = ex; load(ex); });
+  chips.appendChild(b);
+}
+// Clicking or hovering a label, a bracket or a node links the three views
+const hitD = e => { const h = e.target.closest('.hit'); return h && h.dataset.d != null ? +h.dataset.d : null; };
+for (const id of ['name', 'brs', 'tree']){
+  const host = $(id);
+  host.addEventListener('click', e => { const d = hitD(e); if (d != null && !hidden(d)) jump(d); });
+  host.addEventListener('mouseover', e => { const d = hitD(e); if (d !== app.hov && (d == null || !hidden(d))){ app.hov = d; drawName(); drawTree(); } });
+  host.addEventListener('mouseleave', () => { if (app.hov != null){ app.hov = null; drawName(); drawTree(); } });
+  host.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && hitD(e) != null){ e.preventDefault(); e.stopPropagation(); jump(hitD(e)); } });
+}
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input') && e.target.type !== 'checkbox') return;
+  if (e.target.closest('.hit')) return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); stop(); step(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); back(); }
+  else if (e.key === ' ' && !e.target.closest('button')){ e.preventDefault(); play(); }
+  else if (e.key === 'Home'){ e.preventDefault(); toStart(); }
+});
+load($('in').value);
+})();
+</script>

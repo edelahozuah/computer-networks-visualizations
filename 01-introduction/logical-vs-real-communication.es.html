@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comunicación lógica (horizontal) y comunicación real (vertical)</title>
+<style>
+:root{
+  --bg:#ffffff; --surface:#f3f5fa; --ink:#2b2f38; --muted:#5f6b7d; --line:#d3d9e6;
+  --l-hi:#4472c4; --l-mid:#8faadc; --l-lo:#dae3f3; --l-lo-ink:#2b2f38;
+  --accent:#c0501f; --real:#3b3b3b; --svc:#1f8a55; --ifc:#7a4fc0;
+  --cloud:#eceff6; --cloud-line:#9aa5ba;
+  --h4:#14808a; --h3:#a23b8c; --h2a:#b97e00; --h2b:#55657a; --data:#8faadc; --sdu:#c9d6ef; --bits:#3b3b3b;
+  --alt:#d1495b;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171e; --surface:#1d222c; --ink:#e8ebf2; --muted:#9aa5ba; --line:#343c4c;
+    --l-hi:#4472c4; --l-mid:#5f7fbd; --l-lo:#2a3550; --l-lo-ink:#e8ebf2;
+    --accent:#ee8a5c; --real:#d7dbe4; --svc:#4cc78a; --ifc:#b294ee;
+    --cloud:#232a38; --cloud-line:#5c6880; --sdu:#3a4a6e; --bits:#c9ced9;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:16px}
+h1{font-size:1.35rem;margin:0 0 2px;color:var(--accent)}
+.sub{color:var(--muted);margin:0 0 12px;font-size:.95rem}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;border-bottom:2px solid var(--line)}
+nav button{font:inherit;font-weight:600;border:0;background:none;color:var(--muted);padding:9px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+section[hidden]{display:none}
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:inherit;border:0;background:var(--bg);color:var(--ink);padding:7px 12px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--l-hi);color:#fff;font-weight:600}
+.btn{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn:disabled{opacity:.45;cursor:default}
+label.tog{display:inline-flex;gap:8px;align-items:center;cursor:pointer;font-weight:600}
+label.tog input{width:18px;height:18px;accent-color:var(--accent)}
+input[type=range]{flex:1;min-width:180px;accent-color:var(--accent)}
+.lbl{color:var(--muted);font-size:.9rem}
+.stage{background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.stage svg{display:block;width:100%;min-width:720px;height:auto}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media (max-width:760px){.panels{grid-template-columns:1fr}}
+.panel{background:var(--surface);border-radius:10px;padding:12px 14px;border-left:4px solid var(--line);min-height:96px}
+.panel h2{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.panel p{margin:0;font-size:1.02rem}
+.panel.logic{border-left-color:var(--accent)} .panel.realp{border-left-color:var(--real)}
+.panel.svc{border-left-color:var(--svc)} .panel.ifc{border-left-color:var(--ifc)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font:inherit;font-weight:600;border:2px solid currentColor;background:none;border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{color:#fff !important}
+.chip.svc{color:var(--svc)} .chip.svc[aria-pressed="true"]{background:var(--svc);border-color:var(--svc)}
+.chip.pro{color:var(--accent)} .chip.pro[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.chip.ifc{color:var(--ifc)} .chip.ifc[aria-pressed="true"]{background:var(--ifc);border-color:var(--ifc)}
+.note{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--surface);border:1px dashed var(--alt);font-weight:500}
+.frame{display:flex;gap:3px;margin:10px 0;flex-wrap:wrap;align-items:stretch}
+.frame button{font:inherit;font-weight:700;color:#fff;border:3px solid transparent;border-radius:6px;padding:12px 16px;cursor:pointer}
+.frame button[aria-pressed="true"]{border-color:var(--ink);transform:translateY(-3px)}
+.keys{color:var(--muted);font-size:.85rem;margin-top:14px}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface);font-size:.85em}
+
+/* SVG */
+svg text{font-family:inherit;fill:var(--ink)}
+.lay-name{font-size:15px;font-weight:700}
+.node-title{font-size:16px;font-weight:700;fill:var(--accent)}
+.box rect{stroke:var(--bg);stroke-width:2}
+.box text{font-size:15px;font-weight:700}
+.box.lv5 rect,.box.lv4 rect{fill:var(--l-hi)} .box.lv5 text,.box.lv4 text{fill:#fff}
+.box.lv3 rect{fill:var(--l-mid)} .box.lv3 text{fill:#fff}
+.box.lv2 rect,.box.lv1 rect{fill:var(--l-lo)} .box.lv2 text,.box.lv1 text{fill:var(--l-lo-ink)}
+.box.active rect{stroke:var(--accent);stroke-width:4}
+.box.dim{opacity:.25}
+.box.hot rect{stroke:var(--accent);stroke-width:4}
+.medium{stroke:var(--real);stroke-width:4;fill:none;stroke-linecap:round}
+.medium.hot{stroke:var(--accent);stroke-width:6}
+.med-lbl{font-size:13px;fill:var(--muted);font-style:italic}
+.cloud{fill:var(--cloud);stroke:var(--cloud-line);stroke-width:2;stroke-dasharray:8 6}
+.cloud.open{fill-opacity:0}
+.cloud-t{font-size:17px;font-weight:700;fill:var(--muted)}
+.cloud-s{font-size:14px;fill:var(--muted);font-style:italic}
+.logic{stroke:var(--accent);stroke-width:3;stroke-dasharray:9 7;fill:none}
+.logic-t{font-size:14px;font-style:italic;fill:var(--accent);font-weight:600}
+.realpath{stroke:var(--real);stroke-width:2.5;fill:none;opacity:.55}
+.tok-bg{fill:var(--bg);stroke:var(--ink);stroke-width:1.5}
+.ghost .tok-bg{stroke:var(--accent);stroke-dasharray:4 3}
+.ghost{opacity:.8}
+.blk{stroke:var(--bg);stroke-width:1}
+.blk-t{font-size:12px;font-weight:700;fill:#fff}
+.blk-t.dark{fill:var(--ink)}
+.tok-cap{font-size:13px;font-weight:700;paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.b-h4{fill:var(--h4)} .b-h3{fill:var(--h3)} .b-h2a{fill:var(--h2a)} .b-h2b{fill:var(--h2b)}
+.b-data{fill:var(--data)} .b-sdu{fill:var(--sdu)} .b-bits{fill:var(--bits)} .b-alt{fill:var(--alt)} .b-pci{fill:var(--l-hi)}
+.b-bits + text{fill:var(--bg)}
+/* vista 2 */
+.ent rect{fill:var(--l-lo);stroke:var(--l-mid);stroke-width:2}
+.ent.n rect{fill:var(--l-mid)} .ent.n text{fill:#fff}
+.ent text{font-size:16px;font-weight:700}
+.bar rect{fill:var(--cloud);stroke:var(--cloud-line);stroke-width:2;stroke-dasharray:8 6}
+.bar text{font-size:15px;font-weight:700;fill:var(--muted)}
+.ifc-line{stroke:var(--ifc);stroke-width:2.5;stroke-dasharray:3 5}
+.sap{fill:var(--bg);stroke:var(--ifc);stroke-width:3}
+.ifc-t{font-size:13px;font-weight:700;fill:var(--ifc)}
+.a-svc{stroke:var(--svc);stroke-width:3.5;fill:none}
+.a-pro{stroke:var(--accent);stroke-width:3;stroke-dasharray:9 7;fill:none}
+.a-real{stroke:var(--real);stroke-width:2.5;fill:none;opacity:.7}
+.t-svc{font-size:14px;font-weight:700;fill:var(--svc)}
+.t-pro{font-size:14px;font-weight:700;font-style:italic;fill:var(--accent)}
+.t-real{font-size:13px;font-style:italic;fill:var(--muted)}
+.sys-t{font-size:15px;font-weight:700;fill:var(--muted)}
+.past{opacity:.32}
+.v2[data-focus="svc"] [data-c]:not([data-c~="svc"]),
+.v2[data-focus="pro"] [data-c]:not([data-c~="pro"]),
+.v2[data-focus="ifc"] [data-c]:not([data-c~="ifc"]){opacity:.12}
+.v2[data-focus] .past[data-c]{opacity:1}
+.v2[data-focus="svc"] .past:not([data-c~="svc"]),
+.v2[data-focus="pro"] .past:not([data-c~="pro"]),
+.v2[data-focus="ifc"] .past:not([data-c~="ifc"]){opacity:.12}
+</style>
+</head>
+<body>
+<main>
+<h1>Comunicación lógica (horizontal) y comunicación real (vertical)</h1>
+<p class="sub">Arquitectura de Redes I · S1.2 · Cada entidad cree que intercambia su PDU directamente con su par. Ninguna lo hace.</p>
+
+<nav role="tablist">
+  <button role="tab" data-tab="v1" aria-selected="true">1 · Percepción y realidad</button>
+  <button role="tab" data-tab="v2" aria-selected="false">2 · Servicio, protocolo, interfaz</button>
+  <button role="tab" data-tab="v3" aria-selected="false">3 · ¿Quién lee cada cabecera?</button>
+</nav>
+
+<!-- ============ VISTA 1 ============ -->
+<section id="v1">
+  <div class="controls">
+    <span class="lbl">Punto de vista de la capa:</span>
+    <div class="seg" id="kseg"></div>
+    <label class="tog"><input type="checkbox" id="reveal"> Abrir la caja negra (ver la realidad)</label>
+    <label class="tog"><input type="checkbox" id="segm"> Mensaje de 4000 octetos (no cabe: segmentar)</label>
+  </div>
+  <div class="stage"><svg id="svg1" viewBox="0 0 1100 540" role="img" aria-label="Pilas de protocolos de dos hosts y un router con el recorrido lógico y real de una PDU"></svg></div>
+  <div class="controls">
+    <button class="btn" id="prev">◀ Paso</button>
+    <button class="btn primary" id="play">▶ Reproducir</button>
+    <button class="btn" id="next">Paso ▶</button>
+    <button class="btn" id="reset">↺ Inicio</button>
+    <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Posición de la animación">
+  </div>
+  <div class="panels">
+    <div class="panel logic"><h2 id="p1h">Lo que percibe la capa</h2><p id="p1"></p></div>
+    <div class="panel realp"><h2>Qué está pasando ahora</h2><p id="p2"></p></div>
+  </div>
+</section>
+
+<!-- ============ VISTA 2 ============ -->
+<section id="v2" hidden>
+  <div class="controls">
+    <span class="lbl">Ejemplo:</span>
+    <div class="seg" id="exseg"></div>
+    <span class="lbl">Resaltar:</span>
+    <div class="chips">
+      <button class="chip svc" data-f="svc" aria-pressed="false">Servicio ↕ (qué)</button>
+      <button class="chip pro" data-f="pro" aria-pressed="false">Protocolo ↔ (cómo)</button>
+      <button class="chip ifc" data-f="ifc" aria-pressed="false">Interfaz ┄ (por dónde)</button>
+    </div>
+  </div>
+  <div class="stage v2" id="stage2"><svg id="svg2" viewBox="0 0 1100 420" role="img" aria-label="Dos sistemas con entidades N+1 y N, interfaces con SAP y proveedor de servicio N-1"></svg></div>
+  <div class="controls">
+    <button class="btn" id="s2prev">◀ Paso</button>
+    <button class="btn primary" id="s2next">Paso ▶</button>
+    <span class="lbl" id="s2count"></span>
+    <label class="tog" style="margin-left:auto"><input type="checkbox" id="swap"> Experimento: cambiar el protocolo de esta capa</label>
+  </div>
+  <div class="panels">
+    <div class="panel logic"><h2 id="s2h"></h2><p id="s2p"></p></div>
+    <div class="panel" id="defpanel"><h2 id="defh">Las tres palabras</h2><p id="defp"></p></div>
+  </div>
+  <div class="note" id="swapnote" hidden></div>
+</section>
+
+<!-- ============ VISTA 3 ============ -->
+<section id="v3" hidden>
+  <p class="sub" style="margin:8px 0 0">Esta es la trama que sale de A. Pulsa un trozo: ¿quién lo escribió y quién lo va a leer?</p>
+  <div class="frame" id="frame"></div>
+  <div class="stage"><svg id="svg3" viewBox="0 0 1100 500" role="img" aria-label="Qué entidades escriben y leen cada cabecera"></svg></div>
+  <div class="panels">
+    <div class="panel logic"><h2>Quién escribe y quién lee</h2><p id="p3a"></p></div>
+    <div class="panel realp"><h2>Los demás</h2><p id="p3b"></p></div>
+  </div>
+</section>
+
+<p class="keys">Teclado: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> cambia de vista · <kbd>←</kbd> <kbd>→</kbd> paso · <kbd>espacio</kbd> reproducir/pausa · <kbd>↑</kbd> <kbd>↓</kbd> cambia la capa (vista 1) · <kbd>R</kbd> abre/cierra la caja negra</p>
+</main>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e}
+const $=id=>document.getElementById(id);
+
+/* ---------- geometría común (vistas 1 y 3) ---------- */
+const G={top:70,lh:62,gap:10,A:{x:130,w:210},R:{x:455,w:250},B:{x:820,w:210},medY:462};
+const yTop=L=>G.top+(5-L)*(G.lh+G.gap), yMid=L=>yTop(L)+G.lh/2;
+const Ax=G.A.x+G.A.w/2, Bx=G.B.x+G.B.w/2, RLx=G.R.x+60, RRx=G.R.x+G.R.w-60;
+const LNAME={5:'Aplicación',4:'Transporte',3:'Red',2:'Enlace',1:'Física'};
+const PDUNAME={5:'mensaje',4:'segmento',3:'datagrama',2:'trama',1:'señal (bits)',0:'señal (bits)'};
+
+function defs(svg){
+  const d=el('defs',{},svg);
+  for(const [id,color] of [['m-pro','var(--accent)'],['m-svc','var(--svc)'],['m-real','var(--real)']]){
+    const m=el('marker',{id:id+'-'+svg.id,viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},d);
+    el('path',{d:'M0,0 L10,5 L0,10 z',style:'fill:'+color},m);
+  }
+}
+const mk=(svg,n)=>`url(#m-${n}-${svg.id})`;
+
+function drawStacks(svg){
+  defs(svg);
+  const boxes={}, g=el('g',{},svg);
+  for(let L=5;L>=1;L--) el('text',{x:118,y:yMid(L)+5,'text-anchor':'end',class:'lay-name'},g,`${L} · ${LNAME[L]}`);
+  el('text',{x:Ax,y:52,'text-anchor':'middle',class:'node-title'},g,'Host A (portátil)');
+  el('text',{x:Bx,y:52,'text-anchor':'middle',class:'node-title'},g,'Host B (servidor)');
+  const rTitle=el('text',{x:G.R.x+G.R.w/2,y:yTop(3)-9,'text-anchor':'middle',class:'node-title'},g,'Router');
+  function box(key,x,w,L,label){const b=el('g',{class:'box lv'+L},g);el('rect',{x,y:yTop(L),width:w,height:G.lh,rx:6},b);el('text',{x:x+w/2,y:yMid(L)+5,'text-anchor':'middle'},b,label);boxes[key]=b}
+  const la={5:'HTTP',4:'TCP',3:'IP',2:'Wi-Fi',1:'radio'}, lb={5:'HTTP',4:'TCP',3:'IP',2:'Ethernet',1:'cable'};
+  for(let L=5;L>=1;L--){box('A-'+L,G.A.x,G.A.w,L,la[L]);box('B-'+L,G.B.x,G.B.w,L,lb[L])}
+  box('R-3',G.R.x,G.R.w,3,'IP');
+  const hw=G.R.w/2-4;
+  box('RL-2',G.R.x,hw,2,'Wi-Fi');box('RL-1',G.R.x,hw,1,'radio');
+  box('RR-2',G.R.x+G.R.w-hw,hw,2,'Ethernet');box('RR-1',G.R.x+G.R.w-hw,hw,1,'cable');
+  const yb=yTop(1)+G.lh;
+  const med=el('g',{},g);
+  const m1=el('path',{class:'medium',d:`M${Ax},${yb} V${G.medY} H${RLx} V${yb}`},med);
+  const m2=el('path',{class:'medium',d:`M${RRx},${yb} V${G.medY} H${Bx} V${yb}`},med);
+  el('text',{x:(Ax+RLx)/2,y:G.medY+20,'text-anchor':'middle',class:'med-lbl'},med,'medio físico: ondas de radio');
+  el('text',{x:(RRx+Bx)/2,y:G.medY+20,'text-anchor':'middle',class:'med-lbl'},med,'medio físico: cable');
+  return {boxes,medium:[m1,m2],rTitle};
+}
+/* segmentos de comunicación lógica en la capa k */
+function peerSegs(k){
+  const aR=G.A.x+G.A.w, bL=G.B.x, rL=G.R.x, rR=G.R.x+G.R.w;
+  if(k>=4) return [[aR,bL]];
+  if(k>=2) return [[aR,rL],[rR,bL]];
+  return [];
+}
+
+/* ---------- PDU como bloques ---------- */
+const W={h2a:44,h2b:40,h3:30,h4:38,data:56,fcs:36};
+function blocks(st,merge,dl){ // st:{h2,h3,h4,bits}; merge=k → PCI_k + SDU; dl = bloque de datos {label,w,sdu:{k:etiqueta}}
+  dl=dl||{label:'datos',w:W.data}; const sl=dl.sdu||{};
+  const full=dl.w+(st.h4?W.h4:0)+(st.h3?W.h3:0)+(st.h2?W[st.h2]+W.fcs:0);
+  if(st.bits) return [{label:'0 1 1 0 1 0 0 1 …',w:Math.max(full,150),cls:'b-bits'}];
+  const out=[];
+  const h2={h2a:'WiFi',h2b:'Eth'};
+  if(merge){
+    if(merge===5) return [{label:dl.label,w:dl.w,cls:'b-data'}];
+    if(merge===4) return [{label:'TCP',w:W.h4,cls:'b-h4'},{label:sl[4]||'mensaje',w:dl.w+10,cls:'b-sdu',dark:1}];
+    if(merge===3) return [{label:'IP',w:W.h3,cls:'b-h3'},{label:sl[3]||'segmento',w:W.h4+dl.w,cls:'b-sdu',dark:1}];
+    if(merge===2) return [{label:h2[st.h2],w:W[st.h2],cls:'b-'+st.h2},{label:sl[2]||'datagrama',w:W.h3+W.h4+dl.w,cls:'b-sdu',dark:1},{label:'FCS',w:W.fcs,cls:'b-'+st.h2}];
+  }
+  if(st.h2) out.push({label:h2[st.h2],w:W[st.h2],cls:'b-'+st.h2});
+  if(st.h3) out.push({label:'IP',w:W.h3,cls:'b-h3'});
+  if(st.h4) out.push({label:'TCP',w:W.h4,cls:'b-h4'});
+  out.push({label:dl.label,w:dl.w,cls:'b-data'});
+  if(st.h2) out.push({label:'FCS',w:W.fcs,cls:'b-'+st.h2});
+  return out;
+}
+function buildToken(g,blks,caption,h=26){
+  g.replaceChildren();
+  const total=blks.reduce((s,b)=>s+b.w,0);let x=-total/2;
+  el('rect',{x:x-3,y:-h/2-3,width:total+6,height:h+6,rx:5,class:'tok-bg'},g);
+  for(const b of blks){el('rect',{x,y:-h/2,width:b.w,height:h,class:'blk '+b.cls},g);
+    el('text',{x:x+b.w/2,y:4.5,'text-anchor':'middle',class:'blk-t'+(b.dark?' dark':'')},g,b.label);x+=b.w}
+  if(caption) el('text',{x:0,y:h/2+17,'text-anchor':'middle',class:'tok-cap'},g,caption);
+}
+
+/* ================= VISTA 1 ================= */
+const V1={k:4,reveal:false,segm:false,t:0,playing:false,target:null};
+const S1=drawStacks($('svg1'));
+const svg1=$('svg1');
+const gReal=el('path',{class:'realpath'},svg1);
+const gCloud=el('g',{},svg1), cloudRect=el('rect',{class:'cloud',rx:16},gCloud),
+      cloudT=el('text',{class:'cloud-t','text-anchor':'middle'},gCloud), cloudS=el('text',{class:'cloud-s','text-anchor':'middle'},gCloud);
+const gLogic=el('g',{},svg1);
+const NF=3, tokGhost=[], tokReal=[];
+for(let i=0;i<NF;i++){tokGhost.push(el('g',{class:'ghost'},svg1))}
+for(let i=0;i<NF;i++){tokReal.push(el('g',{},svg1))}
+
+const F={h2:null,h3:false,h4:false,bits:false};
+const st=(o)=>Object.assign({},F,o);
+const WP=[
+ {x:Ax,y:yMid(5),box:'A-5',L:5,s:st({}),txt:'Aplicación (A) genera el mensaje y pide el servicio a Transporte: «entrega esto a la aplicación de B».'},
+ {x:Ax,y:yMid(4),box:'A-4',L:4,s:st({h4:1}),txt:'Transporte (A) antepone su cabecera TCP: ya es un segmento. Esa cabecera solo la leerá TCP en B. Pide a Red que lo entregue.'},
+ {x:Ax,y:yMid(3),box:'A-3',L:3,s:st({h4:1,h3:1}),txt:'Red (A) antepone la cabecera IP: datagrama. No abre el segmento: para IP todo lo que recibe de arriba, cabecera TCP incluida, es SDU.'},
+ {x:Ax,y:yMid(2),box:'A-2',L:2,s:st({h4:1,h3:1,h2:'h2a'}),txt:'Enlace (A) añade cabecera y cola Wi-Fi: trama. Su par es el router, no B.'},
+ {x:Ax,y:yMid(1),box:'A-1',L:1,s:st({h4:1,h3:1,h2:'h2a',bits:1}),txt:'Física (A) convierte la trama en señales. Aquí ya no hay cabeceras: solo bits.'},
+ {x:Ax,y:G.medY,L:0,s:st({h4:1,h3:1,h2:'h2a',bits:1}),txt:'La señal sale al medio.'},
+ {x:RLx,y:G.medY,L:0,med:0,s:st({h4:1,h3:1,h2:'h2a',bits:1}),txt:'Única comunicación real entre máquinas: la señal cruza el medio físico.'},
+ {x:RLx,y:yMid(1),box:'RL-1',L:1,s:st({h4:1,h3:1,h2:'h2a',bits:1}),txt:'Física (router) recupera los bits.'},
+ {x:RLx,y:yMid(2),box:'RL-2',L:2,s:st({h4:1,h3:1}),txt:'Enlace (router) comprueba la cola, retira cabecera y cola Wi-Fi y sube el datagrama. La trama Wi-Fi muere aquí.'},
+ {x:RLx,y:yMid(3),box:'R-3',L:3,s:st({h4:1,h3:1}),txt:'Red (router) lee la cabecera IP y decide el siguiente salto. No mira la cabecera TCP ni los datos: no tiene capa 4 ni 5.'},
+ {x:RRx,y:yMid(3),box:'R-3',L:3,s:st({h4:1,h3:1}),txt:'El datagrama pasa a la interfaz de salida.'},
+ {x:RRx,y:yMid(2),box:'RR-2',L:2,s:st({h4:1,h3:1,h2:'h2b'}),txt:'Enlace (router) crea una trama nueva, ahora Ethernet. La cabecera de enlace cambia en cada salto; la IP, no.'},
+ {x:RRx,y:yMid(1),box:'RR-1',L:1,s:st({h4:1,h3:1,h2:'h2b',bits:1}),txt:'Física (router) transmite la señal por el cable.'},
+ {x:RRx,y:G.medY,L:0,s:st({h4:1,h3:1,h2:'h2b',bits:1}),txt:'La señal sale al medio.'},
+ {x:Bx,y:G.medY,L:0,med:1,s:st({h4:1,h3:1,h2:'h2b',bits:1}),txt:'Segunda comunicación real: la señal cruza el cable.'},
+ {x:Bx,y:yMid(1),box:'B-1',L:1,s:st({h4:1,h3:1,h2:'h2b',bits:1}),txt:'Física (B) recupera los bits.'},
+ {x:Bx,y:yMid(2),box:'B-2',L:2,s:st({h4:1,h3:1}),txt:'Enlace (B) comprueba la cola, retira su PCI y sube el datagrama.'},
+ {x:Bx,y:yMid(3),box:'B-3',L:3,s:st({h4:1}),txt:'Red (B) ve que el destino es ella, retira la cabecera IP y sube el segmento.'},
+ {x:Bx,y:yMid(4),box:'B-4',L:4,s:st({}),txt:'Transporte (B) lee la cabecera TCP que escribió su par en A, la retira y entrega los datos por el SAP (puerto).'},
+ {x:Bx,y:yMid(5),box:'B-5',L:5,s:st({}),txt:'Aplicación (B) recibe el mensaje, idéntico al que envió su par. Desde su punto de vista, llegó «directo».'},
+];
+// longitud de arco
+let acc=0;WP[0].d=0;for(let i=1;i<WP.length;i++){acc+=Math.hypot(WP[i].x-WP[i-1].x,WP[i].y-WP[i-1].y);WP[i].d=acc}
+WP.forEach((w,i)=>{w.t=w.d/acc;w.i=i});
+gReal.setAttribute('d','M'+WP.map(w=>w.x+','+w.y).join(' L'));
+
+const PERC={
+ 5:'La aplicación cree que entrega su mensaje directamente a la aplicación de B (protocolo HTTP). No sabe que existen segmentos, routers ni cables: solo conoce el servicio que le ofrece Transporte.',
+ 4:'TCP en A cree que intercambia segmentos directamente con TCP en B: su par es extremo a extremo. Todo lo de debajo es «el servicio de Red». El router ni siquiera existe para él.',
+ 3:'IP en A cree que entrega el datagrama a IP del router, y este a IP de B. Los pares son salto a salto (aunque las direcciones de la cabecera sean las de los extremos). Debajo: «el servicio de Enlace».',
+ 2:'La entidad de enlace cree que entrega su trama a la entidad de enlace del otro lado del mismo enlace: su par es el vecino. Hay dos diálogos distintos (Wi-Fi y Ethernet) con tramas distintas.',
+ 1:'La realidad completa: lo único que pasa de una máquina a otra son señales por el medio. Ningún bit ha viajado nunca en horizontal por las capas 2 a 5.'
+};
+const PERC_SEG={
+ 5:' Con segmentación no cambia nada para ella: entrega un mensaje de 4000 octetos y en B llega un mensaje de 4000 octetos. Que por el camino fueran tres trozos es asunto de Transporte.',
+ 4:' El mensaje no cabe en un segmento (1500 de MTU − 20 de IP − 20 de TCP = 1460 de datos): TCP lo parte en tres segmentos numerados y su par los reensambla. Una PDU de la capa 5 se ha convertido en tres SDU de la capa 4.',
+ 3:' Para IP son tres datagramas sueltos que no tienen nada que ver entre sí: cada uno se encamina por separado y podría llegar desordenado.',
+ 2:' Para Enlace, tres tramas independientes por cada salto. Nadie por debajo de Transporte sabe que forman un mensaje.'
+};
+const SEG_TXT={
+ split:'Transporte (A): el mensaje de 4000 octetos no cabe en un segmento (MTU 1500 − 20 − 20 = 1460 de datos). Lo parte en tres: 1460 + 1460 + 1080, cada uno con su cabecera TCP y su número. La PDU de la capa 5 se convierte en tres SDU de la capa 4.',
+ wait:'Transporte (B) guarda los segmentos que van llegando y espera a tener los tres. El número de cada segmento es lo que permite reordenar y reensamblar.',
+ join:'Transporte (B) ya tiene los tres: retira las cabeceras, reensambla los 4000 octetos y sube un único mensaje por el SAP.',
+ app:'Aplicación (B) recibe un único mensaje de 4000 octetos. Nunca ha visto los segmentos: la segmentación es invisible para ella.'
+};
+const DL_MSG={label:'mensaje 4000',w:96};
+const DL_FRAG=i=>({label:`${i+1}/3`,w:i===2?42:56,sdu:{4:`${i+1}/3`,3:`segm. ${i+1}/3`,2:`datagr. ${i+1}/3`}});
+const clampY=k=>k===1?G.medY:yMid(k);
+const clamp01=v=>Math.max(0,Math.min(1,v));
+/* estado de cada fragmento para un progreso global T */
+function frags(T){
+  const N=V1.segm?NF:1, d=V1.segm?0.13:0, span=1-(N-1)*d;
+  const us=[];for(let i=0;i<N;i++)us.push(clamp01((T-i*d)/span));
+  const tA=WP[1].t, tB=WP[18].t, uLast=us[N-1];
+  return us.map((u,i)=>{
+    if(N===1){const p=pos(u);return {show:true,i,u,x:p.x,y:p.y,wp:p.wp,seg:p.seg,f:p.f,kind:'data',dl:null}}
+    if(u<=tA){const p=pos(u);return {show:i===0,i,u,x:p.x,y:p.y,wp:p.wp,seg:p.seg,f:p.f,kind:'msg',s:F,dl:DL_MSG}}
+    if(u>=tB){
+      if(uLast>=tB){const p=pos(uLast);return {show:i===N-1,i,u:uLast,x:p.x,y:p.y,wp:p.wp,seg:p.seg,f:p.f,kind:'msg',s:F,dl:DL_MSG}}
+      const p=pos(tB);return {show:true,i,u,x:p.x+(i-1)*12,y:p.y+(i-1)*8,wp:p.wp,seg:p.seg,f:p.f,kind:'frag',waiting:true,dl:DL_FRAG(i)}
+    }
+    const p=pos(u);return {show:true,i,u,x:p.x,y:p.y,wp:p.wp,seg:p.seg,f:p.f,kind:'frag',dl:DL_FRAG(i)}
+  });
+}
+
+function pos(t){
+  let i=0;while(i<WP.length-2&&t>=WP[i+1].t)i++;
+  const a=WP[i],b=WP[i+1],f=Math.min(1,Math.max(0,(t-a.t)/(b.t-a.t||1)));
+  const reached=(f>=1)?b:a;
+  return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,wp:reached,seg:[a,b],f};
+}
+const lastKeyR=[], lastKeyG=[];
+function render1(){
+  const {k,reveal,t}=V1, cy=clampY(k), showReal=reveal||k===1, N=V1.segm?NF:1;
+  const fs=frags(t), shown=fs.filter(f=>f.show);
+  // fragmento que narra: el que ha cambiado de sitio más recientemente
+  const drv=shown.reduce((a,b)=>(b.u-b.wp.t)<(a.u-a.wp.t)?b:a);
+  const hidden=drv.y>cy+0.5;
+  // nube
+  if(k>1){
+    const y0=yTop(k-1)-6,y1=530;
+    cloudRect.setAttribute('x',124);cloudRect.setAttribute('width',1100-124-16);cloudRect.setAttribute('y',y0);cloudRect.setAttribute('height',y1-y0);
+    cloudRect.setAttribute('class','cloud'+(reveal?' open':''));
+    gCloud.style.display='';
+    const cyT=reveal?y1-14:(y0+y1)/2;
+    cloudT.setAttribute('x',590);cloudT.setAttribute('y',reveal?cyT:cyT-4);
+    cloudT.textContent=`Servicio de la capa ${k-1} (${LNAME[k-1]})`+(reveal?' — caja negra abierta':'');
+    cloudS.setAttribute('x',590);cloudS.setAttribute('y',cyT+20);
+    cloudS.textContent=reveal?'':`Para la capa ${k} esto es una caja negra: «entrega mi PDU a mi par». No ve nada de lo que hay dentro.`;
+  } else gCloud.style.display='none';
+  S1.rTitle.style.display=(k>=4&&!reveal)?'none':'';
+  gReal.style.display=showReal?'':'none';
+  S1.medium.forEach((m,i)=>m.classList.toggle('hot',k===1||(reveal&&shown.some(f=>f.seg[1].med===i&&f.f<1&&!f.waiting))));
+  // líneas lógicas
+  gLogic.replaceChildren();
+  peerSegs(k).forEach(([x1,x2],i)=>{
+    el('line',{x1:x1+4,y1:cy,x2:x2-4,y2:cy,class:'logic','marker-end':mk(svg1,'pro'),'marker-start':mk(svg1,'pro')},gLogic);
+    if(i===0||k<4) el('text',{x:(x1+x2)/2,y:cy-(k<4?14:22),'text-anchor':'middle',class:'logic-t'},gLogic,
+      k>=4?`comunicación lógica · protocolo de capa ${k} · PDU: ${PDUNAME[k]}`:PDUNAME[k]);
+  });
+  // caja activa
+  for(const key in S1.boxes) S1.boxes[key].classList.remove('active');
+  if(drv.wp.box&&(showReal||!hidden)) S1.boxes[drv.wp.box].classList.add('active');
+  // tokens reales
+  for(let i=0;i<NF;i++){
+    const f=fs[i], g=tokReal[i];
+    if(!f||!f.show||!showReal){g.style.display='none';continue}
+    const st_=f.s||f.wp.s, key=JSON.stringify(st_)+f.wp.L+f.kind+(f.dl?f.dl.label:'');
+    if(key!==lastKeyR[i]){buildToken(g,blocks(st_,0,f.dl),f.waiting?null:PDUNAME[f.wp.L]);lastKeyR[i]=key}
+    g.setAttribute('transform',`translate(${f.x},${f.y})`);g.style.display='';
+  }
+  // tokens percibidos (recorrido real recortado a la capa k)
+  let ghosts;
+  if(N>1&&k===5){const p=pos(fs[N-1].u);ghosts=[{x:p.x,y:p.y,wp:p.wp,s:F,dl:DL_MSG,i:0}]}
+  else ghosts=shown.map(f=>({x:f.x,y:f.y,wp:f.wp,s:f.s||f.wp.s,dl:f.dl,i:f.i,kind:f.kind}));
+  for(let i=0;i<NF;i++){
+    const gh=ghosts[i], g=tokGhost[i];
+    if(!gh){g.style.display='none';continue}
+    const hid=gh.y>cy+0.5;
+    if(showReal&&!hid){g.style.display='none';continue}
+    const side=gh.x<(RLx+RRx)/2?'h2a':'h2b';
+    const st_=hid?st({h4:k<=4,h3:k<=3,h2:k<=2?side:null,bits:k===1}):gh.s;
+    const merge=hid?k:0, frag=(N>1&&gh.kind==='frag');
+    const cap=hid?((showReal||frag)?null:`PDU de capa ${k}: ${PDUNAME[k]}`):(frag?null:PDUNAME[gh.wp.L]);
+    const key=JSON.stringify(st_)+merge+(hid?k:gh.wp.L)+showReal+(gh.dl?gh.dl.label:'')+cap;
+    if(key!==lastKeyG[i]){buildToken(g,blocks(st_,merge,gh.dl),cap);lastKeyG[i]=key}
+    g.setAttribute('transform',`translate(${gh.x},${Math.min(gh.y,cy)})`);
+    g.setAttribute('class',showReal?'ghost':'');g.style.display='';
+  }
+  // textos
+  $('p1h').textContent=k===1?'Capa 1 · la realidad':`Lo que percibe la capa ${k} (${LNAME[k]})`;
+  $('p1').textContent=PERC[k]+(N>1&&PERC_SEG[k]?PERC_SEG[k]:'');
+  let txt=drv.wp.txt;
+  if(N>1){
+    if(drv.kind==='frag'&&drv.wp.i===1)txt=SEG_TXT.split;
+    else if(drv.waiting)txt=SEG_TXT.wait;
+    else if(drv.kind==='msg'&&drv.wp.i===18)txt=SEG_TXT.join;
+    else if(drv.kind==='msg'&&drv.wp.i===19)txt=SEG_TXT.app;
+  }
+  $('p2').textContent=(hidden&&!showReal)
+    ?`Para la capa ${k} su ${PDUNAME[k]} está «en camino» hacia su par. Lo que ocurra dentro del servicio de la capa ${k-1} no es asunto suyo. (Abre la caja negra para verlo.)`
+    :txt;
+  $('scrub').value=Math.round(t*1000);
+  $('play').textContent=V1.playing?'⏸ Pausa':'▶ Reproducir';
+  $('reveal').disabled=(k===1);
+}
+// controles
+for(let k=5;k>=1;k--){const b=document.createElement('button');b.textContent=`${k} · ${LNAME[k]}`;b.dataset.k=k;b.onclick=()=>setK(k);$('kseg').appendChild(b)}
+function setK(k){V1.k=Math.max(1,Math.min(5,k));lastKeyG.length=0;[...$('kseg').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.k==V1.k));render1()}
+$('reveal').onchange=e=>{V1.reveal=e.target.checked;render1()};
+$('segm').onchange=e=>{V1.segm=e.target.checked;lastKeyG.length=0;lastKeyR.length=0;render1()};
+$('scrub').oninput=e=>{V1.playing=false;V1.target=null;V1.t=e.target.value/1000;render1()};
+$('play').onclick=togglePlay;
+function togglePlay(){if(V1.t>=1)V1.t=0;V1.playing=!V1.playing;V1.target=null;loop()}
+$('reset').onclick=()=>{V1.t=0;V1.playing=false;V1.target=null;render1()};
+function step1(dir){
+  V1.playing=false;const eps=1e-4;
+  const visible=w=>(V1.reveal||V1.k===1)?true:w.y<=clampY(V1.k)+0.5; // sin abrir la caja, salta lo oculto
+  const span=V1.segm?1-(NF-1)*0.13:1;
+  let cand=WP.filter(visible).map(w=>({t:w.t*span}));if(V1.segm)cand.push({t:1});
+  cand=cand.filter(w=>dir>0?w.t>V1.t+eps:w.t<V1.t-eps);
+  const target=dir>0?cand[0]:cand[cand.length-1];
+  if(target){V1.target=target.t;loop()}
+}
+$('next').onclick=()=>step1(1);$('prev').onclick=()=>step1(-1);
+let raf=null,last=0;
+function loop(){if(raf)return;last=performance.now();raf=requestAnimationFrame(frame)}
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;raf=null;
+  if(V1.target!=null){
+    const dir=Math.sign(V1.target-V1.t),sp=Math.max(.08,Math.abs(V1.target-V1.t)*2.5);
+    V1.t+=dir*sp*dt;if((dir>0&&V1.t>=V1.target)||(dir<0&&V1.t<=V1.target)||dir===0){V1.t=V1.target;V1.target=null}
+  } else if(V1.playing){V1.t+=dt/16;if(V1.t>=1){V1.t=1;V1.playing=false}}
+  render1();
+  if(V1.playing||V1.target!=null)raf=requestAnimationFrame(frame);
+}
+
+/* ================= VISTA 2 ================= */
+const EX={
+ gen:{name:'Genérico (N+1, N, N−1)',upA:'Entidad N+1',upB:'Entidad N+1 (par)',mid:'Entidad N',low:'Capa N−1 e inferiores: proveedor del servicio N−1',sap:'SAP',
+  pduUp:'PDU N+1',pci:'PCI N',sdu:'SDU N',pdu:'PDU N',ack:'ACK',req:'① solicitud',ind:'④ indicación',conf:'⑥ confirmación',layer:'la capa N',user:'la entidad N+1',alt:'PCI N′'},
+ net:{name:'Internet (navegador / TCP / IP)',upA:'Navegador',upB:'Servidor web',mid:'TCP',low:'IP, enlace y física: proveedor del servicio de red',sap:'puerto 443',
+  pduUp:'mensaje HTTP',pci:'cab. TCP',sdu:'datos HTTP',pdu:'segmento',ack:'ACK',req:'① send(datos)',ind:'④ recv(datos)',conf:'⑥ sin error',layer:'TCP',user:'el navegador',alt:'TCP+MPTCP',
+  altNote:' Caso real: Multipath TCP. Los dos TCP negocian opciones nuevas y reparten los segmentos por varios caminos, pero el navegador sigue usando la misma interfaz de sockets. Contraejemplo: QUIC no sirve aquí. Va sobre UDP y ofrece otro servicio y otra interfaz (flujos, no un socket TCP): cambió el protocolo y también el servicio, así que la aplicación sí se enteró y HTTP/2 tuvo que convertirse en HTTP/3.'},
+ mail:{name:'Correo (Ana / conserjería / Correos)',upA:'Ana',upB:'Luis',mid:'Conserjería',low:'Correos, sacas y camiones',sap:'3.º B',
+  pduUp:'carta',pci:'sobre',sdu:'carta',pdu:'sobre + carta',ack:'acuse',req:'① «para Luis»',ind:'④ «tienes carta»',conf:'⑥ «entregada»',layer:'la conserjería',user:'Ana',alt:'sobre azul'}
+};
+const V2={ex:'gen',step:0,focus:null,swap:false};
+const STEPS=[
+ e=>['Lo que percibe '+e.user,`${cap(e.user)} cree que intercambia su PDU (${e.pduUp}) directamente con su par: esa línea discontinua es su protocolo. Es una comunicación lógica; ningún bit recorre esa línea.`],
+ e=>['① Solicitud (servicio, a través de la interfaz)',`${cap(e.user)} pide el servicio a ${e.layer} con una primitiva, entregando sus datos por el SAP (${e.sap}). Dice qué quiere, no cómo hacerlo. Lo que entrega es, para ${e.layer}, la SDU.`],
+ e=>['② Encapsulado',`${cap(e.layer)} añade su información de control (${V2.swap?e.alt:e.pci}) a la SDU: ya tiene su PDU (${e.pdu}). La PCI va dirigida a su entidad par y a nadie más.`],
+ e=>['③ Protocolo entre entidades pares',`${cap(e.layer)} de A «envía» la PDU a su par en B: eso es el protocolo (formato, orden, acciones). En realidad hace lo mismo que hicieron con ella: pide el servicio a la capa de abajo (línea gris continua). La misma ilusión, un piso más abajo.`],
+ e=>['④ Indicación (servicio, a través de la interfaz)',`La entidad par lee y retira la PCI, y entrega la SDU hacia arriba por el SAP (${e.sap}). ${cap(e.upB)} recibe exactamente lo que envió ${e.upA}; nunca ve la PCI.`],
+ e=>['⑤ PDU de control',`Si el servicio es confirmado, la entidad par responde con una PDU de control (${e.ack}). Es protocolo puro: viaja entre pares y las entidades de arriba no se enteran de que existe.`],
+ e=>['⑥ Confirmación',`${cap(e.layer)} de A informa hacia arriba del resultado. De todo el proceso, ${e.user} solo ha visto las primitivas ①, ④ y ⑥.`],
+ e=>['Resumen: tres relaciones distintas',`Vertical, misma máquina: SERVICIO (qué se pide), a través de la INTERFAZ (por dónde: el SAP). Horizontal, máquinas distintas: PROTOCOLO (cómo se entienden los pares). ${cap(e.user)} sigue creyendo que habló directamente con su par.`],
+];
+const DEFS={
+ null:['Las tres palabras','Servicio: lo que una capa ofrece a la de arriba (primitivas). Protocolo: reglas entre entidades pares de sistemas distintos. Interfaz: reglas entre capas adyacentes del mismo sistema; el SAP es la puerta.','panel'],
+ svc:['Servicio · vertical · el «qué»','Conjunto de operaciones (primitivas) que la capa N ofrece a la N+1: conectar, enviar, recibir, desconectar. Mira hacia arriba. No dice cómo se consigue.','panel svc'],
+ pro:['Protocolo · horizontal · el «cómo»','Reglas y convenciones entre entidades pares de sistemas distintos: formato y orden de las PDU, y acciones al enviarlas y recibirlas. Existe para proveer el servicio de su capa.','panel logic'],
+ ifc:['Interfaz · la frontera · el «por dónde»','Reglas de la relación vertical entre capas adyacentes dentro de la misma máquina. El SAP identifica a quién se entrega. Es local: puede ser distinta en cada máquina sin que el par lo note.','panel ifc']
+};
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+const svg2=$('svg2');
+function render2(){
+  const e=EX[V2.ex], s=V2.step;
+  svg2.replaceChildren();defs(svg2);
+  const xA=265,xB=835,bw=280,yU=50,hU=66,yI=150,yN=185,hN=66,yI2=285,yBar=320,hBar=78;
+  el('text',{x:xA,y:32,'text-anchor':'middle',class:'sys-t'},svg2,'Sistema A');
+  el('text',{x:xB,y:32,'text-anchor':'middle',class:'sys-t'},svg2,'Sistema B');
+  const vis=(n)=> s===7?'':(n>s?'display:none':'');
+  const cls=(base,n)=>base+((n<s&&s!==7)?' past':'');
+  function ent(x,y,h,label,c){const g=el('g',{class:'ent '+c},svg2);el('rect',{x:x-bw/2,y,width:bw,height:h,rx:8},g);el('text',{x,y:y+23,'text-anchor':'middle'},g,label);return g}
+  ent(xA,yU,hU,e.upA,'');ent(xB,yU,hU,e.upB,'');ent(xA,yN,hN,e.mid,'n');ent(xB,yN,hN,e.mid,'n');
+  const bar=el('g',{class:'bar'},svg2);el('rect',{x:95,y:yBar,width:910,height:hBar,rx:14},bar);el('text',{x:550,y:yBar+hBar-12,'text-anchor':'middle'},bar,e.low);
+  // interfaces
+  const gi=el('g',{'data-c':'ifc'},svg2);
+  for(const [x,sgn] of [[xA,1],[xB,-1]]){
+    for(const y of [yI,yI2]){el('line',{x1:x-170,y1:y,x2:x+170,y2:y,class:'ifc-line'},gi);el('circle',{cx:x,cy:y,r:9,class:'sap'},gi)}
+    el('text',{x:x+15,y:yI-9,class:'ifc-t'},gi,e.sap);
+  }
+  el('text',{x:550,y:yI+5,'text-anchor':'middle',class:'ifc-t'},gi,'◂ interfaz ▸');
+  el('text',{x:550,y:yI2+5,'text-anchor':'middle',class:'ifc-t'},gi,'◂ interfaz ▸');
+  const pciBlk={label:V2.swap?e.alt:e.pci,w:88,cls:V2.swap?'b-alt':'b-pci'}, sduBlk={label:e.sdu,w:96,cls:'b-sdu',dark:1};
+  // 0 percepción N+1
+  let g=el('g',{'data-c':'pro',class:cls('',0)},svg2);
+  el('line',{x1:xA+bw/2+4,y1:yU+42,x2:xB-bw/2-4,y2:yU+42,class:'a-pro','marker-end':mk(svg2,'pro'),'marker-start':mk(svg2,'pro')},g);
+  el('text',{x:550,y:yU+16,'text-anchor':'middle',class:'t-pro'},g,'comunicación lógica');
+  if(s===0||s===7){const t=el('g',{transform:`translate(550,${yU+42})`},g);buildToken(t,[{label:e.pduUp,w:120,cls:'b-sdu',dark:1}],null,24)}
+  // 1 solicitud
+  g=el('g',{'data-c':'svc ifc',class:cls('',1),style:vis(1)},svg2);
+  el('line',{x1:xA-100,y1:yU+hU+2,x2:xA-100,y2:yN-3,class:'a-svc','marker-end':mk(svg2,'svc')},g);
+  el('text',{x:xA-110,y:yI+24,'text-anchor':'end',class:'t-svc'},g,e.req);
+  if(s===1){const t=el('g',{transform:`translate(${xA},${yU+45})`},g);buildToken(t,[sduBlk],null,22)}
+  // 2 encapsulado
+  g=el('g',{'data-c':'pro',class:cls('',2),style:(s===2)?'':'display:none'},svg2);
+  {const t=el('g',{transform:`translate(${xA},${yN+45})`},g);buildToken(t,[pciBlk,sduBlk],null,22)}
+  // 3 protocolo + realidad
+  g=el('g',{'data-c':'pro',class:cls('',3),style:vis(3)},svg2);
+  el('line',{x1:xA+bw/2+4,y1:yN+26,x2:xB-bw/2-4,y2:yN+26,class:'a-pro','marker-end':mk(svg2,'pro')},g);
+  el('text',{x:550,y:yN+8,'text-anchor':'middle',class:'t-pro'},g,`③ protocolo: ${e.pdu}`);
+  if(s===3||s===7){const t=el('g',{transform:`translate(550,${yN+26})`},g);buildToken(t,[pciBlk,sduBlk],null,22)}
+  g=el('g',{'data-c':'svc ifc',class:cls('',3),style:vis(3)},svg2);
+  el('path',{d:`M${xA},${yN+hN+2} V${yBar+18} H${xB} V${yN+hN+5}`,class:'a-real','marker-end':mk(svg2,'real')},g);
+  el('text',{x:550,y:yBar+38,'text-anchor':'middle',class:'t-real'},g,'en realidad: otra solicitud de servicio, un piso más abajo');
+  // 4 indicación
+  g=el('g',{'data-c':'svc ifc',class:cls('',4),style:vis(4)},svg2);
+  el('line',{x1:xB-100,y1:yN-2,x2:xB-100,y2:yU+hU+4,class:'a-svc','marker-end':mk(svg2,'svc')},g);
+  el('text',{x:xB-110,y:yI+24,'text-anchor':'end',class:'t-svc'},g,e.ind);
+  if(s===4){const t=el('g',{transform:`translate(${xB},${yU+45})`},g);buildToken(t,[sduBlk],null,22)}
+  // 5 ACK
+  g=el('g',{'data-c':'pro',class:cls('',5),style:vis(5)},svg2);
+  el('line',{x1:xB-bw/2-4,y1:yN+54,x2:xA+bw/2+4,y2:yN+54,class:'a-pro','marker-end':mk(svg2,'pro')},g);
+  {const t=el('g',{transform:`translate(590,${yN+54})`},g);buildToken(t,[{label:V2.swap?e.alt:e.pci,w:88,cls:V2.swap?'b-alt':'b-pci'},{label:e.ack,w:50,cls:'b-sdu',dark:1}],null,20)}
+  el('text',{x:480,y:yN+84,'text-anchor':'middle',class:'t-pro'},g,'⑤ PDU de control');
+  // 6 confirmación
+  g=el('g',{'data-c':'svc ifc',class:cls('',6),style:vis(6)},svg2);
+  el('line',{x1:xA+110,y1:yN-2,x2:xA+110,y2:yU+hU+4,class:'a-svc','marker-end':mk(svg2,'svc')},g);
+  el('text',{x:xA+120,y:yI+24,class:'t-svc'},g,e.conf);
+  // textos
+  const [h,p]=STEPS[s](e);$('s2h').textContent=h;$('s2p').textContent=p;
+  $('s2count').textContent=`Paso ${s} de ${STEPS.length-1}`;
+  $('s2prev').disabled=s===0;$('s2next').disabled=s===STEPS.length-1;
+  const d=DEFS[V2.focus];$('defh').textContent=d[0];$('defp').textContent=d[1];$('defpanel').className=d[2];
+  if(V2.focus)$('stage2').dataset.focus=V2.focus;else delete $('stage2').dataset.focus;
+  document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.f===V2.focus));
+  [...$('exseg').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.ex===V2.ex));
+  $('swapnote').hidden=!V2.swap;
+  $('swapnote').textContent=`Ha cambiado el protocolo de ${e.layer} (otra PCI, otras reglas entre pares). El servicio y la interfaz son los mismos: las primitivas ①, ④ y ⑥ no cambian y ${e.user} no se entera. Esa es la gracia de las capas.`+(e.altNote||'');
+}
+for(const k in EX){const b=document.createElement('button');b.textContent=EX[k].name;b.dataset.ex=k;b.onclick=()=>{V2.ex=k;render2()};$('exseg').appendChild(b)}
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{V2.focus=V2.focus===c.dataset.f?null:c.dataset.f;render2()});
+$('s2next').onclick=()=>{V2.step=Math.min(STEPS.length-1,V2.step+1);render2()};
+$('s2prev').onclick=()=>{V2.step=Math.max(0,V2.step-1);render2()};
+$('swap').onchange=e=>{V2.swap=e.target.checked;render2()};
+
+/* ================= VISTA 3 ================= */
+const S3=drawStacks($('svg3'));const svg3=$('svg3');const g3=el('g',{},svg3);
+const PARTS=[
+ {id:'h2',label:'WiFi',color:'var(--h2a)',L:2,hot:['A-2','RL-2','RR-2','B-2'],
+  a:'La escribe Enlace de A y la lee Enlace del router (interfaz Wi-Fi), que la destruye. Para el segundo enlace, el router escribe una cabecera Ethernet nueva que leerá Enlace de B. Dos tramas distintas para un mismo datagrama.',
+  b:'Ninguna otra capa la ve: Red recibe el datagrama ya sin cabecera ni cola de enlace. El FCS (cola) forma parte de la misma PCI de capa 2.'},
+ {id:'h3',label:'IP',color:'var(--h3)',L:3,hot:['A-3','R-3','B-3'],
+  a:'La escribe IP de A. La lee IP del router para decidir el siguiente salto (y la reenvía casi intacta), y finalmente IP de B, que la retira. Pares salto a salto, direcciones extremo a extremo.',
+  b:'Enlace y Física la transportan sin abrirla: para ellas es parte de la SDU. Transporte y Aplicación nunca la ven.'},
+ {id:'h4',label:'TCP',color:'var(--h4)',L:4,hot:['A-4','B-4'],
+  a:'La escribe TCP de A y solo la lee TCP de B. Es un diálogo extremo a extremo: números de secuencia, ACK, puertos.',
+  b:'El router no la lee: no tiene capa 4. Para IP y para Enlace, la cabecera TCP son «datos» (por eso la SDU de red incluye la cabecera TCP).'},
+ {id:'data',label:'datos (mensaje HTTP)',color:'var(--data)',L:5,hot:['A-5','B-5'],
+  a:'Los genera la aplicación de A y los interpreta la aplicación de B. Es el único trozo que le importa al usuario.',
+  b:'Todas las capas inferiores, en todos los nodos, lo transportan sin mirarlo.'},
+ {id:'fcs',label:'FCS',color:'var(--h2a)',L:2,alias:'h2'}
+];
+let sel3='h4';
+function render3(){
+  const part=PARTS.find(p=>p.id===sel3);
+  [...$('frame').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===sel3||(sel3==='h2'&&b.dataset.id==='fcs')));
+  for(const k in S3.boxes){S3.boxes[k].classList.toggle('hot',part.hot.includes(k));S3.boxes[k].classList.toggle('dim',!part.hot.includes(k))}
+  g3.replaceChildren();
+  peerSegs(part.L).forEach(([x1,x2],i)=>{
+    const y=yMid(part.L);
+    el('line',{x1:x1+4,y1:y,x2:x2-4,y2:y,class:'logic','marker-end':mk(svg3,'pro')},g3);
+    const lbl=part.L===2?(i===0?'trama Wi-Fi':'trama Eth (nueva)'):part.L===3?(i===0?'datagrama':'mismo datagrama'):'protocolo '+(part.L===4?'TCP':'HTTP')+': extremo a extremo';
+    el('text',{x:(x1+x2)/2,y:y-12,'text-anchor':'middle',class:'logic-t'},g3,lbl);
+  });
+  $('p3a').textContent=part.a;$('p3b').textContent=part.b;
+}
+PARTS.forEach(p=>{const b=document.createElement('button');b.textContent=p.label;b.dataset.id=p.id;b.style.background=p.color;
+  if(p.id==='data')b.style.flex='1';b.onclick=()=>{sel3=p.alias||p.id;render3()};$('frame').appendChild(b)});
+// orden visual: WiFi, IP, TCP, datos, FCS (ya lo es)
+
+/* ---------- pestañas y teclado ---------- */
+let tab='v1';
+function setTab(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  for(const id of ['v1','v2','v3'])$(id).hidden=id!==t; if(t!=='v1')V1.playing=false}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.addEventListener('keydown',ev=>{
+  if(ev.target.tagName==='INPUT'&&ev.target.type==='range')return;
+  const k=ev.key;
+  if(k==='1'||k==='2'||k==='3'){setTab('v'+k);return}
+  if(tab==='v1'){
+    if(k==='ArrowRight'){step1(1);ev.preventDefault()}
+    else if(k==='ArrowLeft'){step1(-1);ev.preventDefault()}
+    else if(k===' '){togglePlay();ev.preventDefault()}
+    else if(k==='ArrowDown'){setK(V1.k-1);ev.preventDefault()}
+    else if(k==='ArrowUp'){setK(V1.k+1);ev.preventDefault()}
+    else if(k==='r'||k==='R'){if(V1.k>1){V1.reveal=!V1.reveal;$('reveal').checked=V1.reveal;render1()}}
+  } else if(tab==='v2'){
+    if(k==='ArrowRight'||k===' '){$('s2next').click();ev.preventDefault()}
+    else if(k==='ArrowLeft'){$('s2prev').click();ev.preventDefault()}
+  }
+});
+setK(4);render2();render3();
+</script>
+</body>
+</html>

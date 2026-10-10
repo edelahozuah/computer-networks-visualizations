@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive visualizations for computer networks courses</title>
+<meta name="description" content="Self-contained interactive HTML visualizations for teaching computer networks: delays, layers, queueing, DNS and HTTP. Spanish and English. CC BY-SA 4.0.">
+<style>
+:root{--bg:#EEF0F2;--surface:#FFFFFF;--ink:#1B2129;--muted:#5E6873;--line:#D5DAE0;--accent:#1D66A8;--accent-2:#B5541F;
+--f-disp:"Archivo","Helvetica Neue",Arial,sans-serif;--f-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--f-mono:ui-monospace,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#11151A;--surface:#1A2027;--ink:#E6E9ED;--muted:#9AA4AF;--line:#2E3740;--accent:#5DA9EC;--accent-2:#E27B45}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#11151A;--surface:#1A2027;--ink:#E6E9ED;--muted:#9AA4AF;--line:#2E3740;--accent:#5DA9EC;--accent-2:#E27B45}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);padding:0 16px 48px}
+.wrap{max-width:1120px;margin:0 auto}
+header{border-top:6px solid var(--accent-2);padding:24px 0 8px}
+h1{font:800 clamp(24px,3.4vw,34px)/1.1 var(--f-disp);margin:0 0 8px;letter-spacing:-.01em;text-wrap:balance}
+.lead{color:var(--muted);max-width:70ch;margin:0 0 6px}
+.meta{font-size:14px;color:var(--muted)} .meta a{color:var(--accent)}
+h2{font:700 22px/1.2 var(--f-disp);margin:40px 0 4px} h2 small{font-weight:500;color:var(--muted)}
+h3{font:600 17px/1.3 var(--f-disp);margin:28px 0 4px}
+.desc{color:var(--muted);margin:0 0 12px;max-width:80ch;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.card img{display:block;width:100%;aspect-ratio:720/458;object-fit:cover;object-position:top;border-bottom:1px solid var(--line);background:var(--bg)}
+.card .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card .ctx{font:500 12px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.card h4{margin:0;font:600 16px/1.3 var(--f-body)} .card h4 span{display:block;font-weight:400;color:var(--muted);font-size:14px}
+.card p{margin:0;font-size:14px;color:var(--muted);flex:1}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.links a{text-decoration:none;font-size:14px;font-weight:600;color:var(--accent);border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+.links a:hover,.links a:focus-visible{border-color:var(--accent)}
+footer{margin-top:48px;border-top:1px solid var(--line);padding-top:14px;font-size:14px;color:var(--muted)} footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>Interactive visualizations for computer networks courses</h1>
+<p class="lead">Self-contained HTML visualizations for teaching computer networks at undergraduate level. Each one is a single file with no dependencies that works offline, in Spanish (ES) and English (EN). Developed for <a href="https://edelahozuah.github.io/en/teaching/ar1/">Network Architecture I</a> (Arquitectura de Redes I) at the University of Alcalá.</p>
+<p class="meta"><a href="https://github.com/edelahozuah/computer-networks-visualizations">Source and catalogue on GitHub</a> · License <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="license">CC BY-SA 4.0</a> · Enrique de la Hoz, University of Alcalá</p>
+</header>
+<main>
+
+<h2 id="topic-1">Topic 1: Introduction: delays, layers and packet switching <small>· Introducción: retardos, capas y conmutación de paquetes</small></h2>
+<div class="grid">
+<article class="card" id="bit-time-line-coding"><a href="01-introduction/bit-time-line-coding.en.html"><img src="thumbnails/bit-time-line-coding.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 1.1</div><h4>Line coding and bit time<span lang="es">Codificación de línea y tiempo de bit</span></h4><p>Encode a frame in NRZ-L, NRZ-I or Manchester and see that every bit occupies the link for a fixed time, 1/R. That is where the transmission delay, L/R, comes from.</p><div class="links"><a href="01-introduction/bit-time-line-coding.en.html" hreflang="en">English</a><a href="01-introduction/bit-time-line-coding.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="space-time-diagram"><a href="01-introduction/space-time-diagram.en.html"><img src="thumbnails/space-time-diagram.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 1.1</div><h4>Transmission and propagation delay: space-time diagram<span lang="es">Retardos de transmisión y propagación: diagrama espacio-tiempo</span></h4><p>Adjust size, rate, distance and propagation speed and follow the packets between sender and receiver. Compare stop-and-wait with pipelining and the sender&#x27;s utilization.</p><div class="links"><a href="01-introduction/space-time-diagram.en.html" hreflang="en">English</a><a href="01-introduction/space-time-diagram.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="logical-vs-real-communication"><a href="01-introduction/logical-vs-real-communication.en.html"><img src="thumbnails/logical-vs-real-communication.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 1.2</div><h4>Logical vs real communication<span lang="es">Comunicación lógica y comunicación real</span></h4><p>Every layer believes it talks directly to its peer, but everything actually goes up and down the stack. Walk through service, protocol and interface and find out who reads each header in the frame.</p><div class="links"><a href="01-introduction/logical-vs-real-communication.en.html" hreflang="en">English</a><a href="01-introduction/logical-vs-real-communication.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="router-queueing-and-drops"><a href="01-introduction/router-queueing-and-drops.en.html"><img src="thumbnails/router-queueing-and-drops.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 1.3</div><h4>Queueing and packet drops in a router<span lang="es">Colas y descartes en un router</span></h4><p>Several sources share one outgoing link. Raise the traffic intensity ρ = λ·L/R and watch the queue grow, the buffer fill up, and the router start dropping packets.</p><div class="links"><a href="01-introduction/router-queueing-and-drops.en.html" hreflang="en">English</a><a href="01-introduction/router-queueing-and-drops.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="delay-diagram"><a href="01-introduction/delay-diagram.en.html"><img src="thumbnails/delay-diagram.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 1.3</div><h4>Delay diagram<span lang="es">Diagrama de retardos</span></h4><p>Draw frames and ACKs between two ends to scale and decide when each one starts. Read the transmission and propagation delays off the dimension lines and export the diagram as SVG or PNG.</p><div class="links"><a href="01-introduction/delay-diagram.en.html" hreflang="en">English</a><a href="01-introduction/delay-diagram.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+</div>
+<h3 id="delay-lab">Delay lab <small style="font-weight:400;color:var(--muted)">· Laboratorio de retardos</small></h3>
+<p class="desc">Three visualizations for problems P6, P25 to P27 and P28 from Kurose and Ross (lab 1.2). Use prediction mode to anticipate the result before seeing it.</p>
+<div class="grid">
+<article class="card" id="01-anatomy-of-delay"><a href="01-introduction/delay-lab/01-anatomy-of-delay.en.html"><img src="thumbnails/01-anatomy-of-delay.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Lab 1.2, problem P6</div><h4>Anatomy of delay<span lang="es">Anatomía del retardo</span></h4><p>Transmission versus propagation, where the first and last bit are, the equilibrium point, and a calculator for any problem statement.</p><div class="links"><a href="01-introduction/delay-lab/01-anatomy-of-delay.en.html" hreflang="en">English</a><a href="01-introduction/delay-lab/01-anatomy-of-delay.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="02-pipe-and-bit-width"><a href="01-introduction/delay-lab/02-pipe-and-bit-width.en.html"><img src="thumbnails/02-pipe-and-bit-width.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Lab 1.2, problems P25 to P27</div><h4>The pipe and the width of a bit<span lang="es">La tubería y el ancho de un bit</span></h4><p>Bandwidth-delay product, bits in flight, the width of a bit, and a comparison between 2 Mbps and 1 Gbps.</p><div class="links"><a href="01-introduction/delay-lab/02-pipe-and-bit-width.en.html" hreflang="en">English</a><a href="01-introduction/delay-lab/02-pipe-and-bit-width.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="03-continuous-vs-stop-and-wait"><a href="01-introduction/delay-lab/03-continuous-vs-stop-and-wait.en.html"><img src="thumbnails/03-continuous-vs-stop-and-wait.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Lab 1.2, problem P28</div><h4>Continuous transmission vs. stop-and-wait<span lang="es">Envío continuo frente a parada y espera</span></h4><p>One large message versus 20 acknowledged packets, link utilization, and the cost of the RTT.</p><div class="links"><a href="01-introduction/delay-lab/03-continuous-vs-stop-and-wait.en.html" hreflang="en">English</a><a href="01-introduction/delay-lab/03-continuous-vs-stop-and-wait.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+</div>
+<h2 id="topic-2">Topic 2: Application layer: DNS and HTTP <small>· Capa de aplicación: DNS y HTTP</small></h2>
+<h3 id="dns">DNS <small style="font-weight:400;color:var(--muted)">· DNS</small></h3>
+<p class="desc">Five animations on why names are needed, their structure, zone delegation and iterative, recursive and mixed queries.</p>
+<div class="grid">
+<article class="card" id="dns-names"><a href="02-application-layer/dns/dns-names.en.html"><img src="thumbnails/dns-names.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 2.1</div><h4>Anatomy of a name: from labels to the tree<span lang="es">Anatomía de un nombre: de las etiquetas al árbol</span></h4><p>Break any name into labels and domains and see it in the tree, from the root or from the name. Check the rules, 63 characters, trailing dot, case and punycode.</p><div class="links"><a href="02-application-layer/dns/dns-names.en.html" hreflang="en">English</a><a href="02-application-layer/dns/dns-names.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="dns-zone-delegation"><a href="02-application-layer/dns/dns-zone-delegation.en.html"><img src="thumbnails/dns-zone-delegation.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 2.1</div><h4>DNS zone delegation<span lang="es">Delegación de zonas: ceder una rama del árbol</span></h4><p>Step by step through the IANA → Red.es → UAH → Department chain, with zone files. In &quot;Delegate it yourself&quot; you create domains and hosts and delegate them yourself, with NS records, glue and referrals.</p><div class="links"><a href="02-application-layer/dns/dns-zone-delegation.en.html" hreflang="en">English</a><a href="02-application-layer/dns/dns-zone-delegation.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="dns-queries"><a href="02-application-layer/dns/dns-queries.en.html"><img src="thumbnails/dns-queries.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 2.1</div><h4>DNS queries: iterative and recursive<span lang="es">Consultas DNS: iterativa y recursiva</span></h4><p>Message by message, resolving gaia.cs.umass.edu with an empty cache. Compare the two modes and notice who has to remember other people&#x27;s queries.</p><div class="links"><a href="02-application-layer/dns/dns-queries.en.html" hreflang="en">English</a><a href="02-application-layer/dns/dns-queries.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="dns-queries-mixed"><a href="02-application-layer/dns/dns-queries-mixed.en.html"><img src="thumbnails/dns-queries-mixed.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 2.1</div><h4>DNS queries: you decide who is recursive<span lang="es">Consultas DNS: decide tú quién es recursivo</span></h4><p>The same resolution, but you choose whether the local server, the root, the TLD and the authoritative server work recursively or iteratively. Compare who sends the queries, who has to wait and where the answer ends up cached.</p><div class="links"><a href="02-application-layer/dns/dns-queries-mixed.en.html" hreflang="en">English</a><a href="02-application-layer/dns/dns-queries-mixed.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+<article class="card" id="dns-step-by-step"><a href="02-application-layer/dns/dns-step-by-step.en.html"><img src="thumbnails/dns-step-by-step.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 2.2</div><h4>DNS step by step<span lang="es">DNS paso a paso</span></h4><p>The DNS told from the why in 27 steps, from why an IP address is not enough to a query followed message by message. Why we need names, how the tree is split up, what your computer sees and what happens behind it, and where each query is recursive or iterative.</p><div class="links"><a href="02-application-layer/dns/dns-step-by-step.en.html" hreflang="en">English</a><a href="02-application-layer/dns/dns-step-by-step.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+</div>
+<h3 id="http">HTTP <small style="font-weight:400;color:var(--muted)">· HTTP</small></h3>
+<div class="grid">
+<article class="card" id="http-persistent"><a href="02-application-layer/http/http-persistent.en.html"><img src="thumbnails/http-persistent.jpg" alt="" loading="lazy"></a><div class="body"><div class="ctx">Session 2.2</div><h4>Persistent HTTP: without and with pipelining<span lang="es">HTTP persistente: sin y con canalización</span></h4><p>A page with N objects downloaded over a single persistent TCP connection. Compare the delay diagrams without and with pipelining on the same time scale, see when the link sits idle and practise with random exercises.</p><div class="links"><a href="02-application-layer/http/http-persistent.en.html" hreflang="en">English</a><a href="02-application-layer/http/http-persistent.es.html" hreflang="es" lang="es">Español</a></div></div></article>
+</div>
+</main>
+<footer>
+<p>Problems and figures referenced in the visualizations are from Kurose &amp; Ross, <em>Computer Networking: A Top-Down Approach</em>. The visualizations themselves are original work licensed under CC BY-SA 4.0: reuse, adapt and share them, crediting the author and keeping the same license.</p>
+<p>To cite or get a persistent DOI, see <a href="https://github.com/edelahozuah/computer-networks-visualizations#citing">the README</a>.</p>
+</footer>
+</div>
+</body>
+</html>

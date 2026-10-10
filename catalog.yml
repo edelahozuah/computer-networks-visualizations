@@ -1,0 +1,986 @@
+# Catalogue of the visualizations. Single source of truth for index.html, the
+# README table and the sites that embed them (see scripts/ and README.md).
+#
+# Each visualization:
+#   id            file name without language suffix; also the thumbnail name
+#   topic         number of the topic (see `topics`)
+#   collection    optional sub-group (see `collections`)
+#   session       lecture session it belongs to, or `label` (free text, es/en)
+#   title, description   one line each, es and en
+#   summary       a paragraph in plain text for search engines and language models
+#   concepts      list of concepts it teaches (schema.org `teaches`)
+#   formulas      optional list of formulas, as plain text
+#   files         the two self-contained HTML files, es and en
+#   thumbnail     720 px wide JPEG (see scripts/thumbnails.sh)
+#   source        optional directory with the modular source and build script
+#   added         date first published (YYYY-MM-DD)
+course:
+  es: Arquitectura de Redes I
+  en: Network Architecture I
+  institution:
+    es: Universidad de Alcalá
+    en: University of Alcalá
+  url:
+    es: https://edelahozuah.github.io/docencia/ar1/
+    en: https://edelahozuah.github.io/en/teaching/ar1/
+topics:
+- number: 1
+  dir: 01-introduction
+  title:
+    es: 'Introducción: retardos, capas y conmutación de paquetes'
+    en: 'Introduction: delays, layers and packet switching'
+- number: 2
+  dir: 02-application-layer
+  title:
+    es: 'Capa de aplicación: DNS y HTTP'
+    en: 'Application layer: DNS and HTTP'
+collections:
+  delay-lab:
+    topic: 1
+    title:
+      es: Laboratorio de retardos
+      en: Delay lab
+    description:
+      es: >-
+        Tres visualizaciones para los problemas P6, P25 a P27 y P28 de Kurose y Ross (laboratorio 1.2).
+        Usa el modo predicción para anticipar el resultado antes de verlo.
+      en: >-
+        Three visualizations for problems P6, P25 to P27 and P28 from Kurose and Ross (lab 1.2). Use prediction
+        mode to anticipate the result before seeing it.
+  dns:
+    topic: 2
+    title:
+      es: DNS
+      en: DNS
+    description:
+      es: >-
+        Cinco animaciones sobre por qué hacen falta los nombres, su estructura, la delegación de zonas
+        y las consultas iterativas, recursivas y mixtas.
+      en: >-
+        Five animations on why names are needed, their structure, zone delegation and iterative, recursive
+        and mixed queries.
+  http:
+    topic: 2
+    title:
+      es: HTTP
+      en: HTTP
+visualizations:
+- id: bit-time-line-coding
+  topic: 1
+  session: '1.1'
+  title:
+    es: Codificación de línea y tiempo de bit
+    en: Line coding and bit time
+  description:
+    es: >-
+      Codifica una trama en NRZ-L, NRZ-I o Manchester y observa que cada bit ocupa el enlace un tiempo
+      fijo, 1/R. De ahí sale el retardo de transmisión, L/R.
+    en: >-
+      Encode a frame in NRZ-L, NRZ-I or Manchester and see that every bit occupies the link for a fixed
+      time, 1/R. That is where the transmission delay, L/R, comes from.
+  summary:
+    es: >-
+      Muestra la forma de onda de una secuencia de entre 2 y 24 bits (escrita a mano o aleatoria) codificada
+      en NRZ-L, NRZ-I o Manchester, junto con el tiempo de bit T_b = 1/R. El estudiante cambia la tasa
+      R del enlace, de 1 Mbps a 1 Gbps en escala logarítmica, y reproduce la transmisión con un cursor
+      que resalta el bit que se está enviando. Las tarjetas dan T_b, el número de bits L y el retardo
+      de transmisión L/R. La idea clave es que cada bit ocupa el enlace un tiempo fijo y que el retardo
+      de transmisión es la suma de esos intervalos.
+    en: >-
+      Shows the waveform of a 2 to 24 bit sequence (typed in or random) encoded as NRZ-L, NRZ-I or Manchester,
+      together with the bit time T_b = 1/R. The student changes the link rate R, from 1 Mbps to 1 Gbps
+      on a logarithmic scale, and plays back the transmission with a cursor that highlights the bit currently
+      being sent. The cards give T_b, the number of bits L and the transmission delay L/R. The key idea
+      is that every bit occupies the link for a fixed time, and the transmission delay is the sum of those
+      intervals.
+  concepts:
+    es:
+    - tiempo de bit
+    - tasa de transmisión
+    - retardo de transmisión
+    - codificación de línea
+    - NRZ-L
+    - NRZ-I
+    - Manchester
+    - forma de onda
+    en:
+    - bit time
+    - transmission rate
+    - transmission delay
+    - line coding
+    - NRZ-L
+    - NRZ-I
+    - Manchester
+    - waveform
+  formulas:
+    es:
+    - T_b = 1/R
+    - retardo de transmisión = L · T_b = L / R
+    en:
+    - T_b = 1/R
+    - transmission delay = L · T_b = L / R
+  files:
+    es: 01-introduction/bit-time-line-coding.es.html
+    en: 01-introduction/bit-time-line-coding.en.html
+  thumbnail: thumbnails/bit-time-line-coding.jpg
+  added: '2026-09-28'
+- id: space-time-diagram
+  topic: 1
+  session: '1.1'
+  title:
+    es: 'Retardos de transmisión y propagación: diagrama espacio-tiempo'
+    en: 'Transmission and propagation delay: space-time diagram'
+  description:
+    es: >-
+      Ajusta tamaño, tasa, distancia y velocidad de propagación y sigue los paquetes entre emisor y receptor.
+      Compara parada y espera con pipelining y la utilización del emisor.
+    en: >-
+      Adjust size, rate, distance and propagation speed and follow the packets between sender and receiver.
+      Compare stop-and-wait with pipelining and the sender's utilization.
+  summary:
+    es: >-
+      Diagrama espacio-tiempo con el emisor a la izquierda, el receptor a la derecha y el tiempo hacia
+      abajo, en el que se dibujan paquetes de datos y ACK. El estudiante ajusta el tamaño del paquete
+      L, la tasa R, la distancia d, la velocidad de propagación s (2·10⁸ o 3·10⁸ m/s), el número de paquetes,
+      el tamaño del ACK y el modo de intercambio: sin ACK, parada y espera o pipelining. Las tarjetas
+      muestran los retardos de transmisión y de propagación, el tiempo total y la utilización del emisor.
+      Permite ver cuándo domina cada retardo y por qué parada y espera aprovecha poco el enlace.
+    en: >-
+      Space-time diagram with the sender on the left, the receiver on the right and time running downwards,
+      in which data packets and ACKs are drawn. The student sets the packet size L, the rate R, the distance
+      d, the propagation speed s (2·10⁸ or 3·10⁸ m/s), the number of packets, the ACK size and the exchange
+      mode: no ACK, stop-and-wait or pipelining. The cards show the transmission and propagation delays,
+      the total time and the sender utilization. It shows when each delay dominates and why stop-and-wait
+      makes poor use of the link.
+  concepts:
+    es:
+    - retardo de transmisión
+    - retardo de propagación
+    - RTT
+    - parada y espera
+    - pipelining
+    - utilización del emisor
+    - ACK
+    - diagrama espacio-tiempo
+    en:
+    - transmission delay
+    - propagation delay
+    - RTT
+    - stop-and-wait
+    - pipelining
+    - sender utilization
+    - ACK
+    - space-time diagram
+  formulas:
+    es:
+    - d_trans = L / R
+    - d_prop = d / s
+    - utilización = N · L/R / tiempo total
+    en:
+    - d_trans = L / R
+    - d_prop = d / s
+    - utilization = N · L/R / total time
+  files:
+    es: 01-introduction/space-time-diagram.es.html
+    en: 01-introduction/space-time-diagram.en.html
+  thumbnail: thumbnails/space-time-diagram.jpg
+  added: '2026-09-28'
+- id: logical-vs-real-communication
+  topic: 1
+  session: '1.2'
+  title:
+    es: Comunicación lógica y comunicación real
+    en: Logical vs real communication
+  description:
+    es: >-
+      Cada capa cree que habla directamente con su par, pero todo baja y sube por la pila. Recorre servicio,
+      protocolo e interfaz y descubre quién lee cada cabecera de la trama.
+    en: >-
+      Every layer believes it talks directly to its peer, but everything actually goes up and down the
+      stack. Walk through service, protocol and interface and find out who reads each header in the frame.
+  summary:
+    es: >-
+      Explica en tres vistas que la comunicación entre capas homólogas es lógica y que solo se transmiten
+      señales por el medio físico. La primera anima una PDU entre un host Wi-Fi, un router y un host Ethernet:
+      el estudiante elige el punto de vista de cada capa, abre la caja negra del servicio inferior y puede
+      segmentar un mensaje de 4000 octetos en tres segmentos TCP. La segunda distingue servicio, protocolo
+      e interfaz (SAP) paso a paso y permite cambiar el protocolo de la capa. La tercera indica qué entidad
+      escribe y cuál lee cada cabecera de la trama.
+    en: >-
+      Explains in three views that communication between peer layers is only logical and that the only
+      thing actually transmitted is signals over the physical medium. The first animates a PDU between
+      a Wi-Fi host, a router and an Ethernet host: the student picks each layer's point of view, opens
+      the black box of the underlying service and can segment a 4000-byte message into three TCP segments.
+      The second tells service, protocol and interface (SAP) apart step by step and lets the student swap
+      the layer's protocol. The third shows which entity writes and which reads each header of the frame.
+  concepts:
+    es:
+    - comunicación lógica
+    - encapsulado
+    - PDU
+    - SDU
+    - PCI
+    - servicio
+    - protocolo
+    - interfaz
+    - SAP
+    - segmentación
+    en:
+    - logical communication
+    - encapsulation
+    - PDU
+    - SDU
+    - PCI
+    - service
+    - protocol
+    - interface
+    - SAP
+    - segmentation
+  files:
+    es: 01-introduction/logical-vs-real-communication.es.html
+    en: 01-introduction/logical-vs-real-communication.en.html
+  thumbnail: thumbnails/logical-vs-real-communication.jpg
+  added: '2026-09-28'
+- id: router-queueing-and-drops
+  topic: 1
+  session: '1.3'
+  title:
+    es: Colas y descartes en un router
+    en: Queueing and packet drops in a router
+  description:
+    es: >-
+      Varios orígenes comparten un enlace de salida. Sube la intensidad de tráfico ρ = λ·L/R y mira cómo
+      crece la cola, se llena el buffer y el router empieza a descartar paquetes.
+    en: >-
+      Several sources share one outgoing link. Raise the traffic intensity ρ = λ·L/R and watch the queue
+      grow, the buffer fill up, and the router start dropping packets.
+  summary:
+    es: >-
+      Simulación de un router con cuatro orígenes, un buffer finito y un enlace de salida. El estudiante
+      varía la intensidad de tráfico ρ = λ·L/R (de 0,05 a 1,6), el tamaño del buffer (1 a 16 paquetes),
+      el patrón de llegadas (Poisson, regulares o en ráfagas) y el tamaño de los paquetes (fijo o exponencial).
+      Se miden la ocupación de la cola, el retardo en cola, la utilización del enlace, los descartes y
+      el caudal, y se comparan con la curva teórica M/M/1/N, que es exacta cuando los tamaños son exponenciales.
+      Muestra que la cola crece con ρ y que hay descartes incluso con ρ < 1, y que con ρ > 1 se descarta
+      de forma estructural.
+    en: >-
+      Simulation of a router with four sources, a finite buffer and one output link. The student varies
+      the traffic intensity ρ = λ·L/R (0.05 to 1.6), the buffer size (1 to 16 packets), the arrival pattern
+      (Poisson, regular or bursty) and the packet size (fixed or exponential). Queue occupancy, queueing
+      delay, link utilization, drops and throughput are measured and compared with the theoretical M/M/1/N
+      curve, which is exact when packet sizes are exponential. It shows that queues grow with ρ, that
+      packets are dropped even when ρ < 1, and that with ρ > 1 dropping becomes structural.
+  concepts:
+    es:
+    - intensidad de tráfico
+    - retardo de cola
+    - buffer finito
+    - descarte de paquetes
+    - utilización del enlace
+    - conmutación de paquetes
+    - cola M/M/1/N
+    - ráfagas
+    en:
+    - traffic intensity
+    - queueing delay
+    - finite buffer
+    - packet drop
+    - link utilization
+    - packet switching
+    - M/M/1/N queue
+    - bursty traffic
+  formulas:
+    es:
+    - ρ = λ · L / R
+    - tiempo de servicio = L / R
+    - fracción descartada ≈ (ρ − 1) / ρ para ρ > 1
+    en:
+    - ρ = λ · L / R
+    - service time = L / R
+    - dropped fraction ≈ (ρ − 1) / ρ for ρ > 1
+  files:
+    es: 01-introduction/router-queueing-and-drops.es.html
+    en: 01-introduction/router-queueing-and-drops.en.html
+  thumbnail: thumbnails/router-queueing-and-drops.jpg
+  added: '2026-09-28'
+- id: delay-diagram
+  topic: 1
+  session: '1.3'
+  title:
+    es: Diagrama de retardos
+    en: Delay diagram
+  description:
+    es: >-
+      Dibuja a escala tramas y ACK entre dos extremos y decide cuándo empieza cada uno. Mide en las cotas
+      los retardos de transmisión y de propagación y exporta el diagrama en SVG o PNG.
+    en: >-
+      Draw frames and ACKs between two ends to scale and decide when each one starts. Read the transmission
+      and propagation delays off the dimension lines and export the diagram as SVG or PNG.
+  summary:
+    es: >-
+      Editor de diagramas de tiempos entre dos extremos, con el tiempo hacia abajo y los retardos dibujados
+      a escala. El estudiante fija la velocidad R del enlace y el retardo de propagación, directamente
+      o como distancia entre velocidad, y añade tramas y ACK desde cualquiera de los dos extremos con
+      su tamaño L. Cada mensaje puede empezar tras la última recepción, justo tras la transmisión anterior,
+      al recibir o terminar de transmitirse otro mensaje, a la vez que otro o en un instante dado, con
+      una espera opcional para modelar el tiempo de proceso. Las cotas del mensaje seleccionado y una
+      tabla dan inicio, d_trans, llegada del primer y del último bit de cada mensaje; hay ejemplos de
+      parada y espera, ráfaga de tramas y tráfico bidireccional, y el diagrama se exporta en SVG o PNG.
+    en: >-
+      Editor for timing diagrams between two ends, with time running downwards and delays drawn to scale.
+      The student sets the link rate R and the propagation delay, either directly or as distance over
+      speed, and adds frames and ACKs from either end with their size L. Each message can start after
+      the last reception, right after the previous transmission, when another message is received or finishes
+      transmitting, together with another one or at a given time, with an optional wait to model processing
+      time. Dimension lines on the selected message and a table give the start, d_trans and the arrival
+      of the first and last bit of every message; there are examples of stop-and-wait, a burst of frames
+      and bidirectional traffic, and the diagram can be exported as SVG or PNG.
+  concepts:
+    es:
+    - retardo de transmisión
+    - retardo de propagación
+    - diagrama de tiempos
+    - trama
+    - ACK
+    - parada y espera
+    - tiempo de proceso
+    - tráfico bidireccional
+    en:
+    - transmission delay
+    - propagation delay
+    - timing diagram
+    - frame
+    - ACK
+    - stop-and-wait
+    - processing time
+    - bidirectional traffic
+  formulas:
+    es:
+    - d_trans = L / R
+    - d_prop = d / v
+    - llegada del último bit = inicio + d_trans + d_prop
+    en:
+    - d_trans = L / R
+    - d_prop = d / v
+    - last bit arrives = start + d_trans + d_prop
+  files:
+    es: 01-introduction/delay-diagram.es.html
+    en: 01-introduction/delay-diagram.en.html
+  thumbnail: thumbnails/delay-diagram.jpg
+  source: src/delay-diagram
+  added: '2026-10-02'
+- id: 01-anatomy-of-delay
+  topic: 1
+  collection: delay-lab
+  label:
+    es: Laboratorio 1.2, problema P6
+    en: Lab 1.2, problem P6
+  title:
+    es: Anatomía del retardo
+    en: Anatomy of delay
+  description:
+    es: >-
+      Transmisión frente a propagación, dónde están el primer y el último bit, el punto de equilibrio
+      y una calculadora para cualquier enunciado.
+    en: >-
+      Transmission versus propagation, where the first and last bit are, the equilibrium point, and a
+      calculator for any problem statement.
+  summary:
+    es: >-
+      Animación a escala de un paquete que se transmite por un enlace de A a B, basada en el problema
+      P6 de Kurose. Muestra dónde están el primer y el último bit en cada instante, junto con un diagrama
+      espacio-tiempo. El estudiante ajusta el tamaño del paquete, la tasa de transmisión, la longitud
+      del enlace y la velocidad de propagación (o elige un caso predefinido), salta a los instantes clave,
+      usa la lupa y el modo predicción. Una calculadora resuelve cualquier enunciado. La idea central
+      es que el retardo de transmisión depende de L/R y el de propagación de l/v_p, y que su comparación
+      indica si el paquete cabe entero en el enlace.
+    en: >-
+      A to-scale animation of a packet sent over a link from A to B, based on problem P6 from Kurose.
+      It shows where the first and the last bit are at every instant, next to a space-time diagram. The
+      student adjusts packet size, transmission rate, link length and propagation speed (or picks a preset),
+      jumps to key moments, zooms in on the head of the packet and switches on prediction mode. A calculator
+      solves any problem statement. The main idea is that transmission delay depends on L/R and propagation
+      delay on l/v_p, and comparing them tells whether the whole packet fits on the link at once.
+  concepts:
+    es:
+    - retardo de transmisión
+    - retardo de propagación
+    - retardo extremo a extremo
+    - tasa de transmisión
+    - velocidad de propagación
+    - longitud del paquete en el medio
+    - diagrama espacio-tiempo
+    - punto de equilibrio
+    en:
+    - transmission delay
+    - propagation delay
+    - end-to-end delay
+    - transmission rate
+    - propagation speed
+    - packet length on the medium
+    - space-time diagram
+    - break-even point
+  formulas:
+    es:
+    - d_trans = L / R
+    - d_prop = l / v_p
+    - extremo a extremo = d_trans + d_prop
+    - longitud del paquete = v_p·L / R
+    - 'equilibrio (d_prop = d_trans): l = v_p·L / R'
+    en:
+    - d_trans = L / R
+    - d_prop = l / v_p
+    - end-to-end = d_trans + d_prop
+    - packet length = v_p·L / R
+    - 'break-even (d_prop = d_trans): l = v_p·L / R'
+  files:
+    es: 01-introduction/delay-lab/01-anatomy-of-delay.es.html
+    en: 01-introduction/delay-lab/01-anatomy-of-delay.en.html
+  thumbnail: thumbnails/01-anatomy-of-delay.jpg
+  added: '2026-09-28'
+- id: 02-pipe-and-bit-width
+  topic: 1
+  collection: delay-lab
+  label:
+    es: Laboratorio 1.2, problemas P25 a P27
+    en: Lab 1.2, problems P25 to P27
+  title:
+    es: La tubería y el ancho de un bit
+    en: The pipe and the width of a bit
+  description:
+    es: >-
+      Producto ancho de banda por retardo, bits en vuelo, ancho de un bit y comparación entre 2 Mbps y
+      1 Gbps.
+    en: >-
+      Bandwidth-delay product, bits in flight, the width of a bit, and a comparison between 2 Mbps and
+      1 Gbps.
+  summary:
+    es: >-
+      Visualización del enlace como una tubería por la que se vierte un fichero, para los problemas P25,
+      P26 y P27 de Kurose. Muestra cuántos bits hay en el enlace en cada instante, la capacidad de la
+      tubería (producto ancho de banda-retardo), el máximo de bits en vuelo y el ancho físico de un bit
+      en metros, comparado con un campo de fútbol. El estudiante modifica la tasa, el tamaño del fichero,
+      la longitud y la velocidad de propagación, mueve una lupa sobre la tubería y compara 2 Mbps con
+      1 Gbps. Se aprecia que a tasas altas caben muchos bits y cada uno ocupa muy poco espacio.
+    en: >-
+      A view of the link as a pipe into which a file is poured, for problems P25, P26 and P27 from Kurose.
+      It shows how many bits are on the link at each instant, the capacity of the pipe (the bandwidth-delay
+      product), the maximum number of bits in flight and the physical width of a bit in metres, compared
+      with a football pitch. The student changes the rate, file size, link length and propagation speed,
+      moves a magnifier along the pipe and compares 2 Mbps with 1 Gbps. It shows that at high rates many
+      bits fit on the link and each one takes up very little space.
+  concepts:
+    es:
+    - producto ancho de banda-retardo
+    - bits en vuelo
+    - capacidad del enlace
+    - ancho de un bit
+    - retardo de transmisión
+    - retardo de propagación
+    - tasa de transmisión
+    en:
+    - bandwidth-delay product
+    - bits in flight
+    - link capacity
+    - width of a bit
+    - transmission delay
+    - propagation delay
+    - transmission rate
+  formulas:
+    es:
+    - d_prop = m / s
+    - d_trans = F / R
+    - capacidad de la tubería = R·d_prop
+    - máximo de bits en el enlace = min(F, R·d_prop)
+    - ancho de un bit = s / R
+    - longitud del fichero en el medio = s·F / R
+    - R con la que un bit llena el enlace = s / m
+    en:
+    - d_prop = m / s
+    - d_trans = F / R
+    - pipe capacity = R·d_prop
+    - maximum bits on the link = min(F, R·d_prop)
+    - width of a bit = s / R
+    - file length on the medium = s·F / R
+    - R at which one bit fills the link = s / m
+  files:
+    es: 01-introduction/delay-lab/02-pipe-and-bit-width.es.html
+    en: 01-introduction/delay-lab/02-pipe-and-bit-width.en.html
+  thumbnail: thumbnails/02-pipe-and-bit-width.jpg
+  added: '2026-09-28'
+- id: 03-continuous-vs-stop-and-wait
+  topic: 1
+  collection: delay-lab
+  label:
+    es: Laboratorio 1.2, problema P28
+    en: Lab 1.2, problem P28
+  title:
+    es: Envío continuo frente a parada y espera
+    en: Continuous transmission vs. stop-and-wait
+  description:
+    es: >-
+      Un mensaje grande frente a 20 paquetes con reconocimiento, la utilización del enlace y el coste
+      del RTT.
+    en: One large message versus 20 acknowledged packets, link utilization, and the cost of the RTT.
+  summary:
+    es: >-
+      Compara dos formas de enviar el mismo fichero entre A y B, según el problema P28 de Kurose (20 000
+      km, 2 Mbps, 800 000 bits): como un único mensaje continuo y dividido en N paquetes con parada y
+      espera, donde cada paquete espera su reconocimiento (ACK) antes de enviar el siguiente. Muestra
+      ambos escenarios animados, sus diagramas espacio-tiempo, la utilización del enlace y el tiempo total.
+      El estudiante cambia el tamaño del fichero, la tasa, la distancia y N, y puede probar una ventana
+      de varios paquetes sin reconocer. El resultado muestra que el RTT domina el tiempo y deja el enlace
+      casi ocioso.
+    en: >-
+      Compares two ways of sending the same file between A and B, following problem P28 from Kurose (20,000
+      km, 2 Mbps, 800,000 bits): as a single continuous message, and split into N packets with stop-and-wait,
+      where each packet waits for its acknowledgement (ACK) before the next one is sent. It shows both
+      scenarios animated, their space-time diagrams, link utilization and total time. The student changes
+      file size, rate, distance and N, and can also try a window of several unacknowledged packets. The
+      outcome shows that the RTT dominates the time and leaves the link mostly idle.
+  concepts:
+    es:
+    - parada y espera
+    - envío continuo
+    - tiempo de ida y vuelta (RTT)
+    - reconocimiento (ACK)
+    - utilización del enlace
+    - retardo de transmisión
+    - retardo de propagación
+    - ventana
+    en:
+    - stop-and-wait
+    - continuous transmission
+    - round-trip time (RTT)
+    - acknowledgement (ACK)
+    - link utilization
+    - transmission delay
+    - propagation delay
+    - window
+  formulas:
+    es:
+    - d_trans = F / R
+    - d_prop = distancia / v_p
+    - RTT = 2·d_prop
+    - tiempo continuo = F/R + d_prop
+    - tiempo con parada y espera (ventana 1, ACK despreciable) = N·(F/(N·R) + RTT)
+    - utilización = d_trans total / tiempo total
+    en:
+    - d_trans = F / R
+    - d_prop = distance / v_p
+    - RTT = 2·d_prop
+    - continuous time = F/R + d_prop
+    - stop-and-wait time (window 1, negligible ACK) = N·(F/(N·R) + RTT)
+    - utilization = total d_trans / total time
+  files:
+    es: 01-introduction/delay-lab/03-continuous-vs-stop-and-wait.es.html
+    en: 01-introduction/delay-lab/03-continuous-vs-stop-and-wait.en.html
+  thumbnail: thumbnails/03-continuous-vs-stop-and-wait.jpg
+  added: '2026-09-28'
+- id: dns-names
+  topic: 2
+  collection: dns
+  session: '2.1'
+  title:
+    es: 'Anatomía de un nombre: de las etiquetas al árbol'
+    en: 'Anatomy of a name: from labels to the tree'
+  description:
+    es: >-
+      Descompón cualquier nombre en etiquetas y dominios y míralo en el árbol, desde la raíz o desde el
+      nombre. Comprueba las reglas, 63 caracteres, punto final, mayúsculas y punycode.
+    en: >-
+      Break any name into labels and domains and see it in the tree, from the root or from the name. Check
+      the rules, 63 characters, trailing dot, case and punycode.
+  summary:
+    es: >-
+      Descompone un nombre de dominio en sus etiquetas y lo sitúa en el árbol del DNS. El estudiante escribe
+      un nombre o elige un ejemplo, y recorre los niveles desde la raíz hacia abajo o desde el nombre
+      hacia arriba, con una pausa opcional para predecir. Cada sufijo se muestra como un dominio, con
+      su padre y una explicación del TLD y del dominio de segundo nivel. Un panel comprueba las reglas:
+      63 caracteres por etiqueta, 253 en total, letras, cifras y guiones, punto final, mayúsculas y punycode.
+      Enseña que un nombre se escribe de lo particular a lo general y el árbol se recorre desde la raíz.
+    en: >-
+      Breaks a domain name into its labels and places it in the DNS tree. The student types a name or
+      picks an example, and walks the levels from the root downwards or from the name upwards, with an
+      optional pause to predict. Each suffix is shown as a domain, with its parent and an explanation
+      of the TLD and of the second-level domain. A panel checks the rules: 63 characters per label, 253
+      in total, letters, digits and hyphens, trailing dot, case and punycode. It teaches that a name is
+      written from the specific to the general and the tree is walked from the root.
+  concepts:
+    es:
+    - etiqueta
+    - dominio
+    - árbol de nombres
+    - raíz
+    - dominio de nivel superior (TLD)
+    - nombre completo (FQDN)
+    - punycode
+    - host
+    en:
+    - label
+    - domain
+    - name tree
+    - root
+    - top-level domain (TLD)
+    - fully qualified domain name (FQDN)
+    - punycode
+    - host
+  files:
+    es: 02-application-layer/dns/dns-names.es.html
+    en: 02-application-layer/dns/dns-names.en.html
+  thumbnail: thumbnails/dns-names.jpg
+  added: '2026-09-28'
+- id: dns-zone-delegation
+  topic: 2
+  collection: dns
+  session: '2.1'
+  title:
+    es: 'Delegación de zonas: ceder una rama del árbol'
+    en: DNS zone delegation
+  description:
+    es: >-
+      Paso a paso de la cadena IANA → Red.es → UAH → Departamento, con los ficheros de zona. En «Delega
+      tú» creas dominios y hosts y los cedes tú mismo, con NS, pegamento y referencias.
+    en: >-
+      Step by step through the IANA → Red.es → UAH → Department chain, with zone files. In "Delegate it
+      yourself" you create domains and hosts and delegate them yourself, with NS records, glue and referrals.
+  summary:
+    es: >-
+      Muestra cómo se reparte el espacio de nombres DNS en zonas mediante delegación, con la cadena IANA,
+      Red.es, UAH y departamentos. En «Paso a paso» se ve el árbol coloreado por zonas y los ficheros
+      de zona (SOA, NS, A) cambiando en cada delegación, con una pausa opcional para predecir. En «Delega
+      tú» el estudiante actúa como cada responsable, crea dominios y hosts, cede ramas indicando servidor
+      y dirección, y ve cuándo el registro de pegamento (glue) es obligatorio. Al pulsar un nombre se
+      muestra la cadena de referencias hasta su servidor autoritativo. Distingue dominio y zona.
+    en: >-
+      Shows how the DNS name space is split into zones through delegation, using the chain IANA, Red.es,
+      UAH and departments. In "Step by step" the tree is coloured by zone and the zone files (SOA, NS,
+      A) change with each delegation, with an optional pause to predict. In "Your turn" the student acts
+      as each zone owner, creates domains and hosts, hands over branches by giving a server name and address,
+      and sees when the glue record is mandatory. Clicking a name shows the chain of referrals leading
+      to its authoritative server. It distinguishes a domain from a zone.
+  concepts:
+    es:
+    - delegación de zona
+    - zona
+    - registro NS
+    - registro de pegamento (glue)
+    - servidor autoritativo
+    - fichero de zona
+    - referencia
+    - dominio frente a zona
+    en:
+    - zone delegation
+    - zone
+    - NS record
+    - glue record
+    - authoritative server
+    - zone file
+    - referral
+    - domain versus zone
+  files:
+    es: 02-application-layer/dns/dns-zone-delegation.es.html
+    en: 02-application-layer/dns/dns-zone-delegation.en.html
+  thumbnail: thumbnails/dns-zone-delegation.jpg
+  added: '2026-09-28'
+- id: dns-queries
+  topic: 2
+  collection: dns
+  session: '2.1'
+  title:
+    es: 'Consultas DNS: iterativa y recursiva'
+    en: 'DNS queries: iterative and recursive'
+  description:
+    es: >-
+      Mensaje a mensaje, la resolución de gaia.cs.umass.edu con la caché vacía. Compara los dos modos
+      y fíjate en quién tiene que recordar consultas ajenas.
+    en: >-
+      Message by message, resolving gaia.cs.umass.edu with an empty cache. Compare the two modes and notice
+      who has to remember other people's queries.
+  summary:
+    es: >-
+      Animación mensaje a mensaje de la resolución de gaia.cs.umass.edu por un host, con todas las cachés
+      vacías, en un escenario de host, resolutor local, servidor raíz, servidor TLD .edu y servidor autoritativo.
+      Tiene tres modos: iterativa, recursiva y comparar ambas. Cada uno de los 8 mensajes indica su tipo
+      (consulta, referencia o respuesta), sus campos (RD, AA, TTL) y lo que se guarda en caché, y marca
+      qué servidores mantienen una consulta ajena pendiente. Muestra que en la práctica solo la primera
+      consulta es recursiva, y que la raíz y los TLD responden con referencias para no acumular consultas
+      pendientes.
+    en: >-
+      Message-by-message animation of how a host resolves gaia.cs.umass.edu with every cache empty, in
+      a scenario made of a host, a local DNS server, a root server, a .edu TLD server and an authoritative
+      server. It has three modes: iterative, recursive and a side-by-side comparison. Each of the 8 messages
+      states its type (query, referral or answer), its fields (RD, AA, TTL) and what gets cached, and
+      marks which servers hold someone else's query pending. It shows that in practice only the first
+      query is recursive, and that root and TLD servers reply with referrals so that they do not accumulate
+      pending queries.
+  concepts:
+    es:
+    - consulta iterativa
+    - consulta recursiva
+    - resolutor local
+    - referencia
+    - servidor autoritativo
+    - caché
+    - TTL
+    - servidor raíz
+    en:
+    - iterative query
+    - recursive query
+    - local DNS server
+    - referral
+    - authoritative server
+    - cache
+    - TTL
+    - root server
+  files:
+    es: 02-application-layer/dns/dns-queries.es.html
+    en: 02-application-layer/dns/dns-queries.en.html
+  thumbnail: thumbnails/dns-queries.jpg
+  added: '2026-09-28'
+- id: dns-queries-mixed
+  topic: 2
+  collection: dns
+  session: '2.1'
+  title:
+    es: 'Consultas DNS: decide tú quién es recursivo'
+    en: 'DNS queries: you decide who is recursive'
+  description:
+    es: >-
+      La misma resolución, pero tú eliges si el servidor local, la raíz, el TLD y el autoritativo atienden
+      de forma recursiva o iterativa. Compara quién envía las consultas, quién tiene que esperar y dónde
+      acaba la respuesta en caché.
+    en: >-
+      The same resolution, but you choose whether the local server, the root, the TLD and the authoritative
+      server work recursively or iteratively. Compare who sends the queries, who has to wait and where
+      the answer ends up cached.
+  summary:
+    es: >-
+      Amplía las figuras 2.19 y 2.20 de Kurose y Ross: la resolución de gaia.cs.umass.edu con las cachés
+      vacías, pero el estudiante decide si cada servidor (local, raíz, TLD .edu y autoritativo) atiende
+      las consultas que recibe de forma recursiva o iterativa, en el panel o pulsando la etiqueta de cada
+      servidor en el dibujo. La animación genera los 8 mensajes de esa configuración, con su tipo (consulta,
+      referencia o respuesta), los campos RD, RA y AA y lo que se guarda en caché, y marca qué servidores
+      tienen que recordar una consulta ajena. Al final, una tabla compara cuántos mensajes y consultas
+      ha enviado cada equipo y quién ha esperado. Muestra que el número de mensajes no cambia, sino quién
+      hace el trabajo, y por qué en la práctica solo el servidor local es recursivo.
+    en: >-
+      An extension of Figs. 2.19 and 2.20 in Kurose and Ross: resolving gaia.cs.umass.edu with every cache
+      empty, but the student decides whether each server (local, root, .edu TLD and authoritative) handles
+      the queries it receives recursively or iteratively, in the panel or by clicking the label next to
+      each server in the diagram. The animation builds the 8 messages for that configuration, with their
+      type (query, referral or answer), the RD, RA and AA fields and what gets cached, and marks which
+      servers have to remember someone else's query. At the end, a table compares how many messages and
+      queries each device sent and who had to wait. It shows that the number of messages does not change,
+      only who does the work, and why in practice only the local server is recursive.
+  concepts:
+    es:
+    - consulta iterativa
+    - consulta recursiva
+    - resolutor local
+    - referencia
+    - servidor raíz
+    - servidor TLD
+    - servidor autoritativo
+    - caché
+    - bit RD
+    - bit RA
+    - bit AA
+    - consulta pendiente
+    en:
+    - iterative query
+    - recursive query
+    - local DNS server
+    - referral
+    - root server
+    - TLD server
+    - authoritative server
+    - cache
+    - RD bit
+    - RA bit
+    - AA bit
+    - pending query
+  files:
+    es: 02-application-layer/dns/dns-queries-mixed.es.html
+    en: 02-application-layer/dns/dns-queries-mixed.en.html
+  thumbnail: thumbnails/dns-queries-mixed.jpg
+  added: '2026-09-28'
+- id: dns-step-by-step
+  topic: 2
+  collection: dns
+  session: '2.2'
+  title:
+    es: DNS paso a paso
+    en: DNS step by step
+  description:
+    es: >-
+      El DNS contado desde el porqué en 27 pasos, de por qué la IP no basta al recorrido de una consulta
+      mensaje a mensaje. Por qué hacen falta nombres, cómo se reparte el árbol, qué ve tu equipo y qué
+      pasa detrás, y dónde es recursiva o iterativa cada consulta.
+    en: >-
+      The DNS told from the why in 27 steps, from why an IP address is not enough to a query followed
+      message by message. Why we need names, how the tree is split up, what your computer sees and what
+      happens behind it, and where each query is recursive or iterative.
+  summary:
+    es: >-
+      Animación por pasos que cuenta el DNS desde el porqué en seis actos y 27 pasos. La dirección IP
+      dice dónde está un equipo y depende de su proveedor, así que al mudarse se rompe todo lo que la
+      tenía apuntada; un nombre añade un nivel de indirección que administra su dueño. La tabla de nombres
+      empieza como un fichero central (HOSTS.TXT) que no escala y pasa a ser una base de datos distribuida,
+      jerárquica y delegada en zonas, cuyo árbol no coincide con el de direcciones. El equipo final solo
+      hace una pregunta al resolutor local y espera; detrás, el resolutor local recorre raíz, TLD .es
+      y servidor autoritativo para resolver www.rediris.es, con referencias, pegamento (glue), los bits
+      RD, RA y AA y la caché, en un mapa y un diagrama de secuencia que se construyen a la vez. Después
+      muestra que recursiva e iterativa se dice de cada pareja consulta-respuesta, qué pasaría si todo
+      fuese recursivo o todo iterativo, y termina con los ocho mensajes, su destino y sus secciones (Question,
+      Answer, Authority, Additional).
+    en: >-
+      A step-by-step animation that tells the story of the DNS from the why in six acts and 27 steps.
+      An IP address says where a host is and depends on its provider, so moving breaks everything that
+      had it written down; a name adds a level of indirection managed by its owner. The name table starts
+      as a central file (HOSTS.TXT) that does not scale and becomes a distributed, hierarchical database
+      delegated in zones, whose tree does not match the address tree. The end host only asks the local
+      resolver one question and waits; behind it, the local resolver walks the root, the .es TLD and the
+      authoritative server to resolve www.rediris.es, with referrals, glue, the RD, RA and AA bits and
+      the cache, on a map and a sequence diagram built side by side. It then shows that recursive and
+      iterative describe each query-response pair, what would happen if everything were recursive or everything
+      iterative, and ends with the eight messages, their destination and their sections (Question, Answer,
+      Authority, Additional).
+  concepts:
+    es:
+    - dirección IP
+    - nivel de indirección
+    - nombre de dominio
+    - registro A
+    - TTL
+    - HOSTS.TXT
+    - árbol de nombres
+    - zona
+    - delegación
+    - resolutor del sistema (stub)
+    - resolutor local
+    - servidor raíz
+    - servidor TLD
+    - servidor autoritativo
+    - referencia
+    - registro de pegamento (glue)
+    - caché
+    - consulta recursiva
+    - consulta iterativa
+    - bit RD
+    - bit RA
+    - bit AA
+    - diagrama de secuencia
+    en:
+    - IP address
+    - level of indirection
+    - domain name
+    - A record
+    - TTL
+    - HOSTS.TXT
+    - name tree
+    - zone
+    - delegation
+    - stub resolver
+    - local resolver
+    - root server
+    - TLD server
+    - authoritative server
+    - referral
+    - glue record
+    - cache
+    - recursive query
+    - iterative query
+    - RD bit
+    - RA bit
+    - AA bit
+    - sequence diagram
+  files:
+    es: 02-application-layer/dns/dns-step-by-step.es.html
+    en: 02-application-layer/dns/dns-step-by-step.en.html
+  thumbnail: thumbnails/dns-step-by-step.jpg
+  source: src/dns-step-by-step
+  added: '2026-10-07'
+- id: http-persistent
+  topic: 2
+  collection: http
+  session: '2.2'
+  title:
+    es: 'HTTP persistente: sin y con canalización'
+    en: 'Persistent HTTP: without and with pipelining'
+  description:
+    es: >-
+      Una página con N objetos descargada por una única conexión TCP persistente. Compara a la misma escala
+      los diagramas de retardos sin y con canalización, mira cuándo se queda ocioso el enlace y practica
+      con ejercicios aleatorios.
+    en: >-
+      A page with N objects downloaded over a single persistent TCP connection. Compare the delay diagrams
+      without and with pipelining on the same time scale, see when the link sits idle and practise with
+      random exercises.
+  summary:
+    es: >-
+      Diagramas de retardos de la descarga de una página web con N objetos alojados en el mismo servidor
+      que el HTML base, por una única conexión TCP persistente, con HTTP/1.1 sin canalización y con canalización.
+      El navegador descarga primero el HTML y después pide los objetos: sin canalización, cada GET sale
+      al recibir el objeto anterior; con canalización, todos los GET salen a la vez y el servidor envía
+      las respuestas una tras otra. El estudiante ajusta la velocidad del enlace, el retardo de propagación,
+      el tamaño del HTML y el de los objetos (iguales o distintos), el establecimiento TCP y el tiempo
+      de procesado del servidor, y ve los dos diagramas a la misma escala, con las cotas de RTT y de tiempo
+      de transmisión, los huecos en que el enlace está ocioso, la fórmula con los valores sustituidos
+      y una tabla de instantes. Puede reproducir la descarga paso a paso, practicar con ejercicios aleatorios
+      y exportar el diagrama en SVG o PNG. Muestra que la canalización ahorra (N−1)·(RTT + t_proc).
+    en: >-
+      Delay diagrams for downloading a web page with N objects stored on the same server as the HTML base
+      file, over a single persistent TCP connection, with HTTP/1.1 without pipelining and with pipelining.
+      The browser first downloads the HTML and then requests the objects: without pipelining, each GET
+      is sent once the previous object has arrived; with pipelining, all the GETs leave at once and the
+      server sends the responses back to back. The student adjusts the link rate, the propagation delay,
+      the size of the HTML and of the objects (equal or different), the TCP handshake and the server processing
+      time, and sees both diagrams on the same time scale, with RTT and transmission-time dimension lines,
+      the gaps where the link sits idle, the formula with the values substituted and a table of instants.
+      The download can be played step by step, practised with random exercises and exported as SVG or
+      PNG. It shows that pipelining saves (N−1)·(RTT + t_proc).
+  concepts:
+    es:
+    - HTTP persistente
+    - canalización (pipelining)
+    - conexión TCP
+    - establecimiento de la conexión
+    - tiempo de ida y vuelta (RTT)
+    - retardo de transmisión
+    - retardo de propagación
+    - objeto referenciado
+    - HTML base
+    - diagrama de retardos
+    - utilización del enlace
+    en:
+    - persistent HTTP
+    - pipelining
+    - TCP connection
+    - connection setup
+    - round-trip time (RTT)
+    - transmission delay
+    - propagation delay
+    - referenced object
+    - HTML base file
+    - delay diagram
+    - link utilization
+  formulas:
+    es:
+    - RTT = 2·d_prop
+    - X = L / R
+    - 'sin canalización: T = [RTT]_TCP + (RTT + t_proc + X_html) + N·(RTT + t_proc + X)'
+    - 'con canalización: T = [RTT]_TCP + (RTT + t_proc + X_html) + RTT + t_proc + N·X'
+    - ahorro = (N−1)·(RTT + t_proc)
+    en:
+    - RTT = 2·d_prop
+    - X = L / R
+    - 'without pipelining: T = [RTT]_TCP + (RTT + t_proc + X_html) + N·(RTT + t_proc + X)'
+    - 'with pipelining: T = [RTT]_TCP + (RTT + t_proc + X_html) + RTT + t_proc + N·X'
+    - saving = (N−1)·(RTT + t_proc)
+  files:
+    es: 02-application-layer/http/http-persistent.es.html
+    en: 02-application-layer/http/http-persistent.en.html
+  thumbnail: thumbnails/http-persistent.jpg
+  source: src/http-persistent
+  added: '2026-10-05'

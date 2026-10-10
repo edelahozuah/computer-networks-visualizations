@@ -1,0 +1,809 @@
+<title>Diagrama de Retardos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banco de trabajo de dos zonas. Panel de control a la izquierda, lienzo del diagrama y tabla de mensajes a la derecha; una sola columna en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --sel: #f2b63c; --aviso: #f08a5d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --sel: #f2b63c; --aviso: #f08a5d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1320px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 70ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+.campo { display: flex; gap: 4px; flex: 1; min-width: 0; }
+input[type="text"], input[type="number"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.86rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="text"], input[type="number"] { flex: 1; width: 100%; }
+select { cursor: pointer; }
+select.u { flex: 0 0 auto; }
+select.ancho { flex: 1; width: 100%; font-family: var(--body); }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+.seg button[data-v="trama"][aria-pressed="true"] { background: var(--trama); color: var(--panel); }
+.seg button[data-v="ack"][aria-pressed="true"] { background: var(--ack); color: var(--panel); }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover { border-color: var(--fg); }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.error { font-size: 0.84rem; color: var(--aviso); margin: 0; }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.86rem; }
+.checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+.barra { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
+.dato { display: flex; gap: 6px; align-items: baseline; }
+.dato b { font-weight: 500; color: var(--muted); }
+.dato span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.rapidos { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px 0; flex-wrap: wrap; }
+.rapidos .grupo { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rapidos .grupo strong { font-family: var(--display); font-size: 0.95rem; margin-inline: 4px; }
+button.mas { font: inherit; font-size: 0.8rem; border: 1px dashed var(--line); background: transparent; color: var(--fg); border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+button.mas.t { color: var(--trama); border-color: var(--trama); }
+button.mas.a { color: var(--ack); border-color: var(--ack); }
+button.mas:hover { border-style: solid; }
+.lienzo { overflow-x: auto; padding: 6px 8px 10px; }
+.lienzo svg { display: block; margin: 0 auto; max-width: none; }
+.lienzo svg .msg { cursor: pointer; }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+.tabla { overflow-x: auto; }
+th, td { text-align: left; padding: 7px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
+td.anc { white-space: normal; min-width: 150px; }
+th { font-weight: 500; color: var(--muted); font-size: 0.76rem; letter-spacing: 0.05em; text-transform: uppercase; border-top: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+th.n { text-align: right; }
+tr.fsel td { background: var(--suave); }
+tbody tr { cursor: pointer; }
+.chip { display: inline-block; font-size: 0.74rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; color: var(--panel); }
+.chip.trama { background: var(--trama); }
+.chip.ack { background: var(--ack); }
+.aviso { color: var(--aviso); font-size: 0.78rem; display: block; white-space: normal; }
+td.acc div { display: flex; gap: 4px; }
+td.acc button { font: inherit; font-size: 0.8rem; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; width: 28px; height: 26px; cursor: pointer; padding: 0; }
+td.acc button:hover { border-color: var(--fg); }
+.vacio { padding: 18px 14px; color: var(--muted); }
+.editando { border: 1px solid var(--sel); border-radius: 4px; padding: 6px 8px; font-size: 0.82rem; color: var(--sel); }
+.oculto-archivo { display: none; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.vis { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1 data-en-html="Delay &lt;span&gt;diagram&lt;/span&gt;">Diagrama de <span>retardos</span></h1>
+    <div class="cab-der"><p class="sub" data-en="Frames and ACKs between two ends, with transmission (L/R) and propagation delay drawn to scale. Click a message in the diagram to show its dimensions or edit it.">Tramas y ACK entre dos extremos, con retardo de transmisión (L/R) y de propagación a escala. Pulsa un mensaje del diagrama para ver sus cotas o editarlo.</p>
+    <div class="seg idioma" id="idioma" role="group" aria-label="Idioma / Language"><button type="button" data-v="es" lang="es">ES</button><button type="button" data-v="en" lang="en">EN</button></div></div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL DE CONTROL -->
+    <form class="panel" id="panel" autocomplete="off">
+      <section>
+        <h2 data-en="Link">Enlace</h2>
+        <div class="fila"><label data-en="Data rate R" class="et" for="e-R">Velocidad R</label>
+          <div class="campo"><input type="text" id="e-R" inputmode="decimal">
+            <select class="u" id="e-uR"><option>bps</option><option>kbps</option><option>Mbps</option><option>Gbps</option></select></div></div>
+        <div class="fila"><label data-en="Propagation" class="et">Propagación</label>
+          <div class="seg" id="e-modoProp"><button type="button" data-v="directo">d_prop</button><button data-en="distance / v" type="button" data-v="dist">distancia / v</button></div></div>
+        <div class="fila" id="fila-dprop"><label class="et" for="e-dprop">d_prop</label>
+          <div class="campo"><input type="text" id="e-dprop" inputmode="decimal">
+            <select class="u" id="e-uProp"><option>µs</option><option>ms</option><option>s</option></select></div></div>
+        <div class="fila" id="fila-dist"><label data-en="Distance" class="et" for="e-dist">Distancia</label>
+          <div class="campo"><input type="text" id="e-dist" inputmode="decimal">
+            <select class="u" id="e-uDist"><option>m</option><option>km</option></select></div></div>
+        <div class="fila" id="fila-vel"><label data-en="Speed v" class="et" for="e-vel">Velocidad v</label>
+          <div class="campo"><input type="text" id="e-vel" inputmode="decimal"><select class="u" disabled><option>m/s</option></select></div></div>
+        <div class="fila"><label data-en="Ends" class="et" for="e-nA">Extremos</label>
+          <div class="campo"><input type="text" id="e-nA" maxlength="14" aria-label="Nombre del extremo izquierdo" data-en-aria="Left end name"><input type="text" id="e-nB" maxlength="14" aria-label="Nombre del extremo derecho" data-en-aria="Right end name"></div></div>
+        <p class="error" id="err-enlace" hidden></p>
+      </section>
+
+      <section>
+        <h2 data-en="Add message" id="t-form">Añadir mensaje</h2>
+        <div class="editando" id="aviso-edicion" hidden></div>
+        <div class="fila"><label data-en="Sent by" class="et">Lo envía</label><div class="seg" id="f-de"><button type="button" data-v="A">A</button><button type="button" data-v="B">B</button></div></div>
+        <div class="fila"><label data-en="Type" class="et">Tipo</label><div class="seg" id="f-tipo"><button data-en="Frame" type="button" data-v="trama">Trama</button><button type="button" data-v="ack">ACK</button></div></div>
+        <div class="fila"><label data-en="Size L" class="et" for="f-tam">Tamaño L</label>
+          <div class="campo"><input type="text" id="f-tam" inputmode="decimal">
+            <select class="u" id="f-uTam"><option value="B">bytes</option><option value="bits">bits</option><option value="KB">KB</option></select></div></div>
+        <div class="fila"><label data-en="Label" class="et" for="f-etq">Etiqueta</label><div class="campo"><input type="text" id="f-etq" maxlength="18" placeholder="automática (T1, ACK1…)" data-en-ph="automatic (F1, ACK1…)"></div></div>
+        <div class="fila"><label data-en="Starts" class="et" for="f-ancla">Empieza</label><div class="campo"><select class="ancho" id="f-ancla">
+          <option data-en="after the last reception at this end" value="auto">tras la última recepción en este extremo</option>
+          <option data-en="right after its own last transmission" value="trasTx">justo tras su última transmisión</option>
+          <option data-en="after receiving a given message" value="rx">tras recibir un mensaje concreto</option>
+          <option data-en="when a message finishes transmitting" value="finTx">al terminar de transmitirse un mensaje</option>
+          <option data-en="at the same time as another message" value="inicioTx">a la vez que otro mensaje</option>
+          <option data-en="at a given time" value="t">en un instante concreto</option>
+        </select></div></div>
+        <div class="fila" id="fila-ref"><label data-en="Message" class="et" for="f-ref">Mensaje</label><div class="campo"><select class="ancho" id="f-ref"></select></div></div>
+        <div class="fila" id="fila-t"><label data-en="Time t" class="et" for="f-t">Instante t</label>
+          <div class="campo"><input type="text" id="f-t" inputmode="decimal"><select class="u" id="f-uT"><option>µs</option><option selected>ms</option><option>s</option></select></div></div>
+        <div class="fila"><label data-en="+ wait" class="et" for="f-espera">+ espera</label>
+          <div class="campo"><input type="text" id="f-espera" inputmode="decimal" placeholder="0"><select class="u" id="f-uEspera"><option>µs</option><option selected>ms</option><option>s</option></select></div></div>
+        <p class="nota" id="nota-ancla"></p>
+        <p class="error" id="err-form" hidden></p>
+        <div class="fila">
+          <button data-en="Add message" type="submit" class="btn prim" id="b-guardar">Añadir mensaje</button>
+          <button data-en="Cancel editing" type="button" class="btn" id="b-cancelar" hidden>Cancelar edición</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-en="View">Vista</h2>
+        <div class="checks">
+          <label><input type="checkbox" id="v-inicio"> <span data-en="Tx start">Inicio de tx</span></label>
+          <label><input type="checkbox" id="v-finTx"> <span data-en="Tx end">Fin de tx</span></label>
+          <label><input type="checkbox" id="v-primer"> <span data-en="First bit arrives">Llega 1.er bit</span></label>
+          <label><input type="checkbox" id="v-llegada"> <span data-en="Last bit arrives">Llega último bit</span></label>
+          <label><input type="checkbox" id="v-tam"> <span data-en="Size in label">Tamaño en rótulo</span></label>
+          <label><input type="checkbox" id="v-cotas"> <span data-en="Selected dimensions">Cotas del seleccionado</span></label>
+        </div>
+        <div class="fila"><label data-en="Time unit" class="et" for="v-uT">Unidad de t</label><div class="campo"><select class="ancho" id="v-uT"><option data-en="automatic" value="auto">automática</option><option>µs</option><option>ms</option><option>s</option></select></div></div>
+        <div class="fila"><label data-en="Height" class="et" for="v-alto">Altura</label><div class="campo"><input type="range" id="v-alto" min="280" max="1400" step="20" style="flex:1"></div></div>
+      </section>
+
+      <section>
+        <h2 data-en="Scenario">Escenario</h2>
+        <div class="fila"><label data-en="Example" class="et" for="s-ejemplo">Ejemplo</label><div class="campo"><select class="ancho" id="s-ejemplo">
+          <option data-en="pick one to load it…" value="">elige uno para cargarlo…</option>
+          <option data-en="Stop-and-wait (3 frames)" value="pye">Parada y espera (3 tramas)</option>
+          <option data-en="3 back-to-back frames + final ACK" value="rafaga">3 tramas seguidas + ACK final</option>
+          <option data-en="Simultaneous bidirectional" value="bidir">Bidireccional simultáneo</option>
+          <option data-en="Frame + ACK with processing time" value="proc">Trama + ACK con tiempo de proceso</option>
+        </select></div></div>
+        <div class="fila">
+          <button data-en="Download SVG" type="button" class="btn" id="b-svg">Descargar SVG</button>
+          <button data-en="Download PNG" type="button" class="btn" id="b-png">Descargar PNG</button>
+          <button data-en="Copy SVG" type="button" class="btn" id="b-copiar">Copiar SVG</button>
+        </div>
+        <div class="fila">
+          <button data-en="Save scenario" type="button" class="btn" id="b-json">Guardar escenario</button>
+          <button data-en="Open scenario" type="button" class="btn" id="b-cargar">Abrir escenario</button>
+          <input type="file" id="f-archivo" accept="application/json,.json" class="oculto-archivo">
+          <button data-en="Clear" type="button" class="btn peligro" id="b-vaciar">Vaciar</button>
+        </div>
+        <label class="fila" style="font-size:.84rem;gap:6px;cursor:pointer"><input type="checkbox" id="x-claro"> <span data-en="Always export in light colours">Exportar siempre en colores claros</span></label>
+      </section>
+    </form>
+
+    <!-- DIAGRAMA -->
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="barra" id="resumen"></div>
+        <div class="rapidos">
+          <div class="grupo"><strong id="q-nA">A</strong><button type="button" class="mas t" data-de="A" data-tipo="trama" data-en="+ Frame">+ Trama</button><button type="button" class="mas a" data-de="A" data-tipo="ack">+ ACK</button></div>
+          <div class="grupo"><button type="button" class="mas t" data-de="B" data-tipo="trama" data-en="+ Frame">+ Trama</button><button type="button" class="mas a" data-de="B" data-tipo="ack">+ ACK</button><strong id="q-nB">B</strong></div>
+        </div>
+        <div class="lienzo" id="lienzo"></div>
+      </div>
+      <div class="tarjeta">
+        <div class="tabla" id="tabla"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const U_T = { 'µs': 1e-6, 'ms': 1e-3, 's': 1 };
+  const U_R = { bps: 1, kbps: 1e3, Mbps: 1e6, Gbps: 1e9 };
+  const U_L = { B: 8, bits: 1, KB: 8000 };
+  const U_D = { m: 1, km: 1e3 };
+  const CLAVE = 'drawDelayDiagram.v1';
+  const CLARO = { '--lienzo': '#ffffff', '--fg': '#16202a', '--muted': '#5a6876', '--line': '#c8d1d9', '--trama': '#1f5fbf', '--ack': '#17855a', '--sel': '#c97a00', '--aviso': '#b4482a' };
+
+  const num = v => { const n = parseFloat(String(v ?? '').trim().replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let uid = 1;
+  const nuevoId = () => 'm' + (uid++);
+
+  // ------------------------------------------------------------ estado
+  function base() {
+    return {
+      enlace: { R: '1', uR: 'Mbps', modoProp: 'directo', dprop: '5', uProp: 'ms', dist: '1000', uDist: 'km', vel: '2e8', nA: 'A', nB: 'B' },
+      defecto: { trama: { tam: '1500', u: 'B' }, ack: { tam: '40', u: 'B' } },
+      vista: { idioma: 'es', inicio: true, finTx: false, primer: false, llegada: true, tam: true, cotas: true, uT: 'auto', alto: 560, claro: true },
+      msgs: []
+    };
+  }
+  const msg = (de, tipo, tam, u, ancla = { tipo: 'auto' }, etiqueta = '') => ({ id: nuevoId(), de, tipo, tam: String(tam), uTam: u, etiqueta, ancla });
+
+  function ejemplo(nombre, previo) {
+    const s = base();
+    if (previo) { s.enlace = previo.enlace; s.vista = previo.vista; s.defecto = previo.defecto; }
+    if (nombre === 'pye') {
+      for (let i = 0; i < 3; i++) { s.msgs.push(msg('A', 'trama', 1500, 'B')); s.msgs.push(msg('B', 'ack', 40, 'B')); }
+    } else if (nombre === 'rafaga') {
+      for (let i = 0; i < 3; i++) s.msgs.push(msg('A', 'trama', 1500, 'B'));
+      s.msgs.push(msg('B', 'ack', 40, 'B'));
+    } else if (nombre === 'bidir') {
+      s.msgs.push(msg('A', 'trama', 1500, 'B', { tipo: 't', t: '0', uT: 'ms' }));
+      s.msgs.push(msg('B', 'trama', 800, 'B', { tipo: 't', t: '0', uT: 'ms' }));
+    } else if (nombre === 'proc') {
+      s.msgs.push(msg('A', 'trama', 1500, 'B'));
+      s.msgs.push(msg('B', 'ack', 40, 'B', { tipo: 'auto', espera: '2', uEspera: 'ms' }));
+    }
+    return s;
+  }
+
+  let estado = cargarLocal() || ejemplo('pye');
+  let sel = estado.msgs[0]?.id ?? null;
+  let editando = null;
+  let ultimoSVG = '';
+  const form = { de: 'A', tipo: 'trama' };
+
+  function cargarLocal() {
+    try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; }
+  }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  function normalizar(o) {
+    if (!o || !Array.isArray(o.msgs)) return null;
+    const b = base();
+    const s = { enlace: { ...b.enlace, ...o.enlace }, defecto: { ...b.defecto, ...o.defecto }, vista: { ...b.vista, ...o.vista }, msgs: [] };
+    for (const m of o.msgs) {
+      if (!m || !['A', 'B'].includes(m.de) || !['trama', 'ack'].includes(m.tipo)) continue;
+      s.msgs.push({ id: m.id || nuevoId(), de: m.de, tipo: m.tipo, tam: String(m.tam ?? ''), uTam: U_L[m.uTam] ? m.uTam : 'B', etiqueta: String(m.etiqueta || ''), ancla: m.ancla && typeof m.ancla === 'object' ? m.ancla : { tipo: 'auto' } });
+    }
+    for (const m of s.msgs) { const n = parseInt(String(m.id).slice(1), 10); if (n >= uid) uid = n + 1; }
+    return s;
+  }
+
+  // ------------------------------------------------------------ cálculo
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const nombre = e => (e === 'A' ? estado.enlace.nA : estado.enlace.nB) || e;
+  const otro = e => (e === 'A' ? 'B' : 'A');
+
+  function parametros() {
+    const e = estado.enlace;
+    const R = num(e.R) * U_R[e.uR];
+    const dp = e.modoProp === 'directo' ? num(e.dprop) * U_T[e.uProp] : num(e.dist) * U_D[e.uDist] / num(e.vel);
+    if (!(R > 0)) return { error: L('La velocidad R debe ser un número mayor que 0.', 'The data rate R must be a number greater than 0.') };
+    if (!(dp >= 0)) return { error: e.modoProp === 'directo' ? L('d_prop debe ser un número mayor o igual que 0.', 'd_prop must be a number greater than or equal to 0.') : L('Revisa la distancia y la velocidad de propagación (v > 0).', 'Check the distance and the propagation speed (v > 0).') };
+    return { R, dp };
+  }
+
+  function bitsDe(m) { return num(m.tam) * U_L[m.uTam]; }
+
+  function calcular(msgs, R, dp) {
+    const out = [];
+    const cuenta = { trama: 0, ack: 0 };
+    for (const m of msgs) {
+      cuenta[m.tipo]++;
+      const hacia = otro(m.de);
+      const bits = bitsDe(m);
+      const dtr = bits > 0 ? bits / R : 0;
+      const ultTx = Math.max(0, ...out.filter(p => p.de === m.de).map(p => p.finTx));
+      const ultRx = Math.max(0, ...out.filter(p => p.hacia === m.de).map(p => p.llegada));
+      const a = m.ancla || { tipo: 'auto' };
+      const ref = a.ref ? out.find(p => p.id === a.ref) : null;
+      let t0, aviso = null;
+      const porDefecto = () => Math.max(ultTx, ultRx);
+      switch (a.tipo) {
+        case 'trasTx': t0 = ultTx; break;
+        case 'rx':
+          if (ref && ref.hacia === m.de) t0 = ref.llegada;
+          else { t0 = porDefecto(); aviso = L('El mensaje de referencia ya no es válido: se usa la posición por defecto.', 'The reference message is no longer valid: using the default position.'); }
+          break;
+        case 'finTx':
+        case 'inicioTx':
+          if (ref) t0 = a.tipo === 'finTx' ? ref.finTx : ref.inicio;
+          else { t0 = porDefecto(); aviso = L('El mensaje de referencia ya no es válido: se usa la posición por defecto.', 'The reference message is no longer valid: using the default position.'); }
+          break;
+        case 't': {
+          const v = num(a.t) * U_T[a.uT || 'ms'];
+          t0 = v >= 0 ? v : 0; break;
+        }
+        default: t0 = porDefecto();
+      }
+      const espera = num(a.espera) * U_T[a.uEspera || 'ms'];
+      const inicio = t0 + (espera > 0 ? espera : 0);
+      if (!(bits > 0)) aviso = L('Tamaño no válido.', 'Invalid size.');
+      else if (inicio < ultTx - 1e-12) aviso = aviso || L(`Empieza antes de que ${nombre(m.de)} termine su transmisión anterior.`, `Starts before ${nombre(m.de)} finishes its previous transmission.`);
+      const etq = m.etiqueta || (m.tipo === 'trama' ? L('T', 'F') : 'ACK') + cuenta[m.tipo];
+      out.push({ id: m.id, m, de: m.de, hacia, tipo: m.tipo, bits, dtr, dp, inicio, finTx: inicio + dtr, primerBit: inicio + dp, llegada: inicio + dtr + dp, etq, aviso });
+    }
+    return out;
+  }
+
+  // ------------------------------------------------------------ formato
+  function fmtNum(v, dec = 3) {
+    return Number(v.toPrecision(7)).toLocaleString(L('es-ES', 'en-GB'), { maximumFractionDigits: dec, useGrouping: false });
+  }
+  function fmtT(s) {
+    if (!Number.isFinite(s)) return '—';
+    if (Math.abs(s) < 1e-15) return '0';
+    let u = estado.vista.uT;
+    if (u === 'auto') u = Math.abs(s) < 1e-3 ? 'µs' : Math.abs(s) < 1 ? 'ms' : 's';
+    return fmtNum(s / U_T[u]) + ' ' + u;
+  }
+  function fmtTam(m) {
+    const u = m.uTam === 'B' ? 'B' : m.uTam === 'KB' ? 'KB' : 'bits';
+    return `${dec(m.tam)} ${u}`;
+  }
+  const dec = v => (estado.vista.idioma === 'en' ? String(v).replace(',', '.') : String(v).replace('.', ','));
+  function fmtR(R) {
+    const u = R >= 1e9 ? 'Gbps' : R >= 1e6 ? 'Mbps' : R >= 1e3 ? 'kbps' : 'bps';
+    return fmtNum(R / U_R[u]) + ' ' + u;
+  }
+  function describirAncla(m, res) {
+    const a = m.ancla || {};
+    const ref = res.find(r => r.id === a.ref);
+    let t;
+    switch (a.tipo) {
+      case 'trasTx': t = L('tras su última transmisión', 'after its own last transmission'); break;
+      case 'rx': t = ref ? L(`al recibir ${ref.etq}`, `on receiving ${ref.etq}`) : L('por defecto', 'default'); break;
+      case 'finTx': t = ref ? L(`al terminar de transmitirse ${ref.etq}`, `when ${ref.etq} finishes transmitting`) : L('por defecto', 'default'); break;
+      case 'inicioTx': t = ref ? L(`a la vez que ${ref.etq}`, `together with ${ref.etq}`) : L('por defecto', 'default'); break;
+      case 't': t = L('en', 'at') + ` t = ${dec(a.t || 0)} ${a.uT || 'ms'}`; break;
+      default: t = L(`tras la última recepción en ${nombre(m.de)}`, `after the last reception at ${nombre(m.de)}`);
+    }
+    const esp = num(a.espera);
+    if (esp > 0) t += ` + ${dec(a.espera)} ${a.uEspera || 'ms'}`;
+    return t;
+  }
+
+  // ------------------------------------------------------------ dibujo
+  function dibujar(res, P) {
+    const v = estado.vista;
+    const W = 780, H = v.alto, arriba = 58, abajo = 42;
+    const xA = 196, xB = W - 196;
+    const X = e => (e === 'A' ? xA : xB);
+    const fuera = e => (e === 'A' ? -1 : 1);
+    const tMax = Math.max(0, ...res.map(r => r.llegada)) || 1;
+    const k = (H - arriba - abajo) / tMax;
+    const Y = t => arriba + t * k;
+    const F = n => Math.round(n * 100) / 100;
+    const mono = 'IBM Plex Mono, ui-monospace, Menlo, Consolas, monospace';
+    const sans = 'IBM Plex Sans, Segoe UI, system-ui, sans-serif';
+
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Diagrama de tiempos entre ', 'Timing diagram between ') + nombre('A') + L(' y ', ' and ') + nombre('B'))}" font-family="${sans}">`;
+    s += `<defs><marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--fg)" stroke-width="1.6"/></marker>`;
+    s += `<marker id="punta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1 L9,5 L1,9 z" fill="var(--sel)"/></marker></defs>`;
+    s += `<rect x="0" y="0" width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+
+    // ejes
+    for (const e of ['A', 'B']) {
+      s += `<text x="${X(e)}" y="24" text-anchor="middle" font-size="16" font-weight="600" fill="var(--fg)">${esc(nombre(e))}</text>`;
+      s += `<line x1="${X(e)}" y1="${arriba - 14}" x2="${X(e)}" y2="${H - abajo + 18}" stroke="var(--fg)" stroke-width="1.6" marker-end="url(#flecha)"/>`;
+    }
+    s += `<text x="${xA - 10}" y="${H - abajo + 26}" text-anchor="end" font-size="12" font-style="italic" fill="var(--muted)">t</text>`;
+    s += `<text x="${xB + 10}" y="${H - abajo + 26}" font-size="12" font-style="italic" fill="var(--muted)">t</text>`;
+
+    // mensajes
+    for (const r of res) {
+      const xs = X(r.de), xr = X(r.hacia);
+      const y0 = Y(r.inicio), y1 = Y(r.finTx), y2 = Y(r.llegada), y3 = Y(r.primerBit);
+      const color = r.tipo === 'trama' ? 'var(--trama)' : 'var(--ack)';
+      const esSel = r.id === sel;
+      const borde = r.aviso ? 'var(--aviso)' : esSel ? 'var(--sel)' : color;
+      s += `<g class="msg" data-id="${r.id}"><title>${esc(r.etq)}: ${esc(nombre(r.de))} → ${esc(nombre(r.hacia))}, ${esc(fmtTam(r.m))}</title>`;
+      s += `<polygon points="${xs},${F(y0)} ${xs},${F(y1)} ${xr},${F(y2)} ${xr},${F(y3)}" fill="${color}" fill-opacity="${esSel ? 0.42 : 0.26}" stroke="${borde}" stroke-width="${esSel ? 2.4 : 1.3}"${r.aviso ? ' stroke-dasharray="5,3"' : ''} stroke-linejoin="round"/>`;
+      // rótulo desplazado hacia el emisor: así no se pisan dos tramas que se cruzan
+      const f = 0.4, cx = xs + (xr - xs) * f, cy = ((y0 + (y3 - y0) * f) + (y1 + (y2 - y1) * f)) / 2;
+      const halo = `paint-order="stroke" stroke="var(--lienzo)" stroke-width="3.5" stroke-linejoin="round"`;
+      s += `<text x="${F(cx)}" y="${F(cy + (v.tam ? -2 : 4))}" text-anchor="middle" font-size="13" font-weight="600" fill="${color}" ${halo}>${esc(r.etq)}</text>`;
+      if (v.tam) s += `<text x="${F(cx)}" y="${F(cy + 12)}" text-anchor="middle" font-size="10.5" font-family="${mono}" fill="var(--muted)" ${halo}>${esc(fmtTam(r.m))}</text>`;
+      s += `</g>`;
+    }
+
+    // cotas del mensaje seleccionado
+    const rs = v.cotas ? res.find(r => r.id === sel) : null;
+    if (rs) {
+      const xs = X(rs.de) + fuera(rs.de) * 16, xr = X(rs.hacia) + fuera(rs.hacia) * 16;
+      const cota = (x, ya, yb, texto, lado) => {
+        if (yb - ya < 2) return '';
+        let c = `<line x1="${x}" y1="${F(ya)}" x2="${x}" y2="${F(yb)}" stroke="var(--sel)" stroke-width="1.4" marker-start="url(#punta)" marker-end="url(#punta)"/>`;
+        const tx = x + lado * 10, ty = (ya + yb) / 2;
+        c += `<text transform="translate(${F(tx)},${F(ty)}) rotate(-90)" text-anchor="middle" font-size="10.5" font-family="${mono}" fill="var(--sel)" dy="${lado < 0 ? 0 : 7}">${esc(texto)}</text>`;
+        return c;
+      };
+      s += `<line x1="${X(rs.de)}" y1="${F(Y(rs.inicio))}" x2="${X(rs.hacia)}" y2="${F(Y(rs.inicio))}" stroke="var(--sel)" stroke-width="1" stroke-dasharray="3,3" opacity="0.8"/>`;
+      s += cota(xs, Y(rs.inicio), Y(rs.finTx), 'd_trans = ' + fmtT(rs.dtr), fuera(rs.de));
+      s += cota(xr, Y(rs.inicio), Y(rs.primerBit), 'd_prop = ' + fmtT(rs.dp), fuera(rs.hacia));
+    }
+
+    // marcas de tiempo, en el lado del extremo donde ocurre el evento
+    const ev = { A: [], B: [] };
+    for (const r of res) {
+      if (v.inicio) ev[r.de].push(r.inicio);
+      if (v.finTx) ev[r.de].push(r.finTx);
+      if (v.primer) ev[r.hacia].push(r.primerBit);
+      if (v.llegada) ev[r.hacia].push(r.llegada);
+    }
+    for (const e of ['A', 'B']) {
+      const lista = [...new Set(ev[e].map(t => Number(t.toPrecision(10))))].sort((a, b) => a - b);
+      let ult = -Infinity;
+      const d = fuera(e), xEje = X(e), xEt = xEje + d * 54;
+      for (const t of lista) {
+        const y = Y(t);
+        const ly = Math.max(y, ult + 13);
+        ult = ly;
+        s += `<line x1="${xEje}" y1="${F(y)}" x2="${xEje + d * 7}" y2="${F(y)}" stroke="var(--fg)" stroke-width="1.2"/>`;
+        s += `<polyline points="${xEje + d * 7},${F(y)} ${xEt - d * 4},${F(ly)}" fill="none" stroke="var(--muted)" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+        s += `<text x="${xEt}" y="${F(ly + 3.5)}" text-anchor="${d < 0 ? 'end' : 'start'}" font-size="11" font-family="${mono}" fill="var(--muted)">t = ${esc(fmtT(t))}</text>`;
+      }
+    }
+    if (!res.length) s += `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="13" fill="var(--muted)">${esc(L('Añade una trama o un ACK desde cualquiera de los dos extremos', 'Add a frame or an ACK from either end'))}</text>`;
+    s += `</svg>`;
+    return s;
+  }
+
+  // ------------------------------------------------------------ interfaz
+  function pintar() {
+    const P = parametros();
+    const errE = $('#err-enlace');
+    errE.hidden = !P.error; errE.textContent = P.error || '';
+    $('#q-nA').textContent = nombre('A'); $('#q-nB').textContent = nombre('B');
+    $('#f-de').children[0].textContent = nombre('A'); $('#f-de').children[1].textContent = nombre('B');
+    if (P.error) { guardarLocal(); return; }
+    const res = calcular(estado.msgs, P.R, P.dp);
+    if (sel && !res.some(r => r.id === sel)) sel = null;
+    ultimoSVG = dibujar(res, P);
+    $('#lienzo').innerHTML = ultimoSVG;
+
+    const dtrDe = t => { const d = estado.defecto[t]; return num(d.tam) * U_L[d.u] / P.R; };
+    const total = Math.max(0, ...res.map(r => r.llegada));
+    $('#resumen').innerHTML = [
+      ['R', fmtR(P.R)], ['d_prop', fmtT(P.dp)],
+      [L('d_trans trama', 'd_trans frame'), fmtT(dtrDe('trama'))], ['d_trans ACK', fmtT(dtrDe('ack'))],
+      ['a = d_prop/d_trans', dtrDe('trama') > 0 ? fmtNum(P.dp / dtrDe('trama')) : '—'],
+      [L('Fin', 'End'), res.length ? fmtT(total) : '—']
+    ].map(([b, v]) => `<div class="dato"><b>${b}</b><span>${esc(v)}</span></div>`).join('');
+
+    if (!res.length) {
+      $('#tabla').innerHTML = `<p class="vacio">${L('No hay mensajes. Usa los botones «+ Trama» y «+ ACK» de cada extremo o el formulario de la izquierda.', 'No messages yet. Use the “+ Frame” and “+ ACK” buttons at each end, or the form on the left.')}</p>`;
+    } else {
+      let h = `<table><thead><tr><th>${L('Mensaje', 'Message')}</th><th>${L('Sentido', 'Direction')}</th><th class="n">L</th><th class="n">${L('Inicio', 'Start')}</th><th class="n">d_trans</th><th class="n">${L('Fin tx', 'Tx end')}</th><th class="n">${L('Llegada', 'Arrival')}</th><th>${L('Empieza', 'Starts')}</th><th></th></tr></thead><tbody>`;
+      res.forEach((r, i) => {
+        h += `<tr data-id="${r.id}" class="${r.id === sel ? 'fsel' : ''}">
+          <td><span class="chip ${r.tipo}">${esc(r.etq)}</span></td>
+          <td>${esc(nombre(r.de))} → ${esc(nombre(r.hacia))}</td>
+          <td class="n">${esc(fmtTam(r.m))}</td>
+          <td class="n">${esc(fmtT(r.inicio))}</td>
+          <td class="n">${esc(fmtT(r.dtr))}</td>
+          <td class="n">${esc(fmtT(r.finTx))}</td>
+          <td class="n">${esc(fmtT(r.llegada))}</td>
+          <td class="anc">${esc(describirAncla(r.m, res))}${r.aviso ? `<span class="aviso">${esc(r.aviso)}</span>` : ''}</td>
+          <td class="acc"><div>
+            <button type="button" data-acc="subir" title="${L('Subir', 'Move up')}" aria-label="${L('Subir', 'Move up')} ${esc(r.etq)}"${i === 0 ? ' disabled' : ''}>↑</button>
+            <button type="button" data-acc="bajar" title="${L('Bajar', 'Move down')}" aria-label="${L('Bajar', 'Move down')} ${esc(r.etq)}"${i === res.length - 1 ? ' disabled' : ''}>↓</button>
+            <button type="button" data-acc="editar" title="${L('Editar', 'Edit')}" aria-label="${L('Editar', 'Edit')} ${esc(r.etq)}">✎</button>
+            <button type="button" data-acc="borrar" title="${L('Borrar', 'Delete')}" aria-label="${L('Borrar', 'Delete')} ${esc(r.etq)}">✕</button>
+          </div></td></tr>`;
+      });
+      $('#tabla').innerHTML = h + '</tbody></table>';
+    }
+    actualizarRefs(res);
+    guardarLocal();
+  }
+
+  // Formulario: candidatos de referencia según el tipo de anclaje
+  function actualizarRefs(res) {
+    const P = parametros();
+    if (!res) res = P.error ? [] : calcular(estado.msgs, P.R, P.dp);
+    const tope = editando ? estado.msgs.findIndex(m => m.id === editando) : estado.msgs.length;
+    const previos = res.slice(0, tope < 0 ? res.length : tope);
+    const tipo = $('#f-ancla').value;
+    const cands = tipo === 'rx' ? previos.filter(r => r.hacia === form.de) : previos;
+    const sr = $('#f-ref');
+    const antes = sr.value;
+    sr.innerHTML = cands.length
+      ? cands.map(r => `<option value="${r.id}">${esc(r.etq)} (${esc(nombre(r.de))} → ${esc(nombre(r.hacia))})</option>`).join('')
+      : `<option value="">${tipo === 'rx' ? L('no hay mensajes previos que lleguen a ', 'no earlier messages arriving at ') + esc(nombre(form.de)) : L('no hay mensajes previos', 'no earlier messages')}</option>`;
+    if (cands.some(r => r.id === antes)) sr.value = antes;
+    else if (cands.length) sr.value = cands[cands.length - 1].id;
+    $('#fila-ref').hidden = !['rx', 'finTx', 'inicioTx'].includes(tipo);
+    $('#fila-t').hidden = tipo !== 't';
+    const notas = {
+      auto: L(`Empieza cuando ${nombre(form.de)} ha recibido por completo su último mensaje (y nunca antes de terminar su propia transmisión anterior).`, `Starts once ${nombre(form.de)} has fully received its last message (and never before its own previous transmission ends).`),
+      trasTx: L(`Transmisión consecutiva: empieza justo cuando ${nombre(form.de)} termina de transmitir su mensaje anterior.`, `Back-to-back: starts as soon as ${nombre(form.de)} finishes transmitting its previous message.`),
+      rx: L(`Empieza cuando llega a ${nombre(form.de)} el último bit del mensaje elegido.`, `Starts when the last bit of the chosen message reaches ${nombre(form.de)}.`),
+      finTx: L('Empieza cuando el mensaje elegido termina de salir de su emisor.', 'Starts when the chosen message has completely left its sender.'),
+      inicioTx: L('Empieza en el mismo instante que el mensaje elegido.', 'Starts at the same instant as the chosen message.'),
+      t: L('Empieza en el instante indicado, medido desde t = 0.', 'Starts at the given time, measured from t = 0.')
+    };
+    $('#nota-ancla').textContent = notas[tipo];
+  }
+
+  function marcarSeg(id, v) {
+    for (const b of $(id).children) b.setAttribute('aria-pressed', String(b.dataset.v === v));
+  }
+
+  function rellenarEnlace() {
+    const e = estado.enlace, v = estado.vista;
+    for (const k of ['R', 'uR', 'dprop', 'uProp', 'dist', 'uDist', 'vel', 'nA', 'nB']) $('#e-' + k).value = e[k];
+    marcarSeg('#e-modoProp', e.modoProp);
+    $('#fila-dprop').hidden = e.modoProp !== 'directo';
+    $('#fila-dist').hidden = $('#fila-vel').hidden = e.modoProp === 'directo';
+    for (const k of ['inicio', 'finTx', 'primer', 'llegada', 'tam', 'cotas']) $('#v-' + k).checked = !!v[k];
+    $('#v-uT').value = v.uT; $('#v-alto').value = v.alto; $('#x-claro').checked = !!v.claro;
+  }
+
+  function resetForm() {
+    editando = null;
+    $('#t-form').textContent = L('Añadir mensaje', 'Add message');
+    $('#b-guardar').textContent = L('Añadir mensaje', 'Add message');
+    $('#b-cancelar').hidden = true;
+    $('#aviso-edicion').hidden = true;
+    marcarSeg('#f-de', form.de); marcarSeg('#f-tipo', form.tipo);
+    const d = estado.defecto[form.tipo];
+    $('#f-tam').value = d.tam; $('#f-uTam').value = d.u;
+    $('#f-etq').value = ''; $('#f-ancla').value = 'auto'; $('#f-t').value = '0'; $('#f-espera').value = '';
+    $('#err-form').hidden = true;
+    actualizarRefs();
+  }
+
+  function editar(id) {
+    const m = estado.msgs.find(x => x.id === id);
+    if (!m) return;
+    editando = id; sel = id;
+    form.de = m.de; form.tipo = m.tipo;
+    marcarSeg('#f-de', m.de); marcarSeg('#f-tipo', m.tipo);
+    $('#f-tam').value = m.tam; $('#f-uTam').value = m.uTam; $('#f-etq').value = m.etiqueta;
+    const a = m.ancla || {};
+    $('#f-ancla').value = a.tipo || 'auto';
+    $('#f-t').value = a.t ?? '0'; $('#f-uT').value = a.uT || 'ms';
+    $('#f-espera').value = a.espera ?? ''; $('#f-uEspera').value = a.uEspera || 'ms';
+    $('#t-form').textContent = L('Editar mensaje', 'Edit message');
+    $('#b-guardar').textContent = L('Guardar cambios', 'Save changes');
+    $('#b-cancelar').hidden = false;
+    const P = parametros();
+    const r = P.error ? null : calcular(estado.msgs, P.R, P.dp).find(x => x.id === id);
+    $('#aviso-edicion').hidden = false;
+    $('#aviso-edicion').textContent = L(`Editando ${r ? r.etq : 'mensaje'}. Los mensajes que dependan de él se recolocan solos.`, `Editing ${r ? r.etq : 'message'}. Messages that depend on it move automatically.`);
+    pintar();
+    if (a.ref) { $('#f-ref').value = a.ref; }
+    $('#panel').scrollIntoView({ block: 'nearest' });
+  }
+
+  function leerForm() {
+    const tam = num($('#f-tam').value);
+    if (!(tam > 0)) return { error: L('Indica un tamaño mayor que 0.', 'Enter a size greater than 0.') };
+    const tipo = $('#f-ancla').value;
+    const ancla = { tipo };
+    if (['rx', 'finTx', 'inicioTx'].includes(tipo)) {
+      if (!$('#f-ref').value) return { error: L('No hay un mensaje previo al que anclar este; elige otro modo de inicio.', 'There is no earlier message to anchor this one to; choose another start mode.') };
+      ancla.ref = $('#f-ref').value;
+    }
+    if (tipo === 't') {
+      const t = num($('#f-t').value);
+      if (!(t >= 0)) return { error: L('El instante t debe ser un número mayor o igual que 0.', 'Time t must be a number greater than or equal to 0.') };
+      ancla.t = $('#f-t').value.trim(); ancla.uT = $('#f-uT').value;
+    }
+    const esp = $('#f-espera').value.trim();
+    if (esp) {
+      if (!(num(esp) >= 0)) return { error: L('La espera debe ser un número mayor o igual que 0.', 'The wait must be a number greater than or equal to 0.') };
+      ancla.espera = esp; ancla.uEspera = $('#f-uEspera').value;
+    }
+    return { de: form.de, tipo: form.tipo, tam: $('#f-tam').value.trim(), uTam: $('#f-uTam').value, etiqueta: $('#f-etq').value.trim(), ancla };
+  }
+
+  function toast(t) {
+    const el = $('#toast'); el.textContent = t; el.classList.add('vis');
+    clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('vis'), 1800);
+  }
+
+  // ------------------------------------------------------------ eventos
+  $('#panel').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const d = leerForm();
+    const err = $('#err-form');
+    if (d.error) { err.textContent = d.error; err.hidden = false; return; }
+    err.hidden = true;
+    estado.defecto[d.tipo] = { tam: d.tam, u: d.uTam };
+    if (editando) {
+      const i = estado.msgs.findIndex(m => m.id === editando);
+      if (i >= 0) estado.msgs[i] = { ...estado.msgs[i], ...d };
+      sel = editando;
+      toast(L('Cambios guardados', 'Changes saved'));
+    } else {
+      const m = { id: nuevoId(), ...d };
+      estado.msgs.push(m); sel = m.id;
+      toast(L('Mensaje añadido', 'Message added'));
+    }
+    resetForm(); pintar();
+  });
+  $('#b-cancelar').addEventListener('click', () => { resetForm(); pintar(); });
+
+  $('#f-de').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; form.de = b.dataset.v; marcarSeg('#f-de', form.de); actualizarRefs(); });
+  $('#f-tipo').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    form.tipo = b.dataset.v; marcarSeg('#f-tipo', form.tipo);
+    if (!editando) { const d = estado.defecto[form.tipo]; $('#f-tam').value = d.tam; $('#f-uTam').value = d.u; }
+  });
+  $('#f-ancla').addEventListener('change', () => actualizarRefs());
+
+  // enlace
+  for (const k of ['R', 'uR', 'dprop', 'uProp', 'dist', 'uDist', 'vel', 'nA', 'nB']) {
+    $('#e-' + k).addEventListener('input', e => { estado.enlace[k] = e.target.value; pintar(); });
+  }
+  $('#e-modoProp').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    estado.enlace.modoProp = b.dataset.v; rellenarEnlace(); pintar();
+  });
+  // vista
+  for (const k of ['inicio', 'finTx', 'primer', 'llegada', 'tam', 'cotas']) {
+    $('#v-' + k).addEventListener('change', e => { estado.vista[k] = e.target.checked; pintar(); });
+  }
+  $('#v-uT').addEventListener('change', e => { estado.vista.uT = e.target.value; pintar(); });
+  $('#v-alto').addEventListener('input', e => { estado.vista.alto = +e.target.value; pintar(); });
+  $('#x-claro').addEventListener('change', e => { estado.vista.claro = e.target.checked; guardarLocal(); });
+
+  // añadir rápido desde cada extremo, con la posición por defecto
+  document.querySelectorAll('button.mas').forEach(b => b.addEventListener('click', () => {
+    const d = estado.defecto[b.dataset.tipo];
+    const m = msg(b.dataset.de, b.dataset.tipo, d.tam, d.u);
+    estado.msgs.push(m); sel = m.id;
+    pintar();
+  }));
+
+  $('#lienzo').addEventListener('click', e => {
+    const g = e.target.closest('.msg');
+    sel = g ? (sel === g.dataset.id ? null : g.dataset.id) : null;
+    pintar();
+  });
+  $('#lienzo').addEventListener('dblclick', e => { const g = e.target.closest('.msg'); if (g) editar(g.dataset.id); });
+
+  $('#tabla').addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+    const id = tr.dataset.id;
+    const b = e.target.closest('button[data-acc]');
+    const i = estado.msgs.findIndex(m => m.id === id);
+    if (!b) { sel = id; pintar(); return; }
+    const acc = b.dataset.acc;
+    if (acc === 'editar') return editar(id);
+    if (acc === 'borrar') {
+      estado.msgs.splice(i, 1);
+      for (const m of estado.msgs) if (m.ancla?.ref === id) m.ancla = { tipo: 'auto', espera: m.ancla.espera, uEspera: m.ancla.uEspera };
+      if (editando === id) resetForm();
+      toast(L('Mensaje borrado', 'Message deleted'));
+    } else if (acc === 'subir' && i > 0) {
+      [estado.msgs[i - 1], estado.msgs[i]] = [estado.msgs[i], estado.msgs[i - 1]];
+    } else if (acc === 'bajar' && i < estado.msgs.length - 1) {
+      [estado.msgs[i + 1], estado.msgs[i]] = [estado.msgs[i], estado.msgs[i + 1]];
+    }
+    pintar();
+  });
+
+  // escenario
+  $('#s-ejemplo').addEventListener('change', e => {
+    if (!e.target.value) return;
+    estado = ejemplo(e.target.value, estado);
+    sel = estado.msgs[0]?.id ?? null;
+    e.target.value = '';
+    resetForm(); pintar(); toast(L('Ejemplo cargado', 'Example loaded'));
+  });
+  let confirmarVaciar = 0;
+  $('#b-vaciar').addEventListener('click', e => {
+    if (!estado.msgs.length) return;
+    if (Date.now() - confirmarVaciar > 3000) { confirmarVaciar = Date.now(); e.target.textContent = L('¿Seguro? Pulsa otra vez', 'Sure? Click again'); setTimeout(() => { e.target.textContent = L('Vaciar', 'Clear'); }, 3000); return; }
+    estado.msgs = []; sel = null; e.target.textContent = L('Vaciar', 'Clear'); confirmarVaciar = 0;
+    resetForm(); pintar(); toast(L('Diagrama vacío', 'Diagram cleared'));
+  });
+
+  function svgExportable() {
+    const cs = getComputedStyle(document.documentElement);
+    const color = n => (estado.vista.claro ? CLARO[n] : cs.getPropertyValue(n).trim()) || '#000';
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ultimoSVG.replace(/var\((--[\w-]+)\)/g, (_, n) => color(n));
+  }
+  function descargar(blob, nombreArchivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nombreArchivo;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  $('#b-svg').addEventListener('click', () => descargar(new Blob([svgExportable()], { type: 'image/svg+xml' }), L('diagrama-retardos', 'delay-diagram') + '.svg'));
+  $('#b-png').addEventListener('click', () => {
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svgExportable()], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      const c = document.createElement('canvas'), f = 2;
+      c.width = img.width * f; c.height = img.height * f;
+      const ctx = c.getContext('2d'); ctx.scale(f, f); ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b && descargar(b, L('diagrama-retardos', 'delay-diagram') + '.png'), 'image/png');
+    };
+    img.onerror = () => toast(L('No se pudo generar el PNG', 'Could not create the PNG'));
+    img.src = url;
+  });
+  $('#b-copiar').addEventListener('click', () => {
+    const t = svgExportable();
+    navigator.clipboard?.writeText(t).then(() => toast(L('SVG copiado', 'SVG copied')), () => toast(L('El navegador no permite copiar; usa «Descargar SVG»', 'The browser blocked copying; use “Download SVG”')))
+      ?? toast(L('El navegador no permite copiar; usa «Descargar SVG»', 'The browser blocked copying; use “Download SVG”'));
+  });
+  $('#b-json').addEventListener('click', () => descargar(new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' }), L('escenario-retardos', 'delay-scenario') + '.json'));
+  $('#b-cargar').addEventListener('click', () => $('#f-archivo').click());
+  $('#f-archivo').addEventListener('change', e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const lector = new FileReader();
+    lector.onload = () => {
+      try {
+        const s = normalizar(JSON.parse(lector.result));
+        if (!s) throw new Error();
+        estado = s; sel = estado.msgs[0]?.id ?? null;
+        rellenarEnlace(); resetForm(); pintar(); toast(L('Escenario cargado', 'Scenario loaded'));
+      } catch { toast(L('El archivo no es un escenario válido', 'The file is not a valid scenario')); }
+      e.target.value = '';
+    };
+    lector.readAsText(f);
+  });
+
+  // Textos estáticos: el español está en el propio HTML; el inglés, en data-en*
+  const ORIG = new Map();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'Delay Diagram' : 'Diagrama de Retardos';
+    marcarSeg('#idioma', estado.vista.idioma);
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 't', el.textContent); el.textContent = en ? el.dataset.en : es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-ph]').forEach(el => { const es = guarda(el, 'p', el.placeholder); el.placeholder = en ? el.dataset.enPh : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+    if (editando) { $('#t-form').textContent = L('Editar mensaje', 'Edit message'); $('#b-guardar').textContent = L('Guardar cambios', 'Save changes'); }
+  }
+  $('#idioma').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    estado.vista.idioma = b.dataset.v;
+    aplicarIdioma();
+    if (editando) editar(editando); else pintar();
+  });
+
+  rellenarEnlace();
+  aplicarIdioma();
+  resetForm();
+  pintar();
+})();
+</script>

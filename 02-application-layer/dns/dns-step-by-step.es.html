@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DNS paso a paso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Mismo lenguaje visual que HttpPersistente y DrawDelayDiagram: paleta, tipografías y tokens claro/oscuro. */
+:root {
+  --bg: #f3f6f8; --lienzo: #ffffff; --panel: #ffffff; --fg: #16202a; --muted: #5a6876; --line: #c8d1d9; --suave: #eef2f5;
+  --ip: #0f7c8c; --nombre: #7a4fb5; --rec: #c25400; --ite: #1f5fbf; --ref: #b0307a; --bien: #17855a; --mal: #c0392b; --sel: #c97a00;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --lienzo: #121920; --panel: #151c23; --fg: #e2e8ee; --muted: #93a1ae; --line: #34414e; --suave: #1b242d;
+    --ip: #3fbfcf; --nombre: #b796ec; --rec: #f0954a; --ite: #6ea3f0; --ref: #e56aa9; --bien: #4cc28d; --mal: #f07b6b; --sel: #f2b63c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --lienzo: #121920; --panel: #151c23; --fg: #e2e8ee; --muted: #93a1ae; --line: #34414e; --suave: #1b242d;
+  --ip: #3fbfcf; --nombre: #b796ec; --rec: #f0954a; --ite: #6ea3f0; --ref: #e56aa9; --bien: #4cc28d; --mal: #f07b6b; --sel: #f2b63c;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--body); margin: 0; }
+.dns * { box-sizing: border-box; }
+.dns [hidden] { display: none !important; }
+.dns { max-width: 1500px; margin: 0 auto; padding: 10px 16px 30px; font-size: 14px; }
+.dns-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 8px; }
+.dns h1 { font-family: var(--display); font-size: 1.25rem; margin: 0; }
+.dns h1 span { color: var(--rec); }
+.dns-ctrl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dns button, .dns select { font: inherit; font-size: 0.86rem; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+.dns select { max-width: 280px; }
+.dns button:hover { border-color: var(--fg); }
+.dns button:focus-visible, .dns select:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.dns-cont { font-family: var(--mono); min-width: 6ch; text-align: center; }
+#dns-escenario { background: var(--lienzo); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#dns-escenario:fullscreen { border: 0; border-radius: 0; display: flex; align-items: center; justify-content: center; }
+#dns-lienzo { display: block; width: 100%; height: auto; max-height: calc(100vh - 70px); cursor: pointer; user-select: none; }
+#dns-escenario:fullscreen #dns-lienzo { width: 100vw; height: 100vh; max-height: none; }
+.dns-ayuda { color: var(--muted); font-size: 0.8rem; margin: 6px 0 0; }
+.dns-notas { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 16px; margin-top: 10px; font-size: 1rem; line-height: 1.5; max-width: 90ch; }
+.dns-notas p { margin: 0.4em 0; }
+.n-cab { color: var(--muted); font-size: 0.9em; }
+.n-preg { border-left: 3px solid var(--ite); padding-left: 10px; }
+.n-ojo { border-left: 3px solid var(--sel); padding-left: 10px; }
+.n-sig { color: var(--muted); font-size: 0.9em; }
+.dns-pres { padding: 16px; font-size: 1.15rem; }
+.dns-pres .dns-notas { font-size: 1.25rem; max-width: none; }
+
+/* SVG */
+#dns-lienzo text { font-family: var(--body); fill: var(--fg); }
+#dns-lienzo .mono { font-family: var(--mono); white-space: pre; }
+#dns-lienzo .el { transition: transform .6s ease, opacity .45s ease; }
+#dns-lienzo .tit { font-family: var(--display); }
+#dns-lienzo .acto { fill: var(--rec); letter-spacing: .08em; text-transform: uppercase; }
+#dns-lienzo .ns { fill: var(--muted); }
+#dns-lienzo .nt { fill: var(--fg); }
+#dns-lienzo .halo { paint-order: stroke; stroke: var(--lienzo); stroke-width: 5px; stroke-linejoin: round; }
+#dns-lienzo .c-ip { fill: var(--ip); } #dns-lienzo .c-nombre { fill: var(--nombre); } #dns-lienzo .c-rec { fill: var(--rec); }
+#dns-lienzo .c-ite { fill: var(--ite); } #dns-lienzo .c-ref { fill: var(--ref); } #dns-lienzo .c-bien, #dns-lienzo .c-resp { fill: var(--bien); }
+#dns-lienzo .c-mal { fill: var(--mal); } #dns-lienzo .c-preg { fill: var(--fg); } #dns-lienzo .c-cache { fill: var(--fg); }
+.pie { font-family: var(--body); font-size: 25px; line-height: 1.3; color: var(--fg); border-top: 2px solid var(--line); padding-top: 10px; }
+.pie b { color: var(--rec); font-weight: 700; }
+#dns-lienzo .nodo { fill: var(--panel); stroke: var(--fg); stroke-width: 1.6; }
+#dns-lienzo .nodo.srv { stroke: var(--ip); stroke-width: 2.5; }
+#dns-lienzo .nodo.nombre { stroke: var(--nombre); stroke-width: 2.2; }
+#dns-lienzo .nodo.ip { stroke: var(--ip); stroke-width: 2; }
+#dns-lienzo .nodo.local { stroke: var(--rec); stroke-width: 2.5; }
+#dns-lienzo .nodo.cab-vida { fill: var(--suave); stroke: var(--line); }
+#dns-lienzo .tarjeta { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+#dns-lienzo .tarjeta.destacada { stroke: var(--fg); stroke-width: 2; }
+#dns-lienzo .tarjeta.ip { stroke: var(--ip); }
+#dns-lienzo .tarjeta.nombre { stroke: var(--nombre); stroke-width: 2; }
+#dns-lienzo .tarjeta.rota { stroke: var(--mal); stroke-width: 2; fill: color-mix(in srgb, var(--mal) 7%, var(--panel)); }
+#dns-lienzo .tarjeta.ok { stroke: var(--bien); stroke-width: 2; }
+#dns-lienzo .tarjeta.ref { stroke: var(--ref); stroke-width: 2; stroke-dasharray: 7 5; }
+#dns-lienzo .tarjeta.rec { stroke: var(--rec); stroke-width: 2.5; }
+#dns-lienzo .tarjeta.ite { stroke: var(--ite); stroke-width: 2.5; }
+#dns-lienzo .fantasma { fill: none; stroke: var(--mal); stroke-width: 2; stroke-dasharray: 6 5; }
+#dns-lienzo .cajanegra { fill: var(--suave); stroke: var(--fg); stroke-width: 2.5; }
+#dns-lienzo .equipo { fill: none; stroke: var(--line); stroke-width: 2; }
+#dns-lienzo .fichero { fill: var(--panel); stroke: var(--fg); stroke-width: 2; }
+#dns-lienzo .host { fill: var(--panel); stroke: var(--fg); stroke-width: 1.6; }
+#dns-lienzo .nube { fill: var(--suave); stroke: var(--line); stroke-width: 1.5; }
+#dns-lienzo .isp { fill: color-mix(in srgb, var(--ip) 5%, transparent); stroke: var(--ip); stroke-width: 1.5; stroke-dasharray: 8 6; }
+#dns-lienzo .router { fill: var(--panel); stroke: var(--fg); stroke-width: 2; }
+#dns-lienzo .enlace { stroke: var(--muted); stroke-width: 2; }
+#dns-lienzo .enlace.rec-suave { stroke: var(--rec); opacity: .45; }
+#dns-lienzo .enlace.ite-suave { stroke: var(--ite); opacity: .45; }
+#dns-lienzo .guia { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; }
+#dns-lienzo .zona { fill: color-mix(in srgb, var(--nombre) 7%, transparent); stroke: var(--nombre); stroke-width: 1.4; stroke-dasharray: 6 5; }
+#dns-lienzo .rama { stroke: var(--nombre); stroke-width: 2; opacity: .7; }
+#dns-lienzo .rama-ip { stroke: var(--ip); stroke-width: 2; opacity: .7; }
+#dns-lienzo .camino { stroke: var(--ref); stroke-width: 5; stroke-linecap: round; }
+#dns-lienzo .vida { stroke: var(--line); stroke-width: 2; stroke-dasharray: 5 5; }
+#dns-lienzo .banda { stroke: none; }
+#dns-lienzo .banda.rec { fill: color-mix(in srgb, var(--rec) 12%, transparent); }
+#dns-lienzo .banda.ite { fill: color-mix(in srgb, var(--ite) 9%, transparent); }
+#dns-lienzo .fl { stroke-width: 2.6; fill: none; }
+#dns-lienzo .fl.fino { stroke-width: 1.6; }
+#dns-lienzo .fl.dash { stroke-dasharray: 7 6; }
+#dns-lienzo .fl.neutro { stroke: var(--muted); } #dns-lienzo .fl.rec { stroke: var(--rec); } #dns-lienzo .fl.ite { stroke: var(--ite); }
+#dns-lienzo .fl.bien { stroke: var(--bien); } #dns-lienzo .fl.mal { stroke: var(--mal); } #dns-lienzo .fl.nombre { stroke: var(--nombre); }
+#dns-lienzo .fl.ip { stroke: var(--ip); } #dns-lienzo .fl.ref { stroke: var(--ref); }
+#dns-lienzo .punta-neutro { fill: var(--muted); } #dns-lienzo .punta-rec { fill: var(--rec); } #dns-lienzo .punta-ite { fill: var(--ite); }
+#dns-lienzo .punta-bien { fill: var(--bien); } #dns-lienzo .punta-mal { fill: var(--mal); } #dns-lienzo .punta-nombre { fill: var(--nombre); }
+#dns-lienzo .punta-ip { fill: var(--ip); } #dns-lienzo .punta-ref { fill: var(--ref); }
+#dns-lienzo .sobre { fill: var(--lienzo); stroke-width: 2.5; }
+#dns-lienzo .sobre.rec { stroke: var(--rec); } #dns-lienzo .sobre.ite { stroke: var(--ite); } #dns-lienzo .sobre.ref { stroke: var(--ref); }
+#dns-lienzo .sobre.bien { stroke: var(--bien); }
+#dns-lienzo .sobre-t { fill: var(--fg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { #dns-lienzo .el { transition: opacity .2s; } }
+</style>
+</head>
+<body>
+
+<div class="dns" id="dns-app">
+  <div class="dns-barra">
+    <h1>DNS <span>paso a paso</span></h1>
+    <div class="dns-ctrl">
+      <select id="dns-indice" aria-label="Ir al paso"></select>
+      <button id="dns-ant" title="Anterior (←)">◀</button>
+      <span class="dns-cont" id="dns-cont"></span>
+      <button id="dns-sig" title="Siguiente (→, espacio, clic)">▶</button>
+      <button id="dns-rep" title="Repetir la animación (R)">↻ Repetir</button>
+      <button id="dns-bfs" title="Pantalla completa (F)">Pantalla completa</button>
+      <button id="dns-btema">Tema: auto</button>
+    </div>
+  </div>
+  <div id="dns-escenario">
+    <svg id="dns-lienzo" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Animación del DNS">
+      <defs>
+        <marker id="dnsm-neutro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-neutro"/></marker>
+        <marker id="dnsm-rec" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-rec"/></marker>
+        <marker id="dnsm-ite" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-ite"/></marker>
+        <marker id="dnsm-bien" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-bien"/></marker>
+        <marker id="dnsm-mal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-mal"/></marker>
+        <marker id="dnsm-nombre" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-nombre"/></marker>
+        <marker id="dnsm-ip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-ip"/></marker>
+        <marker id="dnsm-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="punta-ref"/></marker>
+      </defs>
+      <rect width="1600" height="900" fill="var(--lienzo)"/>
+      <g id="dns-capa"></g>
+      <g id="dns-vuelos"></g>
+    </svg>
+  </div>
+  <p class="dns-ayuda">→ / espacio / clic: avanzar · ←: retroceder · R: repetir · F: pantalla completa</p>
+</div>
+
+<script>
+(function () {
+'use strict';
+// Primitivas de dibujo: devuelven cadenas SVG (sin DOM), para poder probarlas en node.
+// Un «elemento» de escena es S(id, x, y, html): un <g> con ese id, desplazado a (x, y).
+// Si dos pasos consecutivos comparten id, el motor lo desplaza en vez de redibujarlo.
+
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function S(id, x, y, html, o = {}) {
+  return { id, x, y, html, cls: o.cls || '', d: o.d || 0, op: o.op ?? 1 };
+}
+
+// Ancho aproximado de un texto (para dimensionar cajas)
+const anchoTexto = (s, size, mono) => String(s).length * size * (mono ? 0.61 : 0.54);
+
+function txt(s, o = {}) {
+  const w = o.weight ? ` font-weight="${o.weight}"` : '';
+  return `<text x="${o.x || 0}" y="${o.y || 0}" font-size="${o.size || 22}" text-anchor="${o.anchor || 'middle'}" class="${o.cls || ''}"${w}>${o.raw ? s : esc(s)}</text>`;
+}
+
+function caja(w, h, o = {}) {
+  return `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" rx="${o.rx ?? 8}" class="${o.cls || 'caja'}"/>`;
+}
+
+// Nodo centrado en (0, 0): título y, opcionalmente, subtítulo (monoespaciado salvo subMono:false)
+function nodo(titulo, sub, o = {}) {
+  const size = o.size || 22, subMono = o.subMono !== false;
+  const w = o.w || Math.max(anchoTexto(titulo, size, o.mono), sub ? anchoTexto(sub, 17, subMono) : 0) + 36;
+  const h = o.h || (sub ? 70 : 48);
+  return caja(w, h, { cls: 'nodo ' + (o.cls || '') }) +
+    txt(titulo, { y: sub ? -5 : 8, size, cls: 'nt' + (o.mono ? ' mono' : ''), weight: o.mono ? 500 : 600 }) +
+    (sub ? txt(sub, { y: 22, size: 17, cls: (subMono ? 'mono ' : '') + 'ns' }) : '');
+}
+
+// Tarjeta con la esquina superior izquierda en (0, 0). Líneas: texto o {t, cls, mono, size, weight}
+function tarjeta(lineas, o = {}) {
+  const size = o.size || 20, lh = o.lh || Math.round(size * 1.45), pad = o.pad ?? 14;
+  const L = lineas.map(l => (typeof l === 'string' ? { t: l } : l));
+  const w = o.w || Math.max(...L.map(l => anchoTexto(l.t, l.size || size, l.mono))) + 2 * pad;
+  const h = pad + size * 1.1 + (L.length - 1) * lh + pad;
+  let s = `<rect width="${w}" height="${h}" rx="8" class="tarjeta ${o.cls || ''}"/>`;
+  L.forEach((l, i) => {
+    s += txt(l.t, { x: pad, y: pad + size * 0.85 + i * lh, size: l.size || size, anchor: 'start', cls: (l.mono ? 'mono ' : '') + (l.cls || ''), weight: l.weight });
+  });
+  return s;
+}
+
+// Flecha recta; ini/fin acortan los extremos (px)
+function flecha(x1, y1, x2, y2, cls = 'neutro', o = {}) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, a = o.ini || 0, b = o.fin || 0;
+  const p = [x1 + dx * a / L, y1 + dy * a / L, x2 - dx * b / L, y2 - dy * b / L].map(v => +v.toFixed(1));
+  const punta = o.sinPunta ? '' : ` marker-end="url(#dnsm-${cls})"`;
+  return `<line x1="${p[0]}" y1="${p[1]}" x2="${p[2]}" y2="${p[3]}" class="fl ${cls}${o.dash ? ' dash' : ''}${o.fino ? ' fino' : ''}"${punta}/>`;
+}
+
+// Arco cuadrático (para la cadena del contrafactual recursivo)
+function arco(x1, y1, x2, y2, alto, cls) {
+  const cx = (x1 + x2) / 2, cy = Math.min(y1, y2) - alto;
+  return `<path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" class="fl ${cls}" fill="none" marker-end="url(#dnsm-${cls})"/>`;
+}
+
+function linea(x1, y1, x2, y2, cls) {
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}"/>`;
+}
+
+// Mensaje en vuelo: de [x,y] a [x,y], con etiqueta; t = inicio (ms), dur = duración (ms)
+const V = (de, a, etiqueta, cls, t = 0, dur = 900) => ({ de, a, etiqueta, cls, t, dur });
+
+// Texto con **negrita** → HTML (para el pie)
+const pieHTML = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+// Escenas y narración. Lienzo de 1600 × 900: cabecera hasta y = 90, pie desde y = 812.
+// Cada paso: acto, titulo, msg (pie, admite **negrita**), escena() → elementos, vuelos (opcional),
+// notas (párrafos de narración), pregunta (al aula, opcional), ojo (precisiones, opcional).
+
+const ACTOS = {
+  I: 'Las IP atan',
+  II: 'Los nombres',
+  III: 'Lo que ve tu equipo',
+  IV: 'Detrás del telón',
+  V: 'Recursiva e iterativa',
+  VI: 'Así se dibuja',
+};
+
+function marco(p, i, n) {
+  return [
+    S('cab-acto', 60, 0, txt(`Acto ${p.acto} · ${ACTOS[p.acto]}`, { y: 36, size: 17, anchor: 'start', cls: 'acto', weight: 600 })),
+    S('cab-tit', 60, 0, txt(p.titulo, { y: 74, size: 32, anchor: 'start', cls: 'tit', weight: 700 })),
+    S('cab-n', 1540, 0, txt(`${i + 1} / ${n}`, { y: 36, size: 17, anchor: 'end', cls: 'ns' })),
+    S('pie', 0, 0, `<foreignObject x="60" y="814" width="1480" height="80"><div xmlns="http://www.w3.org/1999/xhtml" class="pie">${pieHTML(p.msg)}</div></foreignObject>`),
+  ];
+}
+
+const tenue = (els, op = 0.18) => els.map(e => ({ ...e, op }));
+
+// ───────────── Actos I y II: el mapa de red ─────────────
+
+const SRV = { A: [420, 545], B: [1180, 545] };
+const IP_SRV = { A: '203.0.113.10', B: '198.51.100.7' };
+const REFS = [
+  { id: 'ref1', x: 60, y: 110, t: 'Enlace en la web de un cliente', ip: 'http://203.0.113.10/', n: 'http://www.miempresa.es/' },
+  { id: 'ref2', x: 60, y: 250, t: 'Cartel con código QR', ip: 'http://203.0.113.10/', n: 'http://www.miempresa.es/' },
+  { id: 'ref3', x: 1190, y: 110, t: 'App móvil ya instalada', ip: 'servidor = 203.0.113.10', n: 'servidor = www.miempresa.es' },
+  { id: 'ref4', x: 1190, y: 250, t: 'Configuración de un socio', ip: 'api = 203.0.113.10', n: 'api = www.miempresa.es' },
+];
+
+function mapaRed(o = {}) {
+  const srv = o.srv || 'A', r = [];
+  if (o.refs) {
+    let html = '';
+    for (const f of REFS) {
+      const izq = f.x < 800, x1 = izq ? f.x + 350 : f.x, y1 = f.y + 38;
+      let x2, y2, cls;
+      if (o.refs === 'nombre') { x2 = izq ? 670 : 930; y2 = 455; cls = 'nombre'; }
+      else { x2 = izq ? 305 : 535; y2 = 545; cls = o.refs === 'rota' ? 'mal' : 'ip'; }
+      html += flecha(x1, y1, x2, y2, cls, { dash: true, fino: true, fin: 4 });
+    }
+    r.push(S('ref-enlaces-' + o.refs, 0, 0, html));
+  }
+  r.push(S('nube', 0, 0, `<ellipse cx="800" cy="215" rx="300" ry="100" class="nube"/>` + txt('Internet', { x: 800, y: 150, size: 20, cls: 'ns' })));
+  r.push(S('enlaces-red', 0, 0, linea(650, 285, 950, 285, 'enlace') + linea(650, 285, 470, 400, 'enlace') + linea(950, 285, 1130, 400, 'enlace')));
+  r.push(S('r1', 650, 285, `<circle r="22" class="router"/>` + txt('R', { y: 7, size: 18, weight: 600 })));
+  r.push(S('r2', 950, 285, `<circle r="22" class="router"/>` + txt('R', { y: 7, size: 18, weight: 600 })));
+  for (const [id, x, nombre, pref] of [['ispA', 110, 'ISP A', '203.0.113.x'], ['ispB', 950, 'ISP B', '198.51.100.x']]) {
+    r.push(S(id, 0, 0, `<rect x="${x}" y="400" width="540" height="340" rx="14" class="isp"/>` +
+      txt(nombre, { x: x + 20, y: 432, anchor: 'start', size: 22, weight: 700, cls: 'c-ip' }) +
+      txt(pref, { x: x + 20, y: 460, anchor: 'start', size: 19, cls: 'mono c-ip' })));
+  }
+  for (const [id, x, ip] of [['hA1', 220, '203.0.113.25'], ['hA2', 500, '203.0.113.40'], ['hB1', 1060, '198.51.100.40'], ['hB2', 1340, '198.51.100.41']]) {
+    r.push(S(id, x, 670, nodo('Equipo', ip, { w: 180, h: 62, size: 18 })));
+  }
+  if (o.refs === 'rota') r.push(S('fantasma', ...SRV.A, caja(230, 70, { cls: 'fantasma' }) + txt('aquí ya no hay nadie', { y: 7, size: 18, cls: 'c-mal' })));
+  r.push(S('srv', ...SRV[srv], nodo('App de MiEmpresa', IP_SRV[srv], { w: 230, cls: 'srv' })));
+  if (o.zoom) {
+    r.push(S('zoom-linea', 0, 0, linea(650, 560, 537, 548, 'guia')));
+    r.push(S('zoom', 800, 560, caja(280, 160, { cls: 'tarjeta destacada', rx: 10 }) +
+      `<text y="-12" font-size="36" text-anchor="middle" class="mono"><tspan class="c-ip" font-weight="600">203.0.113</tspan><tspan>.10</tspan></text>` +
+      txt('203.0.113 → la red', { y: 26, size: 17, cls: 'c-ip' }) +
+      txt('(la asigna el ISP)', { y: 47, size: 16, cls: 'c-ip' }) +
+      txt('.10 → el equipo', { y: 70, size: 17, cls: 'ns' })));
+  }
+  if (o.tabla) {
+    r.push(S('tabla', 800, 0, txt('Lo que sabe un router:', { y: 192, size: 17, cls: 'ns' }) +
+      txt('203.0.113.x  → ISP A', { y: 224, size: 20, cls: 'mono c-ip' }) +
+      txt('198.51.100.x → ISP B', { y: 252, size: 20, cls: 'mono c-ip' })));
+  }
+  if (o.refs) {
+    for (const f of REFS) {
+      const val = o.refs === 'nombre' ? f.n : f.ip;
+      const cls = { ip: 'ip', rota: 'rota', nombre: 'nombre' }[o.refs];
+      r.push(S(f.id, f.x, f.y, tarjeta([
+        { t: (o.refs === 'rota' ? '✗ ' : '') + f.t, size: 19, weight: 600, cls: o.refs === 'rota' ? 'c-mal' : '' },
+        { t: val, mono: true, size: 18, cls: 'c-' + (cls === 'rota' ? 'mal' : cls) },
+      ], { w: 350, cls })));
+    }
+  }
+  if (o.nombre) {
+    r.push(S('nombre', 800, 455, nodo('www.miempresa.es', 'lo administra MiEmpresa', { w: 260, cls: 'nombre', subMono: false, size: 21 })));
+    r.push(S('fn-' + srv, 0, 0, srv === 'A' ? flecha(700, 490, 540, 532, 'nombre', { fin: 2 }) : flecha(900, 490, 1060, 532, 'nombre', { fin: 2 })));
+    r.push(S('rr', 800, 528, txt(`www  A  ${IP_SRV[srv]}`, { size: 17, cls: 'mono c-nombre' }), { d: o.dRR || 0 }));
+  }
+  if (o.ttl) {
+    r.push(S('ttl', 650, 585, tarjeta(['Mudanza = cambiar 1 registro.', 'Las cachés lo ven cuando', 'caduca el TTL (p. ej. 300 s).'], { w: 300, size: 18, cls: 'nombre' }), { d: 700 }));
+  }
+  return r;
+}
+
+// ───────────── Acto II: HOSTS.TXT y los árboles ─────────────
+
+function hosts(n, r0) {
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const a = -Math.PI / 2 + 2 * Math.PI * k / n, x = 800 + 300 * Math.cos(a), y = 450 + 250 * Math.sin(a);
+    out.push(S('host-' + k, 0, 0,
+      flecha(800 + 120 * Math.cos(a), 450 + 140 * Math.sin(a), x, y, 'neutro', { fino: true, fin: r0 + 4 }) +
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r0}" class="host"/>`, { d: k < 10 ? 0 : 40 * (k - 10) }));
+  }
+  return out;
+}
+
+function hostsTxt(grande) {
+  const filas = ['HOST : 10.0.0.73 : SRI-NIC', 'HOST : 10.3.0.11 : MIT-AI', 'HOST : 10.1.0.13 : UCLA', 'HOST : 10.2.0.52 : …'];
+  let s = `<rect x="-115" y="-135" width="230" height="270" rx="6" class="fichero"/>` +
+    txt('HOSTS.TXT', { y: -100, size: 24, weight: 700, cls: 'mono' }) + txt('en el NIC del SRI', { y: -74, size: 16, cls: 'ns' });
+  filas.forEach((f, i) => { s += txt(f, { y: -38 + i * 24, size: 11, cls: 'mono ns' }); });
+  if (grande) s += txt('… miles de líneas', { y: 80, size: 17, cls: 'c-mal', weight: 600 });
+  return [S('hosts-txt', 800, 450, s), ...hosts(grande ? 26 : 10, grande ? 10 : 15)];
+}
+
+const ARBOL = [
+  { id: 'raiz', x: 800, y: 140, t: '.', p: null },
+  { id: 'es', x: 420, y: 240, t: 'es', p: 'raiz' },
+  { id: 'com', x: 800, y: 240, t: 'com', p: 'raiz' },
+  { id: 'org', x: 1180, y: 240, t: 'org', p: 'raiz' },
+  { id: 'uah', x: 200, y: 340, t: 'uah.es', p: 'es' },
+  { id: 'rediris', x: 440, y: 340, t: 'rediris.es', p: 'es' },
+  { id: 'miempresa', x: 650, y: 340, t: 'miempresa.es', p: 'es' },
+  { id: 'ejemplo', x: 880, y: 340, t: 'ejemplo.com', p: 'com' },
+  { id: 'wikipedia', x: 1180, y: 340, t: 'wikipedia.org', p: 'org' },
+  { id: 'www-uah', x: 140, y: 435, t: 'www', p: 'uah' },
+  { id: 'aut-uah', x: 260, y: 435, t: 'aut', p: 'uah' },
+  { id: 'www-rediris', x: 440, y: 435, t: 'www', p: 'rediris' },
+  { id: 'www-mi', x: 590, y: 435, t: 'www', p: 'miempresa' },
+  { id: 'correo-mi', x: 710, y: 435, t: 'correo', p: 'miempresa' },
+  { id: 'www-ej', x: 880, y: 435, t: 'www', p: 'ejemplo' },
+  { id: 'www-wiki', x: 1180, y: 435, t: 'www', p: 'wikipedia' },
+];
+const ZONAS = [
+  { id: 'z-raiz', x: 745, y: 112, w: 110, h: 56, t: 'IANA', lado: true },
+  { id: 'z-es', x: 375, y: 212, w: 90, h: 56, t: 'Red.es', lado: true },
+  { id: 'z-com', x: 745, y: 212, w: 110, h: 56, t: 'Verisign', lado: true },
+  { id: 'z-org', x: 1125, y: 212, w: 110, h: 56, t: 'PIR', lado: true },
+  { id: 'z-uah', x: 80, y: 312, w: 240, h: 175, t: 'UAH' },
+  { id: 'z-rediris', x: 355, y: 312, w: 170, h: 175, t: 'RedIRIS' },
+  { id: 'z-mi', x: 545, y: 312, w: 215, h: 175, t: 'MiEmpresa' },
+  { id: 'z-ej', x: 790, y: 312, w: 180, h: 175, t: 'otra empresa' },
+  { id: 'z-wiki', x: 1080, y: 312, w: 200, h: 175, t: 'Wikimedia' },
+];
+const posA = id => ARBOL.find(n => n.id === id);
+
+function arbol(o = {}) {
+  const r = [];
+  if (o.zonas) {
+    for (const z of ZONAS) {
+      r.push(S(z.id, 0, 0, `<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="12" class="zona"/>` +
+        (z.lado ? txt(z.t, { x: z.x + z.w + 8, y: z.y + 34, size: 15, anchor: 'start', cls: 'c-nombre', weight: 600 })
+          : txt(z.t, { x: z.x + z.w / 2, y: z.y + z.h - 10, size: 15, cls: 'c-nombre', weight: 600 }))));
+    }
+  }
+  let ramas = '';
+  for (const n of ARBOL) if (n.p) { const p = posA(n.p); ramas += linea(p.x, p.y + 22, n.x, n.y - 22, 'rama'); }
+  r.push(S('ramas', 0, 0, ramas));
+  if (o.camino) {
+    const c = ['raiz', 'es', 'rediris', 'www-rediris'].map(posA);
+    let s = '';
+    for (let k = 1; k < c.length; k++) s += linea(c[k - 1].x, c[k - 1].y + 22, c[k].x, c[k].y - 22, 'camino');
+    r.push(S('camino', 0, 0, s));
+  }
+  for (const n of ARBOL) {
+    const w = n.t === '.' ? 56 : anchoTexto(n.t, 20, true) + 30;
+    r.push(S('a-' + n.id, n.x, n.y, caja(w, 44, { cls: 'nodo nombre', rx: 22 }) + txt(n.t, { y: n.t === '.' ? 12 : 7, size: n.t === '.' ? 34 : 20, cls: 'mono nt', weight: 600 })));
+  }
+  return r;
+}
+
+const RED = [
+  { id: 'n-int', x: 800, y: 530, t: 'Internet', p: null },
+  { id: 'n-ispa', x: 380, y: 625, t: 'ISP A', sub: '203.0.113.x', p: 'n-int' },
+  { id: 'n-ispb', x: 800, y: 625, t: 'ISP B', sub: '198.51.100.x', p: 'n-int' },
+  { id: 'n-red', x: 1220, y: 625, t: 'RedIRIS', sub: '130.206.x.x', p: 'n-int' },
+  { id: 'n-h1', x: 280, y: 745, t: '203.0.113.80', p: 'n-ispa', hoja: 'www-ej' },
+  { id: 'n-h2', x: 480, y: 745, t: '203.0.113.25', p: 'n-ispa', hoja: 'correo-mi' },
+  { id: 'n-h3', x: 800, y: 745, t: '198.51.100.7', p: 'n-ispb', hoja: 'www-mi' },
+  { id: 'n-h4', x: 1220, y: 745, t: '130.206.13.20', p: 'n-red', hoja: 'www-rediris' },
+];
+
+function arbolRed() {
+  const r = [], pos = id => RED.find(n => n.id === id);
+  let ramas = '', cruces = '';
+  for (const n of RED) {
+    if (n.p) { const p = pos(n.p); ramas += linea(p.x, p.y + (p.sub ? 35 : 22), n.x, n.y - (n.sub ? 35 : 22), 'rama-ip'); }
+    if (n.hoja) { const h = posA(n.hoja); cruces += flecha(h.x, h.y + 22, n.x, n.y - 22, 'nombre', { dash: true, fino: true, fin: 3 }); }
+  }
+  r.push(S('red-ramas', 0, 0, ramas));
+  for (const n of RED) {
+    r.push(S(n.id, n.x, n.y, n.sub ? nodo(n.t, n.sub, { w: 220, cls: 'ip' })
+      : caja(anchoTexto(n.t, 18, !!n.hoja) + 30, 44, { cls: 'nodo ip' }) + txt(n.t, { y: 6, size: 18, cls: (n.hoja ? 'mono ' : '') + 'nt', weight: 600 }), { d: 300 }));
+  }
+  r.push(S('cruces', 0, 0, cruces, { d: 900 }));
+  r.push(S('et-nombres', 60, 0, txt('Árbol de nombres', { y: 150, size: 20, anchor: 'start', cls: 'c-nombre', weight: 700 }) +
+    txt('quién lo administra', { y: 176, size: 17, anchor: 'start', cls: 'c-nombre' })));
+  r.push(S('et-red', 60, 0, txt('Árbol de direcciones', { y: 560, size: 20, anchor: 'start', cls: 'c-ip', weight: 700 }) +
+    txt('dónde está', { y: 586, size: 17, anchor: 'start', cls: 'c-ip' }), { d: 300 }));
+  return r;
+}
+
+// ───────────── Acto III: el sistema final ─────────────
+
+function equipo(o = {}) {
+  const r = [
+    S('pc-marco', 0, 0, `<rect x="100" y="110" width="540" height="650" rx="16" class="equipo"/>` +
+      txt('Tu equipo · pc.aut.uah.es · 10.0.0.5', { x: 370, y: 146, size: 19, weight: 600 })),
+    S('capa-app', 370, 230, nodo('Navegador', 'quiere abrir www.rediris.es', { w: 440, subMono: false })),
+    S('capa-f1', 0, 0, flecha(370, 265, 370, 333, 'neutro', { fin: 2 })),
+    S('capa-gai', 370, 370, nodo('getaddrinfo("www.rediris.es")', '', { w: 440, mono: true, size: 20 })),
+    S('capa-f2', 0, 0, flecha(370, 394, 370, 472, 'neutro', { fin: 2 })),
+    S('capa-stub', 370, 510, nodo('Resolutor del SO (stub)', 'mira su caché y /etc/hosts', { w: 440, subMono: false })),
+    S('capa-dhcp', 370, 0, txt('La IP del resolutor local la dio DHCP:', { y: 596, size: 17, cls: 'ns' }) +
+      txt('el de la UAH, tu operador, el router de casa o uno público', { y: 620, size: 15, cls: 'ns' })),
+    S('caja-local', 1180, 450, caja(380, 180, { cls: 'cajanegra', rx: 12 }) + txt('Resolutor local', { y: -22, size: 28, weight: 700, cls: 'nt' }) +
+      txt('10.0.0.1', { y: 14, size: 20, cls: 'mono ns' }) + txt('¿qué hace por dentro?', { y: 56, size: 18, cls: 'ns' })),
+    S('p3', 0, 0, flecha(590, 490, 990, 490, 'rec', { fin: 2 }) + txt('A? www.rediris.es', { x: 790, y: 478, size: 18, cls: 'mono halo' }), { d: o.dP || 0 }),
+  ];
+  if (o.respuesta) r.push(S('r3', 0, 0, flecha(990, 530, 590, 530, 'rec', { fin: 2 }) + txt('A www.rediris.es = 130.206.13.20', { x: 790, y: 558, size: 18, cls: 'mono c-bien halo' }), { d: 900 }));
+  r.push(S('reloj3-' + (o.respuesta ? 'ok' : 'espera'), 370, 0, o.respuesta ? txt('✓ respuesta recibida', { y: 700, size: 20, cls: 'c-bien', weight: 600 })
+    : txt('⏳ esperando la respuesta…', { y: 700, size: 20, cls: 'c-rec', weight: 600 }), { d: o.respuesta ? 900 : 0 }));
+  if (o.respuesta) {
+    r.push(S('resumen3', 720, 610, tarjeta([
+      { t: 'Lo que ve tu equipo:', weight: 600 },
+      '• una pregunta y una respuesta, al resolutor local',
+      '• ni raíz, ni TLD, ni autoritativo: no sabe que existen',
+      '• mientras tanto, espera',
+    ], { w: 700, size: 20 }), { d: 1100 }));
+  }
+  return r;
+}
+
+// ───────────── Actos IV y V: mapa + diagrama de secuencia ─────────────
+
+const M = { C: [130, 470], L: [400, 470], R: [140, 200], T: [400, 140], A: [650, 200], C2: [130, 650] };
+const LV = { C: 880, L: 1050, R: 1210, T: 1360, A: 1510 };
+const LV_TIT = { C: 'Cliente', L: 'Resolutor local', R: 'Raíz', T: 'TLD .es', A: 'Autoritativo' };
+const MSG = [
+  { n: 1, de: 'C', a: 'L', q: 'A? www.rediris.es (RD=1)', tipo: 'rec', clase: 'preg' },
+  { n: 2, de: 'L', a: 'R', q: 'A? www.rediris.es', tipo: 'ite', clase: 'preg' },
+  { n: 3, de: 'R', a: 'L', q: 'NS es → a.nic.es', tipo: 'ite', clase: 'ref' },
+  { n: 4, de: 'L', a: 'T', q: 'A? www.rediris.es', tipo: 'ite', clase: 'preg' },
+  { n: 5, de: 'T', a: 'L', q: 'NS rediris.es → sun.rediris.es', tipo: 'ite', clase: 'ref' },
+  { n: 6, de: 'L', a: 'A', q: 'A? www.rediris.es', tipo: 'ite', clase: 'preg' },
+  { n: 7, de: 'A', a: 'L', q: 'A www.rediris.es = 130.206.13.20 (AA=1)', tipo: 'ite', clase: 'resp' },
+  { n: 8, de: 'L', a: 'C', q: 'A www.rediris.es = 130.206.13.20', tipo: 'rec', clase: 'resp' },
+];
+const yMsg = n => 200 + (n - 1) * 70;
+
+function vidas(o = {}) {
+  return Object.keys(LV).map(k => S('lv-' + k, LV[k], 0,
+    linea(0, 150, 0, 790, 'vida') + caja(146, 40, { cls: 'nodo cab-vida' }).replace(`y="-20"`, `y="105"`) +
+    txt(LV_TIT[k], { y: 131, size: 16, weight: 600, cls: 'nt' }), { op: o.tenues && o.tenues.includes(k) ? 0.3 : 1 }));
+}
+
+function msgSpec(id, m, y, d) {
+  const x1 = LV[m.de], x2 = LV[m.a];
+  return S(id, 0, 0, flecha(x1, y, x2, y, m.tipo, { fin: 2 }) +
+    txt(`${m.n} · ${m.q}`, { x: (x1 + x2) / 2, y: y - 10, size: 16, cls: 'halo c-' + m.clase, weight: 500 }), { d });
+}
+
+function secuencia(hasta, ret = {}) {
+  return [...vidas(), ...MSG.filter(m => m.n <= hasta).map(m => msgSpec('m-' + m.n, m, yMsg(m.n), ret[m.n] || 0))];
+}
+
+function mapaRes(o = {}) {
+  const r = [];
+  let enl = linea(...M.C, ...M.L, 'enlace rec-suave');
+  for (const k of ['R', 'T', 'A']) enl += linea(...M.L, ...M[k], 'enlace ite-suave');
+  if (o.pc2) enl += linea(...M.C2, ...M.L, 'enlace rec-suave');
+  r.push(S('mapa-enlaces', 0, 0, enl));
+  if (o.detalle) r.push(S('detalle-' + o.detalle.clave, 30, 285, tarjeta(o.detalle.lineas, { w: 750, size: 19, cls: o.detalle.cls }), { d: o.detalle.d || 0 }));
+  r.push(S('mn-C', ...M.C, nodo('Tu equipo', '10.0.0.5', { w: 200 })));
+  r.push(S('mn-L', ...M.L, nodo('Resolutor local', '10.0.0.1', { w: 210, cls: 'local' })));
+  r.push(S('mn-R', ...M.R, nodo('Raíz', '198.41.0.4', { w: 210 })));
+  r.push(S('mn-T', ...M.T, nodo('TLD .es', '194.69.254.1', { w: 210 })));
+  r.push(S('mn-A', ...M.A, nodo('Autoritativo rediris.es', '130.206.1.2', { w: 270, size: 19 })));
+  if (o.pc2) r.push(S('mn-C2', ...M.C2, nodo('Otro equipo', '10.0.0.9', { w: 200 })));
+  if (o.reloj) r.push(S('reloj-' + o.reloj, 130, 0, o.reloj === 'ok' ? txt('✓ respuesta', { y: 528, size: 17, cls: 'c-bien', weight: 600 })
+    : txt('⏳ esperando…', { y: 528, size: 17, cls: 'c-rec', weight: 600 }), { d: o.dReloj || 0 }));
+  if (o.acierto) r.push(S('acierto', 400, 0, txt(o.acierto, { y: 420, size: 17, cls: 'c-bien halo', weight: 600 }), { d: o.dAcierto || 0 }));
+  // Caché del resolutor local: fondo fijo + una línea por entrada, para que cada una aparezca a su tiempo
+  r.push(S('cache', 270, 560, `<rect width="490" height="200" rx="8" class="tarjeta"/>` +
+    txt('Caché del resolutor local', { x: 14, y: 28, size: 17, anchor: 'start', weight: 600 }) +
+    txt('pistas raíz: a.root-servers.net 198.41.0.4', { x: 14, y: 56, size: 15, anchor: 'start', cls: 'mono ns' })));
+  const ent = ['es. NS a.nic.es · a.nic.es A 194.69.254.1', 'rediris.es NS sun.rediris.es · A 130.206.1.2', 'www.rediris.es A 130.206.13.20'];
+  (o.cache || []).forEach((d, k) => { if (d !== null) r.push(S('ce' + k, 284, 650 + k * 30, txt(ent[k], { anchor: 'start', size: 15, cls: 'mono c-cache' }), { d })); });
+  if (o.etiquetas) {
+    r.push(S('et-mapa', 0, 0, txt('recursiva', { x: 262, y: 530, size: 16, cls: 'c-rec halo', weight: 700 }) +
+      txt('iterativas', { x: 470, y: 415, size: 16, cls: 'c-ite halo', weight: 700, anchor: 'start' })));
+  }
+  return r;
+}
+
+const det = (clave, lineas, cls, d) => ({ clave, lineas, cls, d });
+
+function bandas() {
+  return [
+    S('banda-rec', 0, 0, `<rect x="845" y="${yMsg(1) - 32}" width="240" height="46" rx="8" class="banda rec"/>` +
+      `<rect x="845" y="${yMsg(8) - 32}" width="240" height="46" rx="8" class="banda rec"/>` +
+      txt('recursiva', { x: 965, y: yMsg(1) + 28, size: 16, cls: 'c-rec halo', weight: 700 }) +
+      txt('recursiva', { x: 965, y: yMsg(8) + 28, size: 16, cls: 'c-rec halo', weight: 700 })),
+    S('banda-ite', 0, 0, `<rect x="1020" y="${yMsg(2) - 32}" width="560" height="${yMsg(7) - yMsg(2) + 46}" rx="8" class="banda ite"/>` +
+      txt('iterativas', { x: 1572, y: yMsg(2) - 40, size: 16, cls: 'c-ite halo', weight: 700, anchor: 'end' })),
+  ];
+}
+
+// Mapa sin flechas propias en el contrafactual: cinco nodos en fila
+const FILA = { C: 170, L: 490, R: 810, T: 1130, A: 1450 };
+const FILA_SUB = { C: '10.0.0.5', L: '10.0.0.1', R: '198.41.0.4', T: '194.69.254.1', A: '130.206.1.2' };
+const FILA_TIT = { C: 'Tu equipo', L: 'Resolutor local', R: 'Raíz', T: 'TLD .es', A: 'Autoritativo' };
+
+// ───────────── Los pasos ─────────────
+
+const PASOS = [
+  // ── Acto I ──
+  {
+    acto: 'I', titulo: 'Cada equipo tiene una dirección IP',
+    msg: 'La IP tiene dos partes: **la red** (te la asigna el ISP) y **el equipo**. Los routers solo conocen redes: la IP dice **dónde** estás.',
+    escena: () => mapaRed({ zoom: true, tabla: true }),
+  },
+  {
+    acto: 'I', titulo: 'MiEmpresa publica su aplicación',
+    msg: 'La IP acaba **apuntada en sitios que no controlas**.',
+    escena: () => mapaRed({ refs: 'ip' }),
+  },
+  {
+    acto: 'I', titulo: 'MiEmpresa se muda',
+    msg: 'Al mudarte **cambia la IP**, y todo lo que la tenía apuntada **se rompe**.',
+    escena: () => mapaRed({ refs: 'rota', srv: 'B' }),
+  },
+  {
+    acto: 'I', titulo: 'El problema',
+    msg: 'Necesitamos un identificador que **no dependa del sitio**… y que **administremos nosotros**.',
+    escena: () => [...tenue(mapaRed({ refs: 'rota', srv: 'B' })),
+      S('lema1', 800, 450, caja(980, 190, { cls: 'tarjeta destacada', rx: 14 }) +
+        txt('La IP dice dónde estás,', { y: -18, size: 44, weight: 700, cls: 'nt' }) +
+        txt('no quién eres.', { y: 40, size: 44, weight: 700, cls: 'c-ip' }))],
+  },
+  // ── Acto II ──
+  {
+    acto: 'II', titulo: 'Un nombre entre medias',
+    msg: 'Se publica **un nombre**, y el nombre apunta a la IP. **El nombre lo administras tú.**',
+    escena: () => mapaRed({ refs: 'nombre', nombre: true }),
+  },
+  {
+    acto: 'II', titulo: 'La misma mudanza, con nombres',
+    msg: 'Mudarse = **cambiar un registro**. Lo publicado sigue funcionando (en cuanto caduca el **TTL**).',
+    escena: () => mapaRed({ refs: 'nombre', nombre: true, srv: 'B', ttl: true }),
+  },
+  {
+    acto: 'II', titulo: '¿Dónde vive la tabla?',
+    msg: 'Primera solución: **una tabla central** (HOSTS.TXT) que todos descargan. Con miles de equipos, **no escala**.',
+    escena: () => [
+      ...hostsTxt(true),
+      S('hist', 60, 140, tarjeta([{ t: 'ARPANET, hasta 1983', weight: 600 }, 'Un único fichero con todos', 'los equipos. Lo mantenía', 'a mano el NIC del SRI.', { t: 'Hoy: /etc/hosts', mono: true, cls: 'ns' }], { w: 330, size: 19 })),
+      S('problemas', 1150, 140, tarjeta([
+        { t: 'Problemas', weight: 700, cls: 'c-mal' },
+        '• Todos descargan el fichero',
+        '  entero, cada poco',
+        '• Cada cambio pasa por el NIC',
+        '• Nombres únicos en todo el',
+        '  mundo: choques',
+        '• Un único administrador',
+      ], { w: 390, size: 19, cls: 'rota' }), { d: 900 }),
+      S('solucion', 1150, 560, tarjeta([{ t: '1983: Mockapetris propone', weight: 600 }, 'el DNS (RFC 882/883)'], { w: 390, size: 19, cls: 'nombre' }), { d: 1500 }),
+    ],
+  },
+  {
+    acto: 'II', titulo: 'Trocear la tabla siguiendo el nombre',
+    msg: 'Los nombres forman **un árbol**. Cada organización **administra su trozo (zona)** y lo reparte hacia abajo.',
+    escena: () => arbol({ zonas: true }),
+  },
+  {
+    acto: 'II', titulo: 'Dos árboles que no coinciden',
+    msg: '**Dos árboles que no coinciden:** el de nombres dice **quién administra**; el de direcciones, **dónde está**.',
+    escena: () => [...arbol({ zonas: true }), ...arbolRed()],
+  },
+  {
+    acto: 'II', titulo: 'Arriba solo saben a quién preguntar',
+    msg: 'Arriba solo saben **a quién preguntar**; el dato está abajo. Una base de datos **distribuida, jerárquica y delegada**.',
+    escena: () => [
+      ...arbol({ zonas: true, camino: true }),
+      S('del-raiz', 960, 104, tarjeta([{ t: 'La raíz solo sabe:', size: 16, cls: 'ns' }, { t: 'NS es → a.nic.es', mono: true, cls: 'c-ref' }], { w: 300, size: 18, cls: 'ref' }), { d: 0 }),
+      S('del-es', 40, 186, tarjeta([{ t: 'Red.es (zona es) solo sabe:', size: 16, cls: 'ns' }, { t: 'NS rediris.es → sun.rediris.es', mono: true, cls: 'c-ref' }], { w: 330, size: 16, cls: 'ref' }), { d: 500 }),
+      S('del-red', 330, 510, tarjeta([{ t: 'RedIRIS (autoritativo) tiene el dato:', size: 16, cls: 'ns' }, { t: 'www.rediris.es A 130.206.13.20', mono: true, cls: 'c-bien' }], { w: 380, size: 18, cls: 'ok' }), { d: 1000 }),
+    ],
+  },
+  // ── Acto III ──
+  {
+    acto: 'III', titulo: 'Lo que hace tu equipo',
+    msg: 'Para tu equipo, el DNS es **un encargo** al resolutor local… **y esperar**. Como dejar un trámite en una gestoría.',
+    escena: () => equipo({ dP: 900 }),
+    vuelos: [V([590, 490], [990, 490], 'A? www.rediris.es', 'rec')],
+  },
+  {
+    acto: 'III', titulo: 'Una pregunta, una respuesta',
+    msg: 'Tu equipo **no sabe nada del árbol**: hace una pregunta y espera **la respuesta final**.',
+    escena: () => equipo({ respuesta: true }),
+    vuelos: [V([990, 530], [590, 530], 'A = 130.206.13.20', 'bien')],
+  },
+  {
+    acto: 'III', titulo: '¿Qué creéis que pasa dentro?',
+    msg: '**Predecid antes de mirar.** Ahora lo comprobamos mensaje a mensaje.',
+    escena: () => [...tenue(equipo({ respuesta: true }), 0.12),
+      S('predice', 290, 190, tarjeta([
+        { t: 'Antes de abrir la caja: ¿qué creéis?', weight: 700, size: 30 },
+        '1. ¿Con quién habla tu equipo para resolver www.rediris.es?',
+        '2. ¿Quién habla con la raíz? ¿Qué le contesta la raíz?',
+        '3. Sin nada en caché, ¿cuántos mensajes hacen falta?',
+        '4. La respuesta que recibe tu equipo, ¿la envía RedIRIS?',
+      ], { w: 1020, size: 26, lh: 52, pad: 26, cls: 'destacada' }))],
+  },
+  // ── Acto IV ──
+  {
+    acto: 'IV', titulo: 'Abrimos la caja',
+    msg: 'El resolutor local empieza **sin nada en caché**: solo conoce las IP de **los servidores raíz**.',
+    escena: () => [...mapaRes({ cache: [] }), ...secuencia(0)],
+  },
+  {
+    acto: 'IV', titulo: 'Mensaje 1: tu equipo pregunta',
+    msg: '**1** · Tu equipo pregunta **al resolutor local** (y se queda esperando).',
+    escena: () => [...mapaRes({ cache: [], reloj: 'espera', detalle: det(1, ['Mensaje 1 · de tu equipo al resolutor local', { t: 'Pregunta: www.rediris.es, tipo A (RD=1)', mono: true }], '', 900) }), ...secuencia(1, { 1: 900 })],
+    vuelos: [V(M.C, M.L, 'A? www.rediris.es', 'rec')],
+  },
+  {
+    acto: 'IV', titulo: 'Mensajes 2 y 3: la raíz',
+    msg: '**2–3** · La raíz no sabe la respuesta: devuelve una **referencia**, «pregunta a los de .es».',
+    escena: () => [...mapaRes({ cache: [1950], reloj: 'espera', detalle: det(2, [{ t: 'Mensaje 3 · referencia de la raíz', weight: 600, cls: 'c-ref' }, 'No sé www.rediris.es. Pregunta a los de es:', { t: 'es. NS a.nic.es  +  a.nic.es A 194.69.254.1', mono: true }], 'ref', 1950) }), ...secuencia(3, { 2: 900, 3: 1950 })],
+    vuelos: [V(M.L, M.R, 'A? www.rediris.es', 'ite'), V(M.R, M.L, 'NS es → a.nic.es', 'ref', 1050)],
+  },
+  {
+    acto: 'IV', titulo: 'Mensajes 4 y 5: el TLD .es',
+    msg: '**4–5** · El TLD .es tampoco lo sabe: otra **referencia**, que trae también la IP del servidor (**pegamento**).',
+    escena: () => [...mapaRes({ cache: [0, 1950], reloj: 'espera', detalle: det(3, [{ t: 'Mensaje 5 · referencia del TLD .es', weight: 600, cls: 'c-ref' }, 'Pregunta a los de rediris.es:', { t: 'rediris.es NS sun.rediris.es  +  A 130.206.1.2', mono: true }], 'ref', 1950) }), ...secuencia(5, { 4: 900, 5: 1950 })],
+    vuelos: [V(M.L, M.T, 'A? www.rediris.es', 'ite'), V(M.T, M.L, 'NS rediris.es → sun…', 'ref', 1050)],
+  },
+  {
+    acto: 'IV', titulo: 'Mensajes 6 y 7: el autoritativo',
+    msg: '**6–7** · El **autoritativo** de rediris.es sí lo sabe: respuesta con **AA=1**.',
+    escena: () => [...mapaRes({ cache: [0, 0, 1950], reloj: 'espera', detalle: det(4, [{ t: 'Mensaje 7 · respuesta autoritativa (AA=1)', weight: 600, cls: 'c-bien' }, { t: 'www.rediris.es A 130.206.13.20', mono: true }], 'ok', 1950) }), ...secuencia(7, { 6: 900, 7: 1950 })],
+    vuelos: [V(M.L, M.A, 'A? www.rediris.es', 'ite'), V(M.A, M.L, 'A = 130.206.13.20', 'bien', 1050)],
+  },
+  {
+    acto: 'IV', titulo: 'Mensaje 8: la respuesta a tu equipo',
+    msg: '**8** · El resolutor local responde a tu equipo con **un mensaje nuevo** y **lo guarda todo en caché**.',
+    escena: () => [...mapaRes({ cache: [0, 0, 0], reloj: 'ok', dReloj: 900, detalle: det(5, [{ t: 'Mensaje 8 · del resolutor local a tu equipo (mensaje nuevo)', weight: 600, cls: 'c-bien' }, { t: 'www.rediris.es A 130.206.13.20  (AA=0, RA=1)', mono: true }], 'ok', 900) }), ...secuencia(8, { 8: 900 })],
+    vuelos: [V(M.L, M.C, 'A = 130.206.13.20', 'bien')],
+  },
+  {
+    acto: 'IV', titulo: 'Otro equipo pregunta lo mismo',
+    msg: 'Segunda vez: el resolutor local responde **desde su caché**. Dos mensajes en vez de ocho.',
+    escena: () => [...mapaRes({ cache: [0, 0, 0], pc2: true, acierto: '✓ en caché', dAcierto: 900 }),
+      ...vidas({ tenues: ['R', 'T', 'A'] }),
+      msgSpec('c1', { n: 1, de: 'C', a: 'L', q: 'A? www.rediris.es (RD=1)', tipo: 'rec', clase: 'preg' }, yMsg(1), 900),
+      msgSpec('c2', { n: 2, de: 'L', a: 'C', q: 'A www.rediris.es = … (de la caché)', tipo: 'rec', clase: 'resp' }, yMsg(2), 1950)],
+    vuelos: [V(M.C2, M.L, 'A? www.rediris.es', 'rec'), V(M.L, M.C2, 'A = 130.206.13.20', 'bien', 1050)],
+  },
+  {
+    acto: 'IV', titulo: 'Otro nombre de la misma zona',
+    msg: 'Otro nombre de rediris.es: ya sabe quién lo administra, así que **ni raíz ni TLD**.',
+    escena: () => [...mapaRes({ cache: [0, 0, 0], pc2: true }),
+      ...vidas({ tenues: ['R', 'T'] }),
+      msgSpec('p1', { n: 1, de: 'C', a: 'L', q: 'A? eventos.rediris.es', tipo: 'rec', clase: 'preg' }, yMsg(1), 900),
+      msgSpec('p2', { n: 2, de: 'L', a: 'A', q: 'A? eventos.rediris.es', tipo: 'ite', clase: 'preg' }, yMsg(2), 1950),
+      msgSpec('p3', { n: 3, de: 'A', a: 'L', q: 'A eventos.rediris.es = … (AA=1)', tipo: 'ite', clase: 'resp' }, yMsg(3), 3000),
+      msgSpec('p4', { n: 4, de: 'L', a: 'C', q: 'A eventos.rediris.es = …', tipo: 'rec', clase: 'resp' }, yMsg(4), 4050)],
+    vuelos: [V(M.C2, M.L, 'A? eventos.rediris.es', 'rec'), V(M.L, M.A, 'A? eventos.rediris.es', 'ite', 1050),
+      V(M.A, M.L, 'A …', 'bien', 2100), V(M.L, M.C2, 'A …', 'bien', 3150)],
+  },
+  // ── Acto V ──
+  {
+    acto: 'V', titulo: '¿Recursiva o iterativa?',
+    msg: '**Recursiva / iterativa** se dice de **cada pareja pregunta‑respuesta**, no de la resolución entera.',
+    escena: () => [...bandas(), ...mapaRes({ cache: [0, 0, 0], reloj: 'ok', etiquetas: true }), ...secuencia(8),
+      S('kurose', 840, 738, tarjeta([{ t: 'Kurose: la Fig. 2.21 es esto; la 2.22 (todo recursivo) es lo que no pasa.', weight: 600 }], { w: 740, size: 18, pad: 12 }), { d: 600 })],
+  },
+  {
+    acto: 'V', titulo: 'Qué compromete cada una',
+    msg: 'Recursiva: «**hazlo tú**». Iterativa: «**dime lo que sepas**».',
+    escena: () => [...bandas(), ...secuencia(8),
+      S('comp-rec', 40, 120, tarjeta([
+        { t: 'Recursiva: «hazlo tú y tráeme el resultado»', weight: 700, cls: 'c-rec' },
+        '• La pide el cliente: bit RD=1 (recursion desired)',
+        '• El servidor dice si la ofrece: RA=1 en la respuesta',
+        '• Tiene que devolver la respuesta final… o un error',
+        '• Mientras tanto, guarda el estado y espera',
+      ], { w: 750, size: 20, cls: 'rec' })),
+      S('comp-ite', 40, 420, tarjeta([
+        { t: 'Iterativa: «dime lo que sepas»', weight: 700, cls: 'c-ite' },
+        '• Raíz, TLD y autoritativos solo atienden así (RA=0)',
+        '• Si tiene autoridad sobre el nombre: la respuesta',
+        '• Si no: una referencia, «pregunta a estos» (NS + IP)',
+        '• Contesta y olvida: no guarda estado',
+      ], { w: 750, size: 20, cls: 'ite' }), { d: 500 })],
+  },
+  {
+    acto: 'V', titulo: '¿Y si todo fuese recursivo?',
+    msg: '¿Todo recursivo? La raíz guardaría el estado de **millones** de consultas a la vez: **no escala**.',
+    escena: () => {
+      const r = [];
+      for (const k of Object.keys(FILA)) r.push(S('f-' + k, FILA[k], 360, nodo(FILA_TIT[k], FILA_SUB[k], { w: 230, cls: k === 'L' ? 'local' : '' })));
+      const ks = Object.keys(FILA);
+      for (let i = 0; i < 4; i++) {
+        r.push(S('fi-' + i, 0, 0, arco(FILA[ks[i]] + 40, 325, FILA[ks[i + 1]] - 40, 325, 70, 'rec') +
+          txt(String(i + 1), { x: (FILA[ks[i]] + FILA[ks[i + 1]]) / 2, y: 272, size: 18, weight: 700, cls: 'c-rec' }), { d: 650 * (i + 1) }));
+        r.push(S('fv-' + i, 0, 0, arco(FILA[ks[4 - i]] - 40, 395, FILA[ks[3 - i]] + 40, 395, -70, 'rec') +
+          txt(String(i + 5), { x: (FILA[ks[4 - i]] + FILA[ks[3 - i]]) / 2, y: 462, size: 18, weight: 700, cls: 'c-rec' }), { d: 650 * (i + 5) }));
+      }
+      r.push(S('kurose22', 800, 0, txt('Fig. 2.22 de Kurose: así NO funciona hoy', { y: 150, size: 24, weight: 700, cls: 'c-mal' })));
+      r.push(S('sobrecarga', 560, 560, tarjeta([
+        { t: 'Cada eslabón espera al siguiente.', weight: 600 },
+        'La raíz tendría que guardar el estado de',
+        'todas las consultas de Internet a la vez.',
+        { t: '→ Por eso raíz y TLD no hacen recursión.', weight: 700, cls: 'c-mal' },
+      ], { w: 480, size: 20, cls: 'rota' }), { d: 5600 }));
+      return r;
+    },
+    vuelos: ['C', 'L', 'R', 'T'].map((k, i, a) => V([FILA[k], 360], [FILA[['L', 'R', 'T', 'A'][i]], 360], '?', 'rec', 650 * i, 600))
+      .concat(['A', 'T', 'R', 'L'].map((k, i) => V([FILA[k], 360], [FILA[['T', 'R', 'L', 'C'][i]], 360], 'A', 'bien', 650 * (i + 4), 600))),
+  },
+  {
+    acto: 'V', titulo: '¿Y si todo fuese iterativo?',
+    msg: '¿Todo iterativo? Sin resolutor local **no hay caché compartida**: cada equipo recorre el árbol solo.',
+    escena: () => {
+      const r = [], pcs = [[200, 220], [200, 430], [200, 640]], srv = [[1000, 220, 'Raíz'], [1000, 430, 'TLD .es'], [1000, 640, 'Autoritativo']];
+      let lin = '';
+      for (const p of pcs) for (const s of srv) lin += flecha(p[0] + 100, p[1], s[0] - 110, s[1], 'ite', { fino: true, fin: 3 });
+      r.push(S('it-lineas', 0, 0, lin));
+      pcs.forEach((p, i) => r.push(S('it-pc' + i, ...p, nodo('Equipo ' + (i + 1), 'con pistas raíz', { w: 200, subMono: false }))));
+      srv.forEach((s, i) => r.push(S('it-s' + i, s[0], s[1], nodo(s[2], '', { w: 220 }))));
+      r.push(S('it-card', 1170, 160, tarjeta([
+        { t: 'Sin resolutor local:', weight: 700, cls: 'c-ite' },
+        '• cada equipo necesita las',
+        '  pistas raíz y recorre el árbol',
+        '• no hay caché compartida: la',
+        '  misma pregunta, repetida por',
+        '  cada equipo',
+        '• más tráfico hacia raíz y TLD',
+        '• más espera para cada usuario',
+      ], { w: 390, size: 19, cls: 'ite' }), { d: 1500 }));
+      return r;
+    },
+    vuelos: [0, 1, 2].flatMap(i => {
+      const p = [200, [220, 430, 640][i]], t0 = i * 250;
+      return [[1000, 220], [1000, 430], [1000, 640]].flatMap((s, j) => [V(p, s, '?', 'ite', t0 + j * 900, 420), V(s, p, j < 2 ? 'ref.' : 'A', j < 2 ? 'ref' : 'bien', t0 + j * 900 + 450, 420)]);
+    }),
+  },
+  {
+    acto: 'V', titulo: 'Volvemos a la gestoría',
+    msg: 'La mezcla es el diseño: **recursiva hasta el resolutor local, iterativa a partir de él**.',
+    escena: () => {
+      const filas = [
+        [['Tú → la gestoría', '«Tráeme el certificado; espero»'], ['Tu equipo → resolutor local', 'consulta recursiva (RD=1)'], 'rec'],
+        [['Gestoría → ventanilla 1', '«Aquí no; vaya a la de .es»'], ['Resolutor local → raíz', 'consulta iterativa → referencia'], 'ite'],
+        [['Gestoría → última ventanilla', '«Aquí lo tiene»'], ['Resolutor local → autoritativo', 'respuesta con autoridad (AA=1)'], 'ite'],
+        [['Archivo de la gestoría', 'la próxima vez no hace cola'], ['Caché del resolutor local', 'válida mientras dure el TTL'], ''],
+        [['Tú nunca pisas una ventanilla', ''], ['Tu equipo nunca habla con la raíz', ''], ''],
+      ];
+      const r = [S('g-cab', 0, 0, txt('En la gestoría', { x: 60, y: 140, size: 20, anchor: 'start', weight: 700, cls: 'ns' }) +
+        txt('En el DNS', { x: 840, y: 140, size: 20, anchor: 'start', weight: 700, cls: 'ns' }))];
+      filas.forEach(([a, b, cls], i) => {
+        const y = 160 + i * 124, la = a[1] ? [{ t: a[0], weight: 600 }, a[1]] : [{ t: a[0], weight: 600 }], lb = b[1] ? [{ t: b[0], weight: 600 }, b[1]] : [{ t: b[0], weight: 600 }];
+        r.push(S('g-a' + i, 60, y, tarjeta(la, { w: 700, size: 21, cls }), { d: i * 500 }));
+        r.push(S('g-b' + i, 840, y, tarjeta(lb, { w: 700, size: 21, cls }), { d: i * 500 + 250 }));
+        r.push(S('g-eq' + i, 800, 0, txt('≈', { y: y + 42, size: 30, cls: 'ns' }), { d: i * 500 + 250 }));
+      });
+      return r;
+    },
+  },
+  // ── Acto VI ──
+  {
+    acto: 'VI', titulo: 'Una resolución, mensaje a mensaje',
+    msg: 'Para cada mensaje: **de quién a quién, consulta o respuesta, y qué secciones lleva**.',
+    escena: () => {
+      const X = { C: 200, L: 500, R: 800, T: 1100, A: 1400 };
+      const cab = { C: ['Cliente', '10.0.0.5'], L: ['Resolutor local', '10.0.0.1'], R: ['Raíz', '198.41.0.4'], T: ['TLD .es', '194.69.254.1'], A: ['Autoritativo', '130.206.1.2'] };
+      const r = Object.keys(X).map(k => S('g6-' + k, X[k], 0, linea(0, 165, 0, 795, 'vida') +
+        caja(200, 62, { cls: 'nodo cab-vida' }).replace(`y="-31"`, `y="100"`) + txt(cab[k][0], { y: 126, size: 19, weight: 600, cls: 'nt' }) + txt(cab[k][1], { y: 150, size: 16, cls: 'mono ns' })));
+      const msgs = [
+        ['C', 'L', '1 · a 10.0.0.1 · consulta (QR=0, RD=1)', 'Question: www.rediris.es A', 'rec', 'preg'],
+        ['L', 'R', '2 · a 198.41.0.4 · consulta', 'Question: www.rediris.es A', 'ite', 'preg'],
+        ['R', 'L', '3 · a 10.0.0.1 · respuesta (QR=1): referencia', 'Authority: es NS a.nic.es · Additional: a.nic.es A 194.69.254.1', 'ite', 'ref'],
+        ['L', 'T', '4 · a 194.69.254.1 · consulta', 'Question: www.rediris.es A', 'ite', 'preg'],
+        ['T', 'L', '5 · a 10.0.0.1 · respuesta: referencia', 'Authority: rediris.es NS sun.rediris.es · Additional: sun.rediris.es A 130.206.1.2', 'ite', 'ref'],
+        ['L', 'A', '6 · a 130.206.1.2 · consulta', 'Question: www.rediris.es A', 'ite', 'preg'],
+        ['A', 'L', '7 · a 10.0.0.1 · respuesta (AA=1)', 'Answer: www.rediris.es A 130.206.13.20', 'ite', 'resp'],
+        ['L', 'C', '8 · a 10.0.0.5 · respuesta (AA=0, RA=1)', 'Answer: www.rediris.es A 130.206.13.20', 'rec', 'resp'],
+      ];
+      msgs.forEach(([de, a, l1, l2, tipo, clase], i) => {
+        const y = 222 + i * 78, cx = (X[de] + X[a]) / 2;
+        r.push(S('g6m' + i, 0, 0, flecha(X[de], y, X[a], y, tipo, { fin: 2 }) +
+          txt(l1, { x: cx, y: y - 30, size: 16, cls: 'halo c-' + clase, weight: 600 }) +
+          txt(l2, { x: cx, y: y - 9, size: 14, cls: 'halo mono ns' }), { d: 350 * i }));
+      });
+      return r;
+    },
+  },
+];
+// Motor: render por diferencias sobre el SVG, vuelos de mensajes, navegación, notas y presentador.
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const $ = id => document.getElementById(id);
+const modoPresentador = false;  // en la web no hay ventana del presentador
+
+// ───────────── Render por diferencias ─────────────
+const vivos = new Map();
+
+function render(specs, instantaneo) {
+  const capa = $('dns-capa'), vistos = new Set();
+  let prev = null;
+  for (const sp of specs) {
+    if (vistos.has(sp.id)) console.warn('[dns] id repetido', sp.id);
+    vistos.add(sp.id);
+    let el = vivos.get(sp.id), nuevo = false;
+    if (!el) {
+      el = document.createElementNS(SVGNS, 'g');
+      el.dataset.id = sp.id;
+      vivos.set(sp.id, el);
+      nuevo = true;
+    }
+    if (el._html !== sp.html) { el.innerHTML = sp.html; el._html = sp.html; }
+    el.setAttribute('class', 'el ' + sp.cls);
+    const tr = `translate(${sp.x}px, ${sp.y}px)`;
+    const ref = prev ? prev.nextSibling : capa.firstChild;
+    if (ref !== el) capa.insertBefore(el, ref);
+    if (nuevo) {
+      el.style.transition = 'none';
+      el.style.opacity = 0;
+      el.style.transform = tr;
+      el.getBoundingClientRect();
+      el.style.transition = '';
+      el.style.transitionDelay = instantaneo ? '0ms' : sp.d + 'ms';
+    } else {
+      el.style.transitionDelay = '0ms';
+      el.style.transform = tr;
+    }
+    el.style.opacity = sp.op;
+    prev = el;
+  }
+  for (const [id, el] of vivos) {
+    if (vistos.has(id)) continue;
+    vivos.delete(id);
+    el.style.transitionDelay = '0ms';
+    el.style.opacity = 0;
+    setTimeout(() => el.remove(), 450);
+  }
+}
+
+// ───────────── Vuelos ─────────────
+let generacion = 0, temporizadores = [];
+
+function cancelarVuelos() {
+  generacion++;
+  temporizadores.forEach(clearTimeout);
+  temporizadores = [];
+  $('dns-vuelos').innerHTML = '';
+}
+
+function volar(v) {
+  const gen = generacion;
+  temporizadores.push(setTimeout(() => {
+    if (gen !== generacion) return;
+    const g = document.createElementNS(SVGNS, 'g');
+    const w = anchoTexto(v.etiqueta, 16, true) + 22;
+    g.innerHTML = `<rect x="${-w / 2}" y="-16" width="${w}" height="32" rx="16" class="sobre ${v.cls}"/>` + txt(v.etiqueta, { y: 6, size: 16, cls: 'mono sobre-t' });
+    $('dns-vuelos').appendChild(g);
+    const t0 = performance.now();
+    const paso = ahora => {
+      if (gen !== generacion) return;
+      let k = Math.min(1, (ahora - t0) / v.dur);
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      g.setAttribute('transform', `translate(${v.de[0] + (v.a[0] - v.de[0]) * e},${v.de[1] + (v.a[1] - v.de[1]) * e})`);
+      if (k < 1) requestAnimationFrame(paso);
+      else temporizadores.push(setTimeout(() => g.remove(), 150));
+    };
+    requestAnimationFrame(paso);
+  }, v.t));
+}
+
+// ───────────── Navegación ─────────────
+let actual = -1, ventanaPresentador = null;
+
+function construir(i) {
+  return [...marco(PASOS[i], i, PASOS.length), ...PASOS[i].escena()];
+}
+
+function ir(i, animar) {
+  i = Math.max(0, Math.min(PASOS.length - 1, i));
+  cancelarVuelos();
+  render(construir(i), !animar);
+  if (animar) (PASOS[i].vuelos || []).forEach(volar);
+  actual = i;
+  try { history.replaceState(null, '', '#p' + (i + 1)); } catch (e) { /* sin historial (incrustado) */ }
+  pintarControles();
+  pintarNotas($('dns-notas'), i);
+  avisarPresentador();
+}
+
+const siguiente = () => { if (actual < PASOS.length - 1) ir(actual + 1, true); };
+const anterior = () => ir(actual - 1, false);
+
+function repetir() {
+  if (actual <= 0) return ir(actual, true);
+  const i = actual;
+  render(construir(i - 1), true);
+  setTimeout(() => ir(i, true), 350);
+}
+
+// ───────────── Notas ─────────────
+function htmlNotas(i) {
+  const p = PASOS[i], sig = PASOS[i + 1];
+  let h = `<p class="n-cab">Paso ${i + 1} / ${PASOS.length} · Acto ${p.acto} · <b>${esc(p.titulo)}</b></p>`;
+  h += p.notas.map(t => `<p>${esc(t)}</p>`).join('');
+  if (p.pregunta) h += `<p class="n-preg"><b>Pregunta al aula.</b> ${esc(p.pregunta)}</p>`;
+  if (p.ojo) h += `<p class="n-ojo"><b>Ojo.</b> ${esc(p.ojo)}</p>`;
+  h += `<p class="n-sig">Siguiente: ${sig ? esc(sig.titulo) : '— fin —'}</p>`;
+  return h;
+}
+
+function pintarNotas(el, i) { if (el) el.innerHTML = htmlNotas(i); }
+
+function pintarControles() {
+  $('dns-cont').textContent = `${actual + 1} / ${PASOS.length}`;
+  $('dns-indice').value = String(actual);
+}
+
+// ───────────── Ventana del presentador (postMessage entre ventanas) ─────────────
+function avisarPresentador() {
+  if (ventanaPresentador && !ventanaPresentador.closed) ventanaPresentador.postMessage({ dns: 'paso', i: actual }, '*');
+}
+
+function abrirPresentador() {
+  const url = location.href.split('#')[0].split('?')[0] + '?modo=presentador';
+  ventanaPresentador = window.open(url, 'dnsPresentador', 'width=900,height=720');
+}
+
+window.addEventListener('message', ev => {
+  const d = ev.data;
+  if (!d || typeof d !== 'object' || !d.dns) return;
+  if (modoPresentador) {
+    if (d.dns === 'paso') { pintarNotas($('dns-notas-pres'), d.i); $('dns-pres-cont').textContent = `${d.i + 1} / ${PASOS.length}`; }
+  } else {
+    if (d.dns === 'hola') { ventanaPresentador = ev.source; avisarPresentador(); }
+    if (d.dns === 'sig') siguiente();
+    if (d.dns === 'ant') anterior();
+    if (d.dns === 'rep') repetir();
+  }
+});
+
+// ───────────── Teclado y botones ─────────────
+function alternarTema() {
+  const r = document.documentElement, t = r.getAttribute('data-theme');
+  const nuevo = t === 'light' ? 'dark' : t === 'dark' ? null : 'light';
+  if (nuevo) r.setAttribute('data-theme', nuevo); else r.removeAttribute('data-theme');
+  $('dns-btema').textContent = 'Tema: ' + (nuevo === 'light' ? 'claro' : nuevo === 'dark' ? 'oscuro' : 'auto');
+}
+
+function pantallaCompleta() {
+  const e = $('dns-escenario');
+  if (document.fullscreenElement) document.exitFullscreen(); else if (e.requestFullscreen) e.requestFullscreen();
+}
+
+function teclado(accion) {
+  return ev => {
+    if (ev.target && /^(SELECT|INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const k = ev.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { ev.preventDefault(); accion('sig'); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { ev.preventDefault(); accion('ant'); }
+    else if (k === 'r' || k === 'R') accion('rep');
+    else if (k === 'Home') accion('ini');
+    else if (k === 'End') accion('fin');
+    else if (k === 'f' || k === 'F') accion('fs');
+  };
+}
+
+function iniciar() {
+  const sel = $('dns-indice');
+  let actoPrevio = '';
+  PASOS.forEach((p, i) => {
+    if (p.acto !== actoPrevio) {
+      const og = document.createElement('optgroup');
+      og.label = `Acto ${p.acto} · ${ACTOS[p.acto]}`;
+      sel.appendChild(og);
+      actoPrevio = p.acto;
+    }
+    const op = document.createElement('option');
+    op.value = String(i);
+    op.textContent = `${i + 1}. ${p.titulo}`;
+    sel.lastChild.appendChild(op);
+  });
+  sel.onchange = () => { ir(+sel.value, false); sel.blur(); };
+  $('dns-ant').onclick = anterior;
+  $('dns-sig').onclick = siguiente;
+  $('dns-rep').onclick = repetir;
+  $('dns-bfs').onclick = pantallaCompleta;
+  $('dns-btema').onclick = alternarTema;
+  $('dns-lienzo').addEventListener('click', siguiente);
+  document.addEventListener('keydown', teclado(a => ({
+    sig: siguiente, ant: anterior, rep: repetir,
+    ini: () => ir(0, false), fin: () => ir(PASOS.length - 1, false),
+    fs: pantallaCompleta,
+  })[a]()));
+  const m = /^#p(\d+)$/.exec(location.hash);
+  ir(m ? +m[1] - 1 : 0, false);
+}
+
+iniciar();
+})();
+</script>
+
+</body>
+</html>
