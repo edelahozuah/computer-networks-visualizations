@@ -109,7 +109,7 @@ release is archived, each version gets a DOI on Zenodo and the concept DOI
 (which always resolves to the latest version) will be shown at the top of
 this README.
 
-> de la Hoz, E. (2026). *Interactive visualizations for computer networks
+> de la Hoz, E., de la Cruz Piris, L., & Machado Zurita, S. (2026). *Interactive visualizations for computer networks
 > courses* (Version 0.1.0) [Computer software]. University of Alcalá.
 > https://github.com/edelahozuah/computer-networks-visualizations
 
@@ -117,7 +117,10 @@ this README.
 
 [CC BY-SA 4.0](LICENSE). You may reuse, adapt and redistribute the
 visualizations, including commercially, as long as you credit the author and
-share derivatives under the same license. The problems and figures the pieces
+share derivatives under the same license.
+
+Authors: Enrique de la Hoz, Luis de la Cruz Piris and Sandra Machado Zurita
+(Departamento de Automática, Universidad de Alcalá). The problems and figures the pieces
 refer to belong to Kurose & Ross's textbook and are only referenced.
 
 ---
