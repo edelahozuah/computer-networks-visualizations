@@ -49,7 +49,7 @@
     },
     {
       "identifier": "10.5281/zenodo.23285054",
-      "relation": "isRelatedTo",
+      "relation": "references",
       "resource_type": "software"
     }
   ]
