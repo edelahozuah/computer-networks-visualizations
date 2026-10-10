@@ -11,17 +11,11 @@ PASOS.forEach((p, i) => { [...p.escena()].forEach(e => { if (/NaN|undefined/.tes
 perl -pe '
 s/Paso \$\{i \+ 1\}/Step \${i + 1}/;
 s/ · Acto \$\{p\.acto\}/ · Act \${p.acto}/;
-s/Pregunta al aula\./Question for the class./;
-s/<b>Ojo\.<\/b>/<b>Note.<\/b>/;
-s/Siguiente: /Next: /;
-s/— fin —/— end —/;
 s/'\''Tema: '\'' \+ \(nuevo === '\''light'\'' \? '\''claro'\'' : nuevo === '\''dark'\'' \? '\''oscuro'\''/'\''Theme: '\'' + (nuevo === '\''light'\'' ? '\''light'\'' : nuevo === '\''dark'\'' ? '\''dark'\''/;
-s/'\''Presentador · DNS'\''/'\''Presenter · DNS'\''/;
-s/Abre esta ventana con la tecla P desde la animación\./Open this window with the P key from the animation./;
 s/og\.label = `Acto /og.label = `Act /;
 ' motor.js > dist/.motor_en.tmp
 cat dibujo.js en/pasos.js dist/.motor_en.tmp > dist/.js.tmp
 awk 'FNR==NR { js = js $0 "\n"; next } /\/\*@@JS@@\*\// { printf "%s", js; next } { print }' dist/.js.tmp en/app.html > dist/app_en.html
 rm -f dist/.js.tmp dist/.motor_en.tmp
-{ printf '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n</head>\n<body>\n'; cat dist/app_en.html; printf '\n</body>\n</html>\n'; } > dist/index_en.html
+{ printf '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'; awk '{ print } /^<\/style>$/ && !done { print "</head>"; print "<body>"; done = 1 }' dist/app_en.html; printf '\n</body>\n</html>\n'; } > dist/index_en.html
 echo "dist/index_en.html generated"

@@ -1,8 +1,7 @@
-// Motor: render por diferencias sobre el SVG, vuelos de mensajes, navegación, notas y presentador.
+// Motor: render por diferencias sobre el SVG, vuelos de mensajes y navegación.
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
-const modoPresentador = new URLSearchParams(location.search).get('modo') === 'presentador';
 
 // ───────────── Render por diferencias ─────────────
 const vivos = new Map();
@@ -80,7 +79,7 @@ function volar(v) {
 }
 
 // ───────────── Navegación ─────────────
-let actual = -1, ventanaPresentador = null;
+let actual = -1;
 
 function construir(i) {
   return [...marco(PASOS[i], i, PASOS.length), ...PASOS[i].escena()];
@@ -94,8 +93,6 @@ function ir(i, animar) {
   actual = i;
   try { history.replaceState(null, '', '#p' + (i + 1)); } catch (e) { /* sin historial (incrustado) */ }
   pintarControles();
-  pintarNotas($('dns-notas'), i);
-  avisarPresentador();
 }
 
 const siguiente = () => { if (actual < PASOS.length - 1) ir(actual + 1, true); };
@@ -108,46 +105,10 @@ function repetir() {
   setTimeout(() => ir(i, true), 350);
 }
 
-// ───────────── Notas ─────────────
-function htmlNotas(i) {
-  const p = PASOS[i], sig = PASOS[i + 1];
-  let h = `<p class="n-cab">Paso ${i + 1} / ${PASOS.length} · Acto ${p.acto} · <b>${esc(p.titulo)}</b></p>`;
-  h += p.notas.map(t => `<p>${esc(t)}</p>`).join('');
-  if (p.pregunta) h += `<p class="n-preg"><b>Pregunta al aula.</b> ${esc(p.pregunta)}</p>`;
-  if (p.ojo) h += `<p class="n-ojo"><b>Ojo.</b> ${esc(p.ojo)}</p>`;
-  h += `<p class="n-sig">Siguiente: ${sig ? esc(sig.titulo) : '— fin —'}</p>`;
-  return h;
-}
-
-function pintarNotas(el, i) { if (el) el.innerHTML = htmlNotas(i); }
-
 function pintarControles() {
   $('dns-cont').textContent = `${actual + 1} / ${PASOS.length}`;
   $('dns-indice').value = String(actual);
 }
-
-// ───────────── Ventana del presentador (postMessage entre ventanas) ─────────────
-function avisarPresentador() {
-  if (ventanaPresentador && !ventanaPresentador.closed) ventanaPresentador.postMessage({ dns: 'paso', i: actual }, '*');
-}
-
-function abrirPresentador() {
-  const url = location.href.split('#')[0].split('?')[0] + '?modo=presentador';
-  ventanaPresentador = window.open(url, 'dnsPresentador', 'width=900,height=720');
-}
-
-window.addEventListener('message', ev => {
-  const d = ev.data;
-  if (!d || typeof d !== 'object' || !d.dns) return;
-  if (modoPresentador) {
-    if (d.dns === 'paso') { pintarNotas($('dns-notas-pres'), d.i); $('dns-pres-cont').textContent = `${d.i + 1} / ${PASOS.length}`; }
-  } else {
-    if (d.dns === 'hola') { ventanaPresentador = ev.source; avisarPresentador(); }
-    if (d.dns === 'sig') siguiente();
-    if (d.dns === 'ant') anterior();
-    if (d.dns === 'rep') repetir();
-  }
-});
 
 // ───────────── Teclado y botones ─────────────
 function alternarTema() {
@@ -172,25 +133,11 @@ function teclado(accion) {
     else if (k === 'r' || k === 'R') accion('rep');
     else if (k === 'Home') accion('ini');
     else if (k === 'End') accion('fin');
-    else if (k === 'n' || k === 'N') accion('notas');
     else if (k === 'f' || k === 'F') accion('fs');
-    else if (k === 'p' || k === 'P') accion('pres');
   };
 }
 
 function iniciar() {
-  if (modoPresentador) {
-    $('dns-app').hidden = true;
-    $('dns-pres').hidden = false;
-    document.title = 'Presentador · DNS';
-    const enviar = a => window.opener && window.opener.postMessage({ dns: a }, '*');
-    $('dns-pres-ant').onclick = () => enviar('ant');
-    $('dns-pres-sig').onclick = () => enviar('sig');
-    $('dns-pres-rep').onclick = () => enviar('rep');
-    document.addEventListener('keydown', teclado(a => { if (['sig', 'ant', 'rep'].includes(a)) enviar(a); }));
-    if (window.opener) enviar('hola'); else $('dns-notas-pres').textContent = 'Abre esta ventana con la tecla P desde la animación.';
-    return;
-  }
   const sel = $('dns-indice');
   let actoPrevio = '';
   PASOS.forEach((p, i) => {
@@ -209,16 +156,13 @@ function iniciar() {
   $('dns-ant').onclick = anterior;
   $('dns-sig').onclick = siguiente;
   $('dns-rep').onclick = repetir;
-  $('dns-bnotas').onclick = () => { $('dns-notas').hidden = !$('dns-notas').hidden; };
-  $('dns-bpres').onclick = abrirPresentador;
   $('dns-bfs').onclick = pantallaCompleta;
   $('dns-btema').onclick = alternarTema;
   $('dns-lienzo').addEventListener('click', siguiente);
   document.addEventListener('keydown', teclado(a => ({
     sig: siguiente, ant: anterior, rep: repetir,
     ini: () => ir(0, false), fin: () => ir(PASOS.length - 1, false),
-    notas: () => { $('dns-notas').hidden = !$('dns-notas').hidden; },
-    fs: pantallaCompleta, pres: abrirPresentador,
+    fs: pantallaCompleta,
   })[a]()));
   const m = /^#p(\d+)$/.exec(location.hash);
   ir(m ? +m[1] - 1 : 0, false);

@@ -322,32 +322,16 @@ const PASOS = [
     acto: 'I', titulo: 'Cada equipo tiene una dirección IP',
     msg: 'La IP tiene dos partes: **la red** (te la asigna el ISP) y **el equipo**. Los routers solo conocen redes: la IP dice **dónde** estás.',
     escena: () => mapaRed({ zoom: true, tabla: true }),
-    notas: [
-      'Todo equipo conectado a Internet (en rigor, cada interfaz) tiene una dirección IP. Pero la IP no es un número de serie cualquiera: tiene estructura.',
-      'La primera parte identifica la red. Esa parte no la elegís: os la asigna quien os da conectividad, vuestro proveedor (ISP). La última identifica al equipo dentro de esa red.',
-      'Y los routers de Internet no tienen una línea por cada equipo del mundo, sino una por red: «todo lo que empiece por 203.0.113 va hacia el ISP A». Como una dirección postal: el cartero sabe hacia dónde están las calles, no cada portal. Sirve para llegar porque dice dónde estás, y por eso mismo está atada al sitio.',
-    ],
-    pregunta: '¿Quién ha elegido la IP que tiene ahora mismo vuestro portátil? (Nadie de vosotros: os la ha dado la red, por DHCP, de su bloque.)',
-    ojo: 'Prefijos, máscaras y tablas de rutas son del tema de red: aquí solo la idea de «calle y número». No abrir NAT ni direcciones privadas. Las IP del dibujo son de documentación (RFC 5737).',
   },
   {
     acto: 'I', titulo: 'MiEmpresa publica su aplicación',
     msg: 'La IP acaba **apuntada en sitios que no controlas**.',
     escena: () => mapaRed({ refs: 'ip' }),
-    notas: [
-      'MiEmpresa monta su aplicación en un servidor del ISP A, con la IP 203.0.113.10, y la da a conocer: un enlace en la web de un cliente, un cartel con un QR, una app que ya está instalada en miles de móviles, la configuración de un socio.',
-      'Fijaos en un detalle: ninguno de esos sitios es de MiEmpresa.',
-    ],
   },
   {
     acto: 'I', titulo: 'MiEmpresa se muda',
     msg: 'Al mudarte **cambia la IP**, y todo lo que la tenía apuntada **se rompe**.',
     escena: () => mapaRed({ refs: 'rota', srv: 'B' }),
-    notas: [
-      'MiEmpresa cambia de proveedor, o se lleva la aplicación a la nube. En la red nueva, la IP tiene que ser de la red nueva: 198.51.100.7. No es una decisión: si se quedase con la vieja, los routers seguirían llevando los paquetes al ISP A.',
-      'Y todo lo publicado apunta a un sitio donde ya no hay nadie.',
-    ],
-    pregunta: '¿Cuántos de esos cuatro sitios puede arreglar MiEmpresa por sí misma?',
   },
   {
     acto: 'I', titulo: 'El problema',
@@ -356,29 +340,17 @@ const PASOS = [
       S('lema1', 800, 450, caja(980, 190, { cls: 'tarjeta destacada', rx: 14 }) +
         txt('La IP dice dónde estás,', { y: -18, size: 44, weight: 700, cls: 'nt' }) +
         txt('no quién eres.', { y: 40, size: 44, weight: 700, cls: 'c-ip' }))],
-    notas: [
-      'Resumen del acto: la IP es una dirección, no un DNI. Sirve para llegar, pero te ata a la red en la que estás, y muchas veces ni siquiera la eliges.',
-      'Lo que nos falta es un identificador que siga valiendo aunque te mudes, y que sea tuyo: que lo cambies tú sin pedir permiso a nadie.',
-    ],
   },
   // ── Acto II ──
   {
     acto: 'II', titulo: 'Un nombre entre medias',
     msg: 'Se publica **un nombre**, y el nombre apunta a la IP. **El nombre lo administras tú.**',
     escena: () => mapaRed({ refs: 'nombre', nombre: true }),
-    notas: [
-      'La solución clásica en informática: un nivel de indirección. Lo que se publica ya no es la IP, es www.miempresa.es. Y el nombre apunta a la IP.',
-      'La clave es de quién es cada cosa: la IP es del ISP; el nombre es de MiEmpresa, que lo administra.',
-    ],
   },
   {
     acto: 'II', titulo: 'La misma mudanza, con nombres',
     msg: 'Mudarse = **cambiar un registro**. Lo publicado sigue funcionando (en cuanto caduca el **TTL**).',
     escena: () => mapaRed({ refs: 'nombre', nombre: true, srv: 'B', ttl: true }),
-    notas: [
-      'Repetimos la mudanza. Ahora solo cambia la flecha: un registro en la tabla de MiEmpresa. Todo lo publicado sigue en verde.',
-      'Un matiz que volverá: quien haya preguntado hace poco tiene la respuesta guardada y, hasta que caduque (el TTL), seguirá yendo a la IP vieja. Por eso, antes de una mudanza, se baja el TTL y se deja el servidor viejo encendido un rato.',
-    ],
   },
   {
     acto: 'II', titulo: '¿Dónde vive la tabla?',
@@ -397,31 +369,16 @@ const PASOS = [
       ], { w: 390, size: 19, cls: 'rota' }), { d: 900 }),
       S('solucion', 1150, 560, tarjeta([{ t: '1983: Mockapetris propone', weight: 600 }, 'el DNS (RFC 882/883)'], { w: 390, size: 19, cls: 'nombre' }), { d: 1500 }),
     ],
-    notas: [
-      '¿Dónde vive esa tabla? La primera solución fue la obvia: un fichero. En ARPANET había un único HOSTS.TXT con todos los equipos. Lo mantenía a mano el NIC del SRI: los cambios se le mandaban por correo y todo el mundo se descargaba el fichero cada cierto tiempo. Vuestro /etc/hosts es su descendiente directo.',
-      'Funcionaba con cientos de equipos. Con miles, no: el fichero crece, cada cambio tiene que pasar por una sola oficina, todo el mundo se descarga el fichero entero aunque solo haya cambiado una línea, y los nombres tienen que ser únicos en todo el mundo, así que chocan.',
-      'En 1983 Paul Mockapetris propone el DNS (RFC 882 y 883; los vigentes son los RFC 1034 y 1035, de 1987).',
-    ],
   },
   {
     acto: 'II', titulo: 'Trocear la tabla siguiendo el nombre',
     msg: 'Los nombres forman **un árbol**. Cada organización **administra su trozo (zona)** y lo reparte hacia abajo.',
     escena: () => arbol({ zonas: true }),
-    notas: [
-      'La idea: trocear la tabla usando el propio nombre. Los nombres forman un árbol que se lee de derecha a izquierda: la raíz, los dominios de primer nivel (es, com, org) y, debajo, los de cada organización.',
-      'Cada trozo (una zona) lo administra su dueño: la UAH los nombres de uah.es, RedIRIS los de rediris.es. Dentro de su zona, cada uno crea lo que quiera sin pedir permiso a nadie. Y el de arriba solo tiene que saber a quién ha delegado cada rama.',
-    ],
-    ojo: 'Zona y dominio no son lo mismo (una organización puede delegar un subdominio en otra), pero aquí basta con «su trozo».',
   },
   {
     acto: 'II', titulo: 'Dos árboles que no coinciden',
     msg: '**Dos árboles que no coinciden:** el de nombres dice **quién administra**; el de direcciones, **dónde está**.',
     escena: () => [...arbol({ zonas: true }), ...arbolRed()],
-    notas: [
-      'Este es el dibujo clave. Arriba, el árbol de nombres: refleja quién administra. Abajo, el árbol de direcciones: refleja dónde está cada equipo en la red.',
-      'Las flechas se cruzan: los dos nombres de miempresa.es están en proveedores distintos; ejemplo.com, que es otra organización, está en el ISP A. Estar juntos en el árbol de nombres no dice nada de dónde estás en la red. Por eso los nombres te liberan… y por eso resolver un nombre obliga a ir saltando por la red.',
-    ],
-    pregunta: '¿Podría www.uah.es estar alojado en un servidor de otro país? (Sí; el nombre seguiría siendo de la UAH.)',
   },
   {
     acto: 'II', titulo: 'Arriba solo saben a quién preguntar',
@@ -432,10 +389,6 @@ const PASOS = [
       S('del-es', 40, 186, tarjeta([{ t: 'Red.es (zona es) solo sabe:', size: 16, cls: 'ns' }, { t: 'NS rediris.es → sun.rediris.es', mono: true, cls: 'c-ref' }], { w: 330, size: 16, cls: 'ref' }), { d: 500 }),
       S('del-red', 330, 510, tarjeta([{ t: 'RedIRIS (autoritativo) tiene el dato:', size: 16, cls: 'ns' }, { t: 'www.rediris.es A 130.206.13.20', mono: true, cls: 'c-bien' }], { w: 380, size: 18, cls: 'ok' }), { d: 1000 }),
     ],
-    notas: [
-      'Seguimos un camino: www.rediris.es. La raíz no sabe la IP: solo sabe quién lleva es. Los de es tampoco: solo saben quién lleva rediris.es. Y RedIRIS, el servidor autoritativo de su zona, tiene el dato.',
-      'Eso es el DNS: una base de datos gigantesca hecha a trozos. Distribuida (cada trozo en sus servidores), jerárquica (sigue el árbol) y delegada (cada trozo lo mantiene su dueño).',
-    ],
   },
   // ── Acto III ──
   {
@@ -443,23 +396,12 @@ const PASOS = [
     msg: 'Para tu equipo, el DNS es **un encargo** al resolutor local… **y esperar**. Como dejar un trámite en una gestoría.',
     escena: () => equipo({ dP: 900 }),
     vuelos: [V([590, 490], [990, 490], 'A? www.rediris.es', 'rec')],
-    notas: [
-      'Ahora, desde el punto de vista de vuestro equipo. El navegador no habla DNS: llama a una función del sistema, getaddrinfo(). El resolutor del sistema operativo (el stub) mira primero su caché y /etc/hosts; si no está ahí, manda una pregunta al resolutor local, cuya IP le dio DHCP al conectarse.',
-      'Una pregunta: «www.rediris.es, tipo A». Y se queda esperando.',
-      'Pensad en una gestoría: le dejáis el encargo, «tráigame este certificado», y esperáis. Cómo lo consiga es cosa suya. Volveremos a ella.',
-    ],
-    ojo: 'Si alguien mira su configuración en casa verá 192.168.1.1 (el router, que reenvía al resolutor de su operador) o 8.8.8.8 / 1.1.1.1 (públicos): todos hacen el papel de resolutor local. Los navegadores con DoH activado se saltan el resolutor del sistema; para las demos, desactivado.',
   },
   {
     acto: 'III', titulo: 'Una pregunta, una respuesta',
     msg: 'Tu equipo **no sabe nada del árbol**: hace una pregunta y espera **la respuesta final**.',
     escena: () => equipo({ respuesta: true }),
     vuelos: [V([990, 530], [590, 530], 'A = 130.206.13.20', 'bien')],
-    notas: [
-      'Llega la respuesta: la IP. Para vuestro equipo, eso es todo el DNS: una pregunta, una respuesta. No sabe que existen la raíz, los TLD ni los autoritativos.',
-      'Pero el resolutor local tampoco tenía el dato: no es de rediris.es. Entonces, ¿de dónde lo ha sacado?',
-    ],
-    pregunta: '¿Qué ha pasado dentro de la caja mientras esperabais?',
   },
   {
     acto: 'III', titulo: '¿Qué creéis que pasa dentro?',
@@ -472,73 +414,42 @@ const PASOS = [
         '3. Sin nada en caché, ¿cuántos mensajes hacen falta?',
         '4. La respuesta que recibe tu equipo, ¿la envía RedIRIS?',
       ], { w: 1020, size: 26, lh: 52, pad: 26, cls: 'destacada' }))],
-    notas: [
-      'Votación rápida (Wooclap o mano alzada) y no corregir todavía: el Acto IV lo hace solo. Lo importante es que cada uno se comprometa con una respuesta.',
-      'Respuestas erróneas típicas: «mi equipo pregunta a la raíz»; «la raíz le pasa la pregunta al TLD, y este al autoritativo» (el modelo de la Fig. 2.22 de Kurose); «la respuesta me llega de RedIRIS».',
-      'Las buenas, para tenerlas a mano: 1, solo con el resolutor local; 2, el resolutor local, y la raíz contesta con una referencia; 3, ocho; 4, no: la envía el resolutor local, en un mensaje nuevo.',
-    ],
   },
   // ── Acto IV ──
   {
     acto: 'IV', titulo: 'Abrimos la caja',
     msg: 'El resolutor local empieza **sin nada en caché**: solo conoce las IP de **los servidores raíz**.',
     escena: () => [...mapaRes({ cache: [] }), ...secuencia(0)],
-    notas: [
-      'Abrimos la caja. A la izquierda, quién habla con quién en la red; a la derecha, el mismo intercambio como diagrama de secuencia: el tiempo corre hacia abajo.',
-      'Supongamos que el resolutor local acaba de arrancar: caché vacía. Lo único que conoce de fábrica son las IP de los servidores raíz (las «pistas raíz», un fichero que viene con el software).',
-    ],
-    ojo: 'Hay 13 nombres de servidor raíz (a.root-servers.net … m.root-servers.net), pero más de mil máquinas repartidas por el mundo con anycast. «La raíz» no es un ordenador.',
   },
   {
     acto: 'IV', titulo: 'Mensaje 1: tu equipo pregunta',
     msg: '**1** · Tu equipo pregunta **al resolutor local** (y se queda esperando).',
     escena: () => [...mapaRes({ cache: [], reloj: 'espera', detalle: det(1, ['Mensaje 1 · de tu equipo al resolutor local', { t: 'Pregunta: www.rediris.es, tipo A (RD=1)', mono: true }], '', 900) }), ...secuencia(1, { 1: 900 })],
     vuelos: [V(M.C, M.L, 'A? www.rediris.es', 'rec')],
-    notas: [
-      'El mensaje 1 es el que ya conocéis: vuestro equipo pregunta al resolutor local. Lleva un bit, RD, que significa «hazlo tú por mí». Fijaos en el reloj: vuestro equipo no hace nada más hasta que le contesten.',
-    ],
   },
   {
     acto: 'IV', titulo: 'Mensajes 2 y 3: la raíz',
     msg: '**2–3** · La raíz no sabe la respuesta: devuelve una **referencia**, «pregunta a los de .es».',
     escena: () => [...mapaRes({ cache: [1950], reloj: 'espera', detalle: det(2, [{ t: 'Mensaje 3 · referencia de la raíz', weight: 600, cls: 'c-ref' }, 'No sé www.rediris.es. Pregunta a los de es:', { t: 'es. NS a.nic.es  +  a.nic.es A 194.69.254.1', mono: true }], 'ref', 1950) }), ...secuencia(3, { 2: 900, 3: 1950 })],
     vuelos: [V(M.L, M.R, 'A? www.rediris.es', 'ite'), V(M.R, M.L, 'NS es → a.nic.es', 'ref', 1050)],
-    notas: [
-      'El resolutor local pregunta a un servidor raíz exactamente lo mismo: www.rediris.es, tipo A.',
-      'La raíz no tiene el dato, y no va a buscarlo. Contesta con lo que sabe: «no lo sé, pero los de es son estos, y estas son sus IP». Eso es una referencia: una respuesta que no responde, que te manda a otro sitio. Es la gestoría en la primera ventanilla: «esto no es aquí, vaya a aquella». Y el resolutor local la guarda en caché.',
-    ],
-    ojo: 'Los resolutores modernos solo preguntan a la raíz por «es.» (minimización de QNAME, RFC 9156). En Kurose y en la web de ejercicios se usa el modelo clásico: el nombre completo.',
   },
   {
     acto: 'IV', titulo: 'Mensajes 4 y 5: el TLD .es',
     msg: '**4–5** · El TLD .es tampoco lo sabe: otra **referencia**, que trae también la IP del servidor (**pegamento**).',
     escena: () => [...mapaRes({ cache: [0, 1950], reloj: 'espera', detalle: det(3, [{ t: 'Mensaje 5 · referencia del TLD .es', weight: 600, cls: 'c-ref' }, 'Pregunta a los de rediris.es:', { t: 'rediris.es NS sun.rediris.es  +  A 130.206.1.2', mono: true }], 'ref', 1950) }), ...secuencia(5, { 4: 900, 5: 1950 })],
     vuelos: [V(M.L, M.T, 'A? www.rediris.es', 'ite'), V(M.T, M.L, 'NS rediris.es → sun…', 'ref', 1050)],
-    notas: [
-      'Mismo patrón con el servidor de es: misma pregunta, otra referencia, «pregúntale a sun.rediris.es».',
-      'Fijaos en un problema: para preguntar a sun.rediris.es necesito su IP… y su nombre está dentro de rediris.es, que es justo lo que intento resolver. Huevo y gallina. Por eso la referencia trae también la IP del servidor de nombres: se llama pegamento (glue).',
-    ],
-    pregunta: '¿Qué pasaría si el TLD diese el nombre sun.rediris.es pero no su IP?',
   },
   {
     acto: 'IV', titulo: 'Mensajes 6 y 7: el autoritativo',
     msg: '**6–7** · El **autoritativo** de rediris.es sí lo sabe: respuesta con **AA=1**.',
     escena: () => [...mapaRes({ cache: [0, 0, 1950], reloj: 'espera', detalle: det(4, [{ t: 'Mensaje 7 · respuesta autoritativa (AA=1)', weight: 600, cls: 'c-bien' }, { t: 'www.rediris.es A 130.206.13.20', mono: true }], 'ok', 1950) }), ...secuencia(7, { 6: 900, 7: 1950 })],
     vuelos: [V(M.L, M.A, 'A? www.rediris.es', 'ite'), V(M.A, M.L, 'A = 130.206.13.20', 'bien', 1050)],
-    notas: [
-      'Tercera vez la misma pregunta, ahora al servidor autoritativo de rediris.es. Este sí tiene el dato, porque es el trozo de la base de datos que mantiene RedIRIS. Responde y marca AA=1: «respuesta con autoridad».',
-    ],
   },
   {
     acto: 'IV', titulo: 'Mensaje 8: la respuesta a tu equipo',
     msg: '**8** · El resolutor local responde a tu equipo con **un mensaje nuevo** y **lo guarda todo en caché**.',
     escena: () => [...mapaRes({ cache: [0, 0, 0], reloj: 'ok', dReloj: 900, detalle: det(5, [{ t: 'Mensaje 8 · del resolutor local a tu equipo (mensaje nuevo)', weight: 600, cls: 'c-bien' }, { t: 'www.rediris.es A 130.206.13.20  (AA=0, RA=1)', mono: true }], 'ok', 900) }), ...secuencia(8, { 8: 900 })],
     vuelos: [V(M.L, M.C, 'A = 130.206.13.20', 'bien')],
-    notas: [
-      'El resolutor local contesta a vuestro equipo. Ojo: es un mensaje nuevo, de 10.0.0.1 a 10.0.0.5, con el mismo identificador que la pregunta 1. No es «el mensaje 7 que sigue su camino».',
-      'Lleva AA=0, porque el resolutor local no es autoridad para rediris.es: lo sabe de oídas. Y todo lo aprendido queda en su caché, cada dato con su TTL.',
-      'Ocho mensajes. Vuestro equipo ha visto dos.',
-    ],
   },
   {
     acto: 'IV', titulo: 'Otro equipo pregunta lo mismo',
@@ -548,10 +459,6 @@ const PASOS = [
       msgSpec('c1', { n: 1, de: 'C', a: 'L', q: 'A? www.rediris.es (RD=1)', tipo: 'rec', clase: 'preg' }, yMsg(1), 900),
       msgSpec('c2', { n: 2, de: 'L', a: 'C', q: 'A www.rediris.es = … (de la caché)', tipo: 'rec', clase: 'resp' }, yMsg(2), 1950)],
     vuelos: [V(M.C2, M.L, 'A? www.rediris.es', 'rec'), V(M.L, M.C2, 'A = 130.206.13.20', 'bien', 1050)],
-    notas: [
-      'Ahora otro equipo de la misma red pregunta lo mismo. El resolutor local lo tiene en caché y contesta directamente: dos mensajes.',
-      'Esa es la gran ventaja de que haya un resolutor local compartido: lo que averigua para uno, lo aprovechan todos, mientras no caduque el TTL.',
-    ],
   },
   {
     acto: 'IV', titulo: 'Otro nombre de la misma zona',
@@ -564,11 +471,6 @@ const PASOS = [
       msgSpec('p4', { n: 4, de: 'L', a: 'C', q: 'A eventos.rediris.es = …', tipo: 'rec', clase: 'resp' }, yMsg(4), 4050)],
     vuelos: [V(M.C2, M.L, 'A? eventos.rediris.es', 'rec'), V(M.L, M.A, 'A? eventos.rediris.es', 'ite', 1050),
       V(M.A, M.L, 'A …', 'bien', 2100), V(M.L, M.C2, 'A …', 'bien', 3150)],
-    notas: [
-      'Y si preguntan por otro nombre de rediris.es, el resolutor local no lo tiene, pero sí tiene en caché quién es el autoritativo de rediris.es. Va directo: ni raíz ni TLD.',
-      'Por eso, aunque todo cuelga de la raíz, los servidores raíz reciben muchas menos preguntas de las que uno imagina: las cachés hacen casi todo el trabajo.',
-    ],
-    ojo: 'eventos.rediris.es es un nombre ilustrativo; no importa si existe.',
   },
   // ── Acto V ──
   {
@@ -576,11 +478,6 @@ const PASOS = [
     msg: '**Recursiva / iterativa** se dice de **cada pareja pregunta‑respuesta**, no de la resolución entera.',
     escena: () => [...bandas(), ...mapaRes({ cache: [0, 0, 0], reloj: 'ok', etiquetas: true }), ...secuencia(8),
       S('kurose', 840, 738, tarjeta([{ t: 'Kurose: la Fig. 2.21 es esto; la 2.22 (todo recursivo) es lo que no pasa.', weight: 600 }], { w: 740, size: 18, pad: 12 }), { d: 600 })],
-    notas: [
-      'Ahora sí, los nombres. Lo que más lía es preguntar «¿esta resolución es recursiva o iterativa?». Es la pregunta equivocada: cada resolución tiene de las dos.',
-      'La pareja 1–8, entre vuestro equipo y el resolutor local, es recursiva: «hazlo tú y tráeme el resultado». Las parejas 2–3, 4–5 y 6–7, entre el resolutor local y los demás, son iterativas: «dime lo que sepas». Los colores llevan así desde el principio.',
-      'Y aquí está el origen de muchas dudas: en el libro hay dos figuras, la 2.21 y la 2.22, y parecen dos formas alternativas de resolver. No lo son: la 2.21 es lo que pasa; la 2.22 es lo que no pasa, y enseguida vemos por qué.',
-    ],
   },
   {
     acto: 'V', titulo: 'Qué compromete cada una',
@@ -600,11 +497,6 @@ const PASOS = [
         '• Si no: una referencia, «pregunta a estos» (NS + IP)',
         '• Contesta y olvida: no guarda estado',
       ], { w: 750, size: 20, cls: 'ite' }), { d: 500 })],
-    notas: [
-      'Lo que cambia es el compromiso de quien contesta. En una consulta recursiva, el servidor se compromete a traer la respuesta final o un error; nunca te contesta «pregunta a otro». Lo pide el cliente con el bit RD y el servidor dice si lo concede con RA.',
-      'En una iterativa, el servidor contesta con lo que sabe en ese momento: el dato, si es suyo, o una referencia. Y se olvida.',
-    ],
-    pregunta: '¿Quién decide que una consulta sea recursiva? (La pide el cliente con RD; el servidor la concede o no, RA.)',
   },
   {
     acto: 'V', titulo: '¿Y si todo fuese recursivo?',
@@ -630,11 +522,6 @@ const PASOS = [
     },
     vuelos: ['C', 'L', 'R', 'T'].map((k, i, a) => V([FILA[k], 360], [FILA[['L', 'R', 'T', 'A'][i]], 360], '?', 'rec', 650 * i, 600))
       .concat(['A', 'T', 'R', 'L'].map((k, i) => V([FILA[k], 360], [FILA[['T', 'R', 'L', 'C'][i]], 360], 'A', 'bien', 650 * (i + 4), 600))),
-    notas: [
-      'Hagamos el experimento mental: ¿y si todos fuesen recursivos? Vuestro equipo pide al resolutor local que lo haga; el resolutor local pide a la raíz que lo haga; la raíz al TLD; el TLD al autoritativo. Y la respuesta vuelve deshaciendo la cadena.',
-      'Funcionaría, pero cada eslabón tiene que esperar y recordar quién le preguntó. La raíz tendría pendientes, a la vez, las consultas de todo Internet. Por eso los servidores raíz y TLD no ofrecen recursión.',
-    ],
-    ojo: 'Es la consulta recursiva pura de Kurose (Fig. 2.22 en la edición que se usa en clase): en el libro está como contraste; los raíz y los TLD no recurren.',
   },
   {
     acto: 'V', titulo: '¿Y si todo fuese iterativo?',
@@ -662,11 +549,6 @@ const PASOS = [
       const p = [200, [220, 430, 640][i]], t0 = i * 250;
       return [[1000, 220], [1000, 430], [1000, 640]].flatMap((s, j) => [V(p, s, '?', 'ite', t0 + j * 900, 420), V(s, p, j < 2 ? 'ref.' : 'A', j < 2 ? 'ref' : 'bien', t0 + j * 900 + 450, 420)]);
     }),
-    notas: [
-      'Al revés: ¿y si todo fuese iterativo, sin resolutor local? Cada equipo tendría las pistas raíz y recorrería el árbol él solo.',
-      'Funcionaría también, pero cada equipo repetiría el mismo trabajo: no hay una caché compartida que aproveche lo que averiguó el de al lado. Más tráfico hacia la raíz y los TLD y más espera para cada usuario.',
-      'Conclusión: la mezcla no es un lío, es el diseño. Recursiva donde conviene descargar al equipo y compartir la caché; iterativa donde el servidor no puede permitirse guardar estado.',
-    ],
   },
   {
     acto: 'V', titulo: 'Volvemos a la gestoría',
@@ -689,10 +571,6 @@ const PASOS = [
       });
       return r;
     },
-    notas: [
-      'Volvemos a la gestoría del principio, ahora con todas las piezas. Vosotros le encargáis un trámite a la gestoría y esperáis: eso es una consulta recursiva. La gestoría va de ventanilla en ventanilla y en cada una le dicen «esto no es aquí, vaya a aquella»: consultas iterativas y referencias. En la última ventanilla le dan el papel. La gestoría archiva lo que aprende para la próxima vez: la caché.',
-      'Y vosotros no pisáis ninguna ventanilla, igual que vuestro equipo nunca habla con la raíz.',
-    ],
   },
   // ── Acto VI ──
   {
@@ -721,10 +599,5 @@ const PASOS = [
       });
       return r;
     },
-    notas: [
-      'Y así queda dibujado, como lo practica la web de ejercicios: cada mensaje con su origen y su destino (y la IP de destino), si es consulta o respuesta, y qué lleva en cada sección.',
-      'Fijaos en el patrón de las respuestas: una referencia lleva la sección Answer vacía, NS en Authority y el pegamento en Additional; la respuesta final lleva el dato en Answer. Quedaos con estos tres tipos de respuesta y sabréis leer cualquier resolución.',
-    ],
-    ojo: 'El mensaje 1 lo envía 10.0.0.5 y el 8 va a 10.0.0.5: comprobar que se entiende que el 8 es un mensaje distinto del 7. Las secciones (Question, Answer, Authority, Additional) se explican despacio en GG22.',
   },
 ];

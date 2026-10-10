@@ -13,17 +13,7 @@ PASOS.forEach((p, i) => {
     if (/NaN|undefined|Infinity/.test(e.html)) mal(`paso ${i + 1}: NaN/undefined en ${e.id}`);
   }
   for (const v of p.vuelos || []) if (![...v.de, ...v.a, v.t, v.dur].every(Number.isFinite)) mal(`paso ${i + 1}: vuelo inválido`);
-  if (!p.titulo || !p.msg || !p.notas || !p.notas.length) mal(`paso ${i + 1}: faltan textos`);
+  if (!p.titulo || !p.msg) mal(`paso ${i + 1}: faltan textos`);
 });
-// Guion de narración (fuente única: pasos.js)
-let md = '# Guion de narración · DNS paso a paso\n\nGenerado por `build.sh` a partir de `pasos.js`. No editar a mano.\n';
-let acto = '';
-PASOS.forEach((p, i) => {
-  if (p.acto !== acto) { acto = p.acto; md += `\n## Acto ${acto} · ${ACTOS[acto]}\n`; }
-  md += `\n### ${i + 1}. ${p.titulo}\n\n**En pantalla:** ${p.msg}\n\n` + p.notas.join('\n\n') + '\n';
-  if (p.pregunta) md += `\n> **Pregunta al aula.** ${p.pregunta}\n`;
-  if (p.ojo) md += `\n> **Ojo.** ${p.ojo}\n`;
-});
-fs.writeFileSync(__dirname + '/Guion_narracion_DNS.md', md);
 if (errores) { console.error(errores + ' errores'); process.exit(1); }
-console.log(`${PASOS.length} pasos correctos; guion generado`);
+console.log(`${PASOS.length} pasos correctos`);

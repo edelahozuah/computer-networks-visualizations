@@ -323,32 +323,16 @@ const PASOS = [
     acto: 'I', titulo: 'Every host has an IP address',
     msg: 'An IP address has two parts: **the network** (assigned by your ISP) and **the host**. Routers only know networks: the IP says **where** you are.',
     escena: () => mapaRed({ zoom: true, tabla: true }),
-    notas: [
-      'Every host connected to the Internet (strictly speaking, every interface) has an IP address. But an IP address is not just any serial number: it has structure.',
-      'The first part identifies the network. You don’t choose that part: it is assigned by whoever gives you connectivity, your Internet service provider (ISP). The last part identifies the host within that network.',
-      'And Internet routers don’t have one line for every host in the world, only one per network: “everything starting with 203.0.113 goes to ISP A.” Like a postal address: the mail carrier knows which way the streets are, not every single door. It gets you there because it says where you are, and for that very reason it is tied to the place.',
-    ],
-    pregunta: 'Who chose the IP address your laptop has right now? (None of you: the network gave it to you, via DHCP, from its own block.)',
-    ojo: 'Prefixes, masks and routing tables belong to the network layer unit: here, just the idea of “street and number.” Don’t get into NAT or private addresses. The IP addresses in the drawing are documentation addresses (RFC 5737).',
   },
   {
     acto: 'I', titulo: 'MyCompany publishes its app',
     msg: 'The IP address ends up **written down in places you don’t control**.',
     escena: () => mapaRed({ refs: 'ip' }),
-    notas: [
-      'MyCompany sets up its app on a server at ISP A, with IP address 203.0.113.10, and makes it known: a link on a customer’s website, a poster with a QR code, an app already installed on thousands of phones, a partner’s configuration.',
-      'Notice one detail: none of those places belongs to MyCompany.',
-    ],
   },
   {
     acto: 'I', titulo: 'MyCompany moves',
     msg: 'When you move, **your IP address changes**, and everything that had it written down **breaks**.',
     escena: () => mapaRed({ refs: 'rota', srv: 'B' }),
-    notas: [
-      'MyCompany switches providers, or moves its app to the cloud. On the new network, the IP address has to belong to the new network: 198.51.100.7. It’s not a choice: if it kept the old one, routers would keep delivering the packets to ISP A.',
-      'And everything that was published points to a place where nobody lives anymore.',
-    ],
-    pregunta: 'How many of those four places can MyCompany fix on its own?',
   },
   {
     acto: 'I', titulo: 'The problem',
@@ -357,29 +341,17 @@ const PASOS = [
       S('lema1', 800, 450, caja(980, 190, { cls: 'tarjeta destacada', rx: 14 }) +
         txt('An IP address says where you are,', { y: -18, size: 44, weight: 700, cls: 'nt' }) +
         txt('not who you are.', { y: 40, size: 44, weight: 700, cls: 'c-ip' }))],
-    notas: [
-      'To sum up this act: an IP address is an address, not an ID card. It gets you there, but it ties you to the network you’re on, and often you don’t even get to choose it.',
-      'What we’re missing is an identifier that stays valid when you move, and that is yours: one you can change without asking anyone’s permission.',
-    ],
   },
   // ── Act II ──
   {
     acto: 'II', titulo: 'A name in between',
     msg: 'What gets published is **a name**, and the name points to the IP address. **You manage the name.**',
     escena: () => mapaRed({ refs: 'nombre', nombre: true }),
-    notas: [
-      'The classic computer science solution: a level of indirection. What gets published is no longer the IP address, it’s www.mycompany.es. And the name points to the IP address.',
-      'The key is who owns what: the IP address belongs to the ISP; the name belongs to MyCompany, which manages it.',
-    ],
   },
   {
     acto: 'II', titulo: 'The same move, with names',
     msg: 'Moving = **changing one record**. Everything published keeps working (as soon as the **TTL** expires).',
     escena: () => mapaRed({ refs: 'nombre', nombre: true, srv: 'B', ttl: true }),
-    notas: [
-      'Let’s move again. Now only the arrow changes: one record in MyCompany’s table. Everything that was published stays green.',
-      'A subtlety that will come back later: anyone who asked recently has the answer stored and, until it expires (the TTL), will keep going to the old IP address. That’s why, before moving, you lower the TTL and leave the old server running for a while.',
-    ],
   },
   {
     acto: 'II', titulo: 'Where does the table live?',
@@ -398,31 +370,16 @@ const PASOS = [
       ], { w: 390, size: 19, cls: 'rota' }), { d: 900 }),
       S('solucion', 1150, 560, tarjeta([{ t: '1983: Mockapetris proposes', weight: 600 }, 'the DNS (RFC 882/883)'], { w: 390, size: 19, cls: 'nombre' }), { d: 1500 }),
     ],
-    notas: [
-      'Where does that table live? The first solution was the obvious one: a file. ARPANET had a single HOSTS.TXT with every host. It was maintained by hand at the SRI NIC: changes were sent in by email and everyone downloaded the file every so often. Your /etc/hosts is its direct descendant.',
-      'It worked with hundreds of hosts. With thousands, it didn’t: the file grows, every change has to go through a single office, everyone downloads the whole file even if only one line has changed, and names have to be unique worldwide, so they clash.',
-      'In 1983 Paul Mockapetris proposed the DNS (RFCs 882 and 883; the current ones are RFCs 1034 and 1035, from 1987).',
-    ],
   },
   {
     acto: 'II', titulo: 'Split the table along the name',
     msg: 'Names form **a tree**. Each organization **manages its own piece (zone)** and hands out parts of it further down.',
     escena: () => arbol({ zonas: true }),
-    notas: [
-      'The idea: split the table using the name itself. Names form a tree that is read from right to left: the root, the top-level domains (es, com, org) and, below them, those of each organization.',
-      'Each piece (a zone) is managed by its owner: the UAH manages the names under uah.es, RedIRIS those under rediris.es. Within its zone, each one creates whatever it wants without asking anyone. And the one above only needs to know whom it has delegated each branch to.',
-    ],
-    ojo: 'A zone and a domain are not the same thing (an organization can delegate a subdomain to another one), but here “its piece” is enough.',
   },
   {
     acto: 'II', titulo: 'Two trees that don’t match',
     msg: '**Two trees that don’t match:** the name tree says **who manages it**; the address tree, **where it is**.',
     escena: () => [...arbol({ zonas: true }), ...arbolRed()],
-    notas: [
-      'This is the key drawing. At the top, the name tree: it reflects who manages each name. At the bottom, the address tree: it reflects where each host is in the network.',
-      'The arrows cross: the two names under mycompany.es are with different providers; example.com, which is another organization, is with ISP A. Being together in the name tree says nothing about where you are in the network. That’s why names set you free… and that’s why resolving a name means hopping across the network.',
-    ],
-    pregunta: 'Could www.uah.es be hosted on a server in another country? (Yes; the name would still belong to the UAH.)',
   },
   {
     acto: 'II', titulo: 'Higher up, they only know whom to ask',
@@ -433,10 +390,6 @@ const PASOS = [
       S('del-es', 40, 186, tarjeta([{ t: 'Red.es (zone es) only knows:', size: 16, cls: 'ns' }, { t: 'NS rediris.es → sun.rediris.es', mono: true, cls: 'c-ref' }], { w: 330, size: 16, cls: 'ref' }), { d: 500 }),
       S('del-red', 330, 510, tarjeta([{ t: 'RedIRIS (authoritative) has the data:', size: 16, cls: 'ns' }, { t: 'www.rediris.es A 130.206.13.20', mono: true, cls: 'c-bien' }], { w: 380, size: 18, cls: 'ok' }), { d: 1000 }),
     ],
-    notas: [
-      'Let’s follow one path: www.rediris.es. The root doesn’t know the IP address: it only knows who runs es. Those at es don’t know it either: they only know who runs rediris.es. And RedIRIS, the authoritative server for its zone, has the data.',
-      'That’s the DNS: a gigantic database made of pieces. Distributed (each piece on its own servers), hierarchical (it follows the tree) and delegated (each piece is maintained by its owner).',
-    ],
   },
   // ── Act III ──
   {
@@ -444,23 +397,12 @@ const PASOS = [
     msg: 'For your computer, the DNS is **an errand** handed to the local resolver… **and waiting**. Like leaving paperwork with an agency.',
     escena: () => equipo({ dP: 900 }),
     vuelos: [V([590, 490], [990, 490], 'A? www.rediris.es', 'rec')],
-    notas: [
-      'Now, from your computer’s point of view. The browser doesn’t speak DNS: it calls an operating system function, getaddrinfo(). The operating system’s resolver (the stub) first checks its cache and /etc/hosts; if the name isn’t there, it sends a question to the local resolver, whose IP address it got from DHCP when it connected.',
-      'One question: “www.rediris.es, type A.” And it sits there waiting.',
-      'Think of an agency that handles paperwork for you: you leave the errand with them, “get me this certificate,” and you wait. How they get it is their business. We’ll come back to the agency.',
-    ],
-    ojo: 'If someone checks their settings at home they’ll see 192.168.1.1 (the router, which forwards to their ISP’s resolver) or 8.8.8.8 / 1.1.1.1 (public resolvers): they all play the role of local resolver. Browsers with DoH enabled bypass the system resolver; turn it off for the demos.',
   },
   {
     acto: 'III', titulo: 'One question, one answer',
     msg: 'Your computer **knows nothing about the tree**: it asks one question and waits for **the final answer**.',
     escena: () => equipo({ respuesta: true }),
     vuelos: [V([990, 530], [590, 530], 'A = 130.206.13.20', 'bien')],
-    notas: [
-      'The answer arrives: the IP address. For your computer, that’s the whole DNS: one question, one answer. It doesn’t know the root, the TLDs or the authoritative servers exist.',
-      'But the local resolver didn’t have the data either: it isn’t part of rediris.es. So where did it get it from?',
-    ],
-    pregunta: 'What happened inside the box while you were waiting?',
   },
   {
     acto: 'III', titulo: 'What do you think happens inside?',
@@ -473,73 +415,42 @@ const PASOS = [
         '3. With nothing cached, how many messages are needed?',
         '4. Is the answer your computer receives sent by RedIRIS?',
       ], { w: 1020, size: 26, lh: 52, pad: 26, cls: 'destacada' }))],
-    notas: [
-      'Quick poll (an online tool or a show of hands) and don’t correct anything yet: Act IV does that on its own. What matters is that everyone commits to an answer.',
-      'Typical wrong answers: “my computer asks the root”; “the root passes the question on to the TLD, and the TLD to the authoritative server” (the model in Kurose’s Fig. 2.22); “the answer comes to me from RedIRIS.”',
-      'The right ones, to keep at hand: 1, only with the local resolver; 2, the local resolver, and the root replies with a referral; 3, eight; 4, no: the local resolver sends it, in a new message.',
-    ],
   },
   // ── Act IV ──
   {
     acto: 'IV', titulo: 'Opening the box',
     msg: 'The local resolver starts **with nothing in its cache**: it only knows the IP addresses of **the root servers**.',
     escena: () => [...mapaRes({ cache: [] }), ...secuencia(0)],
-    notas: [
-      'Let’s open the box. On the left, who talks to whom on the network; on the right, the same exchange as a sequence diagram: time runs downward.',
-      'Suppose the local resolver has just started: empty cache. The only thing it knows out of the box are the IP addresses of the root servers (the “root hints,” a file that ships with the software).',
-    ],
-    ojo: 'There are 13 root server names (a.root-servers.net … m.root-servers.net), but well over a thousand machines spread around the world with anycast. “The root” is not one computer.',
   },
   {
     acto: 'IV', titulo: 'Message 1: your computer asks',
     msg: '**1** · Your computer asks **the local resolver** (and sits there waiting).',
     escena: () => [...mapaRes({ cache: [], reloj: 'espera', detalle: det(1, ['Message 1 · from your computer to the local resolver', { t: 'Question: www.rediris.es, type A (RD=1)', mono: true }], '', 900) }), ...secuencia(1, { 1: 900 })],
     vuelos: [V(M.C, M.L, 'A? www.rediris.es', 'rec')],
-    notas: [
-      'Message 1 is the one you already know: your computer asks the local resolver. It carries a bit, RD, which means “do it for me.” Look at the clock: your computer does nothing else until it gets an answer.',
-    ],
   },
   {
     acto: 'IV', titulo: 'Messages 2 and 3: the root',
     msg: '**2–3** · The root doesn’t know the answer: it returns a **referral**, “ask the .es servers.”',
     escena: () => [...mapaRes({ cache: [1950], reloj: 'espera', detalle: det(2, [{ t: 'Message 3 · referral from the root', weight: 600, cls: 'c-ref' }, 'I don’t know www.rediris.es. Ask the es servers:', { t: 'es. NS a.nic.es  +  a.nic.es A 194.69.254.1', mono: true }], 'ref', 1950) }), ...secuencia(3, { 2: 900, 3: 1950 })],
     vuelos: [V(M.L, M.R, 'A? www.rediris.es', 'ite'), V(M.R, M.L, 'NS es → a.nic.es', 'ref', 1050)],
-    notas: [
-      'The local resolver asks a root server exactly the same thing: www.rediris.es, type A.',
-      'The root doesn’t have the data, and it won’t go looking for it. It replies with what it knows: “I don’t know, but these are the es servers, and these are their IP addresses.” That is a referral: a reply that doesn’t answer, it sends you somewhere else. It’s the agency at the first counter: “not here, go to that one over there.” And the local resolver stores it in its cache.',
-    ],
-    ojo: 'Modern resolvers only ask the root about “es.” (QNAME minimization, RFC 9156). Kurose and the exercises website use the classic model: the full name.',
   },
   {
     acto: 'IV', titulo: 'Messages 4 and 5: the .es TLD',
     msg: '**4–5** · The .es TLD doesn’t know either: another **referral**, which also carries the server’s IP address (**glue**).',
     escena: () => [...mapaRes({ cache: [0, 1950], reloj: 'espera', detalle: det(3, [{ t: 'Message 5 · referral from the .es TLD', weight: 600, cls: 'c-ref' }, 'Ask the rediris.es servers:', { t: 'rediris.es NS sun.rediris.es  +  A 130.206.1.2', mono: true }], 'ref', 1950) }), ...secuencia(5, { 4: 900, 5: 1950 })],
     vuelos: [V(M.L, M.T, 'A? www.rediris.es', 'ite'), V(M.T, M.L, 'NS rediris.es → sun…', 'ref', 1050)],
-    notas: [
-      'Same pattern with the es server: same question, another referral, “ask sun.rediris.es.”',
-      'Notice a problem: to ask sun.rediris.es I need its IP address… and its name is inside rediris.es, which is exactly what I’m trying to resolve. Chicken and egg. That’s why the referral also carries the name server’s IP address: it’s called glue.',
-    ],
-    pregunta: 'What would happen if the TLD gave the name sun.rediris.es but not its IP address?',
   },
   {
     acto: 'IV', titulo: 'Messages 6 and 7: the authoritative server',
     msg: '**6–7** · The **authoritative** server for rediris.es does know: an answer with **AA=1**.',
     escena: () => [...mapaRes({ cache: [0, 0, 1950], reloj: 'espera', detalle: det(4, [{ t: 'Message 7 · authoritative answer (AA=1)', weight: 600, cls: 'c-bien' }, { t: 'www.rediris.es A 130.206.13.20', mono: true }], 'ok', 1950) }), ...secuencia(7, { 6: 900, 7: 1950 })],
     vuelos: [V(M.L, M.A, 'A? www.rediris.es', 'ite'), V(M.A, M.L, 'A = 130.206.13.20', 'bien', 1050)],
-    notas: [
-      'The same question a third time, now to the authoritative server for rediris.es. This one does have the data, because it’s the piece of the database that RedIRIS maintains. It answers and sets AA=1: “authoritative answer.”',
-    ],
   },
   {
     acto: 'IV', titulo: 'Message 8: the answer to your computer',
     msg: '**8** · The local resolver answers your computer with **a new message** and **caches everything**.',
     escena: () => [...mapaRes({ cache: [0, 0, 0], reloj: 'ok', dReloj: 900, detalle: det(5, [{ t: 'Message 8 · from the local resolver to your computer (new message)', weight: 600, cls: 'c-bien' }, { t: 'www.rediris.es A 130.206.13.20  (AA=0, RA=1)', mono: true }], 'ok', 900) }), ...secuencia(8, { 8: 900 })],
     vuelos: [V(M.L, M.C, 'A = 130.206.13.20', 'bien')],
-    notas: [
-      'The local resolver answers your computer. Careful: it’s a new message, from 10.0.0.1 to 10.0.0.5, with the same identifier as question 1. It is not “message 7 continuing on its way.”',
-      'It carries AA=0, because the local resolver is not an authority for rediris.es: it only knows it secondhand. And everything it has learned stays in its cache, each piece of data with its own TTL.',
-      'Eight messages. Your computer has seen two.',
-    ],
   },
   {
     acto: 'IV', titulo: 'Another computer asks the same thing',
@@ -549,10 +460,6 @@ const PASOS = [
       msgSpec('c1', { n: 1, de: 'C', a: 'L', q: 'A? www.rediris.es (RD=1)', tipo: 'rec', clase: 'preg' }, yMsg(1), 900),
       msgSpec('c2', { n: 2, de: 'L', a: 'C', q: 'A www.rediris.es = … (from cache)', tipo: 'rec', clase: 'resp' }, yMsg(2), 1950)],
     vuelos: [V(M.C2, M.L, 'A? www.rediris.es', 'rec'), V(M.L, M.C2, 'A = 130.206.13.20', 'bien', 1050)],
-    notas: [
-      'Now another computer on the same network asks the same thing. The local resolver has it cached and answers right away: two messages.',
-      'That’s the big advantage of a shared local resolver: what it finds out for one, everyone benefits from, as long as the TTL hasn’t expired.',
-    ],
   },
   {
     acto: 'IV', titulo: 'Another name in the same zone',
@@ -565,11 +472,6 @@ const PASOS = [
       msgSpec('p4', { n: 4, de: 'L', a: 'C', q: 'A eventos.rediris.es = …', tipo: 'rec', clase: 'resp' }, yMsg(4), 4050)],
     vuelos: [V(M.C2, M.L, 'A? eventos.rediris.es', 'rec'), V(M.L, M.A, 'A? eventos.rediris.es', 'ite', 1050),
       V(M.A, M.L, 'A …', 'bien', 2100), V(M.L, M.C2, 'A …', 'bien', 3150)],
-    notas: [
-      'And if someone asks for another name under rediris.es, the local resolver doesn’t have it, but it does have cached who the authoritative server for rediris.es is. It goes straight there: no root and no TLD.',
-      'That’s why, even though everything hangs from the root, the root servers get far fewer questions than you might think: caches do almost all the work.',
-    ],
-    ojo: 'eventos.rediris.es is an illustrative name; it doesn’t matter whether it exists.',
   },
   // ── Act V ──
   {
@@ -577,11 +479,6 @@ const PASOS = [
     msg: '**Recursive / iterative** describes **each query‑response pair**, not the whole resolution.',
     escena: () => [...bandas(), ...mapaRes({ cache: [0, 0, 0], reloj: 'ok', etiquetas: true }), ...secuencia(8),
       S('kurose', 840, 738, tarjeta([{ t: 'Kurose: Fig. 2.21 is this; 2.22 (all recursive) is what doesn’t happen.', weight: 600 }], { w: 740, size: 18, pad: 12 }), { d: 600 })],
-    notas: [
-      'Now we can name them. What confuses people most is asking “is this resolution recursive or iterative?” It’s the wrong question: every resolution has both.',
-      'Pair 1–8, between your computer and the local resolver, is recursive: “do it and bring me the result.” Pairs 2–3, 4–5 and 6–7, between the local resolver and the others, are iterative: “tell me what you know.” The colors have shown this from the start.',
-      'And here is where a lot of doubts come from: the textbook has two figures, 2.21 and 2.22, and they look like two alternative ways of resolving. They aren’t: 2.21 is what happens; 2.22 is what doesn’t happen, and we’ll see why in a moment.',
-    ],
   },
   {
     acto: 'V', titulo: 'What each one commits to',
@@ -601,11 +498,6 @@ const PASOS = [
         '• If not: a referral, “ask these ones” (NS + IP)',
         '• It replies and forgets: it keeps no state',
       ], { w: 750, size: 20, cls: 'ite' }), { d: 500 })],
-    notas: [
-      'What changes is the commitment of whoever answers. In a recursive query, the server commits to bringing back the final answer or an error; it never replies “ask someone else.” The client requests it with the RD bit and the server says whether it grants it with RA.',
-      'In an iterative query, the server replies with what it knows at that moment: the data, if it’s theirs, or a referral. And then it forgets.',
-    ],
-    pregunta: 'Who decides that a query is recursive? (The client requests it with RD; the server grants it or not, RA.)',
   },
   {
     acto: 'V', titulo: 'What if everything were recursive?',
@@ -631,11 +523,6 @@ const PASOS = [
     },
     vuelos: ['C', 'L', 'R', 'T'].map((k, i, a) => V([FILA[k], 360], [FILA[['L', 'R', 'T', 'A'][i]], 360], '?', 'rec', 650 * i, 600))
       .concat(['A', 'T', 'R', 'L'].map((k, i) => V([FILA[k], 360], [FILA[['T', 'R', 'L', 'C'][i]], 360], 'A', 'bien', 650 * (i + 4), 600))),
-    notas: [
-      'Let’s do the thought experiment: what if everyone were recursive? Your computer asks the local resolver to do it; the local resolver asks the root to do it; the root asks the TLD; the TLD asks the authoritative server. And the answer comes back undoing the chain.',
-      'It would work, but every link has to wait and remember who asked it. The root would have the queries of the entire Internet pending at the same time. That’s why root and TLD servers don’t offer recursion.',
-    ],
-    ojo: 'This is Kurose’s pure recursive query (Fig. 2.22 in the edition used in class): the book shows it as a contrast; root and TLD servers don’t recurse.',
   },
   {
     acto: 'V', titulo: 'What if everything were iterative?',
@@ -663,11 +550,6 @@ const PASOS = [
       const p = [200, [220, 430, 640][i]], t0 = i * 250;
       return [[1000, 220], [1000, 430], [1000, 640]].flatMap((s, j) => [V(p, s, '?', 'ite', t0 + j * 900, 420), V(s, p, j < 2 ? 'ref.' : 'A', j < 2 ? 'ref' : 'bien', t0 + j * 900 + 450, 420)]);
     }),
-    notas: [
-      'The other way around: what if everything were iterative, with no local resolver? Every computer would have the root hints and walk the tree on its own.',
-      'That would work too, but every computer would repeat the same work: there’s no shared cache to reuse what the one next to it found out. More traffic to the root and the TLDs, and more waiting for every user.',
-      'Conclusion: the mix isn’t a mess, it’s the design. Recursive where it pays to take the load off the computer and share the cache; iterative where the server can’t afford to keep state.',
-    ],
   },
   {
     acto: 'V', titulo: 'Back to the agency',
@@ -690,10 +572,6 @@ const PASOS = [
       });
       return r;
     },
-    notas: [
-      'Back to the agency from the beginning, now with all the pieces. You hand an errand to the agency and wait: that’s a recursive query. The agency goes from counter to counter and at each one they say “not here, go to that one over there”: iterative queries and referrals. At the last counter they get the document. The agency files away what it learns for next time: the cache.',
-      'And you never set foot at any counter, just as your computer never talks to the root.',
-    ],
   },
   // ── Act VI ──
   {
@@ -722,10 +600,5 @@ const PASOS = [
       });
       return r;
     },
-    notas: [
-      'And this is how it gets drawn, the way the exercises website practices it: each message with its source and destination (and the destination IP address), whether it is a query or a response, and what it carries in each section.',
-      'Notice the pattern in the responses: a referral carries an empty Answer section, NS records in Authority and the glue in Additional; the final answer carries the data in Answer. Remember these three kinds of response and you’ll be able to read any resolution.',
-    ],
-    ojo: 'Message 1 is sent by 10.0.0.5 and message 8 goes to 10.0.0.5: check that everyone understands that 8 is a different message from 7. The sections (Question, Answer, Authority, Additional) are explained slowly in a later class (GG22).',
   },
 ];

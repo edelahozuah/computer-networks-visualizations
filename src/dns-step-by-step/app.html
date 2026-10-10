@@ -41,14 +41,6 @@ body { background: var(--bg); color: var(--fg); font-family: var(--body); margin
 #dns-lienzo { display: block; width: 100%; height: auto; max-height: calc(100vh - 70px); cursor: pointer; user-select: none; }
 #dns-escenario:fullscreen #dns-lienzo { width: 100vw; height: 100vh; max-height: none; }
 .dns-ayuda { color: var(--muted); font-size: 0.8rem; margin: 6px 0 0; }
-.dns-notas { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 16px; margin-top: 10px; font-size: 1rem; line-height: 1.5; max-width: 90ch; }
-.dns-notas p { margin: 0.4em 0; }
-.n-cab { color: var(--muted); font-size: 0.9em; }
-.n-preg { border-left: 3px solid var(--ite); padding-left: 10px; }
-.n-ojo { border-left: 3px solid var(--sel); padding-left: 10px; }
-.n-sig { color: var(--muted); font-size: 0.9em; }
-.dns-pres { padding: 16px; font-size: 1.15rem; }
-.dns-pres .dns-notas { font-size: 1.25rem; max-width: none; }
 
 /* SVG */
 #dns-lienzo text { font-family: var(--body); fill: var(--fg); }
@@ -124,8 +116,6 @@ body { background: var(--bg); color: var(--fg); font-family: var(--body); margin
       <span class="dns-cont" id="dns-cont"></span>
       <button id="dns-sig" title="Siguiente (→, espacio, clic)">▶</button>
       <button id="dns-rep" title="Repetir la animación (R)">↻ Repetir</button>
-      <button id="dns-bnotas" title="Notas (N)">Notas</button>
-      <button id="dns-bpres" title="Ventana del presentador (P)">Presentador</button>
       <button id="dns-bfs" title="Pantalla completa (F)">Pantalla completa</button>
       <button id="dns-btema">Tema: auto</button>
     </div>
@@ -147,21 +137,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--body); margin
       <g id="dns-vuelos"></g>
     </svg>
   </div>
-  <p class="dns-ayuda">→ / espacio / clic: avanzar · ←: retroceder · R: repetir · N: notas · P: ventana del presentador · F: pantalla completa</p>
-  <section class="dns-notas" id="dns-notas" hidden></section>
-</div>
-
-<div class="dns dns-pres" id="dns-pres" hidden>
-  <div class="dns-barra">
-    <h1>DNS <span>· presentador</span></h1>
-    <div class="dns-ctrl">
-      <button id="dns-pres-ant">◀ Anterior</button>
-      <span class="dns-cont" id="dns-pres-cont"></span>
-      <button id="dns-pres-sig">Siguiente ▶</button>
-      <button id="dns-pres-rep">↻ Repetir</button>
-    </div>
-  </div>
-  <section class="dns-notas" id="dns-notas-pres"></section>
+  <p class="dns-ayuda">→ / espacio / clic: avanzar · ←: retroceder · R: repetir · F: pantalla completa</p>
 </div>
 
 <script>

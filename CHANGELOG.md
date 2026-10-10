@@ -3,6 +3,12 @@
 All notable changes to this repository are listed here. Each release gets its
 own DOI on Zenodo; the concept DOI in the README always points to the latest.
 
+## [Unreleased]
+
+### Removed
+- Speaker notes and presenter window of the DNS step by step source
+  (`src/dns-step-by-step`); the build now matches the published files.
+
 ## [0.1.0] - 2026-10-10
 
 DOI: [10.5281/zenodo.23285665](https://doi.org/10.5281/zenodo.23285665)

@@ -83,10 +83,11 @@ are larger and are developed from modular sources in `src/`, each with a
 |---|---|---|
 | `src/delay-diagram/` | bilingual editor with ES/EN switch | `01-introduction/delay-diagram.{es,en}.html` |
 | `src/http-persistent/` | bilingual, engine `motor.js` tested by `test_motor.js` | `02-application-layer/http/http-persistent.{es,en}.html` |
-| `src/dns-step-by-step/` | Spanish and English (`build_en.sh`), with speaker notes and a presenter window (key **P**) for lecturing | `02-application-layer/dns/dns-step-by-step.{es,en}.html` |
+| `src/dns-step-by-step/` | Spanish and English (`build_en.sh`); steps and scenes in `pasos.js`, tested by `test_pasos.js` | `02-application-layer/dns/dns-step-by-step.{es,en}.html` |
 
-The published files are derived from those builds with the language fixed and
-the lecturer-only features removed, so students get a focused page.
+The published files of the first two are derived from those builds with the
+language fixed and the language switch removed; those of DNS step by step are
+the builds themselves.
 `src/delay-lab-template/` holds the template and design guide the delay lab
 pieces share (common CSS and the `RT` helper object).
 
@@ -143,8 +144,7 @@ computadoras: un enfoque descendente*, y se usan en
 - **Metadatos** de cada visualización (título, resumen, conceptos y fórmulas,
   en los dos idiomas) en [`catalog.yml`](catalog.yml).
 - **Fuentes modulares** del diagrama de retardos, HTTP persistente y DNS paso a
-  paso en `src/`, con sus scripts de construcción y pruebas. La versión para el
-  profesor del DNS paso a paso incluye notas y ventana de presentador (tecla P).
+  paso en `src/`, con sus scripts de construcción y pruebas.
 - **Para añadir una visualización:** un fichero por idioma (`<id>.es.html`,
   `<id>.en.html`), su entrada en `catalog.yml`, la miniatura con
   `scripts/thumbnails.sh`, y `scripts/check.py` y `scripts/build_index.py`.
