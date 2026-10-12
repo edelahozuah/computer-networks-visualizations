@@ -38,6 +38,7 @@ are in use on [edelahozuah.github.io](https://edelahozuah.github.io/docencia/ar1
 | 2 · DNS | **DNS queries: you decide who is recursive**<br>Consultas DNS: decide tú quién es recursivo | Session 2.1 | [EN](02-application-layer/dns/dns-queries-mixed.en.html) · [ES](02-application-layer/dns/dns-queries-mixed.es.html) |
 | 2 · DNS | **DNS step by step**<br>DNS paso a paso | Session 2.2 | [EN](02-application-layer/dns/dns-step-by-step.en.html) · [ES](02-application-layer/dns/dns-step-by-step.es.html) · [source](src/dns-step-by-step/) |
 | 2 · HTTP | **Persistent HTTP: without and with pipelining**<br>HTTP persistente: sin y con canalización | Session 2.2 | [EN](02-application-layer/http/http-persistent.en.html) · [ES](02-application-layer/http/http-persistent.es.html) · [source](src/http-persistent/) |
+| 2 · HTTP | **Browser cache: cache or server?**<br>Caché del navegador: ¿caché o servidor? | Session 2.3 | [EN](02-application-layer/http/http-cache.en.html) · [ES](02-application-layer/http/http-cache.es.html) · [source](src/http-cache/) |
 <!-- catalog:end -->
 
 Each visualization has a thumbnail in `thumbnails/` and an entry in
@@ -75,7 +76,7 @@ scripts/                    check.py, build_index.py, thumbnails.sh
 
 ### Sources and builds
 
-Most visualizations are written directly as a single HTML file. Three of them
+Most visualizations are written directly as a single HTML file. Four of them
 are larger and are developed from modular sources in `src/`, each with a
 `build.sh` that runs its tests and assembles a complete document in `dist/`:
 
@@ -83,6 +84,7 @@ are larger and are developed from modular sources in `src/`, each with a
 |---|---|---|
 | `src/delay-diagram/` | bilingual editor with ES/EN switch | `01-introduction/delay-diagram.{es,en}.html` |
 | `src/http-persistent/` | bilingual, engine `motor.js` tested by `test_motor.js` | `02-application-layer/http/http-persistent.{es,en}.html` |
+| `src/http-cache/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `02-application-layer/http/http-cache.{es,en}.html` |
 | `src/dns-step-by-step/` | Spanish and English (`build_en.sh`); steps and scenes in `pasos.js`, tested by `test_pasos.js` | `02-application-layer/dns/dns-step-by-step.{es,en}.html` |
 
 The published files of the first two are derived from those builds with the

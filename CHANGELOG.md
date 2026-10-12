@@ -5,6 +5,11 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 
 ## [Unreleased]
 
+### Added
+- Browser cache: cache or server? (`http-cache`, session 2.3): decision tree, sequence
+  diagram and cache table for a page visited several times, with exercises. Source in
+  `src/http-cache` (engine tested by `test_motor.js`).
+
 ### Removed
 - Speaker notes and presenter window of the DNS step by step source
   (`src/dns-step-by-step`); the build now matches the published files.

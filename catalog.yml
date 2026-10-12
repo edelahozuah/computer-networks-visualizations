@@ -984,3 +984,86 @@ visualizations:
   thumbnail: thumbnails/http-persistent.jpg
   source: src/http-persistent
   added: '2026-10-05'
+- id: http-cache
+  topic: 2
+  collection: http
+  session: '2.3'
+  title:
+    es: 'Caché del navegador: ¿caché o servidor?'
+    en: 'Browser cache: cache or server?'
+  description:
+    es: >-
+      Una página con varios objetos visitada varias veces. Para cada objeto, el navegador aplica el árbol
+      de decisión: servirlo de la caché, revalidarlo con un GET condicional (304 o 200) o descargarlo de
+      nuevo. Sigue el camino en el árbol, los mensajes y el estado de la caché, y practica con ejercicios.
+    en: >-
+      A page with several objects visited several times. For each object, the browser follows the decision
+      tree: serve it from the cache, revalidate it with a conditional GET (304 or 200) or download it again.
+      Follow the path in the tree, the messages and the cache state, and practise with exercises.
+  summary:
+    es: >-
+      Simulador de la caché del navegador para una página web con su HTML base y varios objetos, visitada
+      varias veces. El servidor fija la frescura de cada objeto con Cache-Control (max-age=N, no-cache,
+      no-store o sin información) y toda respuesta 200 lleva Last-Modified. En cada visita, posterior a la
+      anterior en t segundos y con algunos objetos modificados en el servidor, el navegador decide objeto a
+      objeto siguiendo el árbol de decisión: si no está en caché, GET normal y 200 OK; si está y es fresca
+      (edad menor que max-age), se sirve de la caché sin ningún mensaje; si está y no es fresca (o es
+      no-cache), GET condicional con If-Modified-Since, y el servidor responde 304 Not Modified sin cuerpo
+      si no ha cambiado o 200 OK con el objeto nuevo si ha cambiado. La visualización muestra el camino
+      recorrido en el árbol, el diagrama de secuencia navegador–servidor de la visita, la tabla de la caché
+      antes y después (versión, edad, frescura, decisión) y el resumen de mensajes y bytes descargados.
+      El estudiante edita la página y las visitas, reproduce la decisión paso a paso, usa ejemplos
+      preparados, practica con ejercicios aleatorios y exporta el diagrama en SVG o PNG.
+    en: >-
+      A browser cache simulator for a web page with its HTML base file and several objects, visited several
+      times. The server sets the freshness of each object with Cache-Control (max-age=N, no-cache, no-store
+      or no information) and every 200 response carries Last-Modified. On each visit, t seconds after the
+      previous one and with some objects changed on the server, the browser decides object by object
+      following the decision tree: if it is not cached, normal GET and 200 OK; if it is cached and fresh
+      (age below max-age), it is served from the cache without any message; if it is cached but stale (or
+      no-cache), conditional GET with If-Modified-Since, answered with 304 Not Modified without a body if
+      it has not changed or 200 OK with the new object if it has. The visualization shows the path followed
+      in the tree, the browser–server sequence diagram of the visit, the cache table before and after
+      (version, age, freshness, decision) and a summary of messages and downloaded bytes. The student edits
+      the page and the visits, plays the decision step by step, uses prepared examples, practises with random
+      exercises and exports the diagram as SVG or PNG.
+  concepts:
+    es:
+    - caché web
+    - caché del navegador
+    - frescura
+    - Cache-Control
+    - max-age
+    - no-cache
+    - no-store
+    - GET condicional
+    - If-Modified-Since
+    - Last-Modified
+    - 304 Not Modified
+    - revalidación
+    en:
+    - web caching
+    - browser cache
+    - freshness
+    - Cache-Control
+    - max-age
+    - no-cache
+    - no-store
+    - conditional GET
+    - If-Modified-Since
+    - Last-Modified
+    - 304 Not Modified
+    - revalidation
+  formulas:
+    es:
+    - 'fresca ⇔ edad < max-age, con edad = ahora − instante en que se recibió la copia'
+    - '304 ⇔ GET condicional y Last-Modified de la copia = Last-Modified del servidor'
+    en:
+    - 'fresh ⇔ age < max-age, with age = now − time the copy was received'
+    - '304 ⇔ conditional GET and Last-Modified of the copy = Last-Modified on the server'
+  files:
+    es: 02-application-layer/http/http-cache.es.html
+    en: 02-application-layer/http/http-cache.en.html
+  thumbnail: thumbnails/http-cache.jpg
+  source: src/http-cache
+  added: '2026-10-12'

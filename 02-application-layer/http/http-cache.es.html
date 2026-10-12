@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caché del navegador: ¿caché o servidor?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Mismo banco de trabajo que HTTP persistente: panel de parámetros a la izquierda; árbol, diagrama y tabla a la derecha; una columna en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --html: #7a4fb5;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --camino: #fff1d6;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+.campo { display: flex; gap: 4px; flex: 1; min-width: 0; }
+input[type="text"], input[type="number"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.84rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="text"], input[type="number"] { width: 100%; }
+select { cursor: pointer; }
+select.ancho { flex: 1; width: 100%; font-family: var(--body); }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover { border-color: var(--fg); }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+button.btn.mini { padding: 2px 7px; font-size: 0.8rem; line-height: 1.3; }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.nota code, .narra code, td code { font-family: var(--mono); font-size: 0.92em; background: var(--suave); padding: 0 4px; border-radius: 3px; }
+.error { font-size: 0.84rem; color: var(--aviso); margin: 0; }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+.barra { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
+.dato { display: flex; gap: 6px; align-items: baseline; }
+.dato b { font-weight: 500; color: var(--muted); }
+.dato span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dato.fuerte span { font-weight: 500; color: var(--fg); }
+.pestanas { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+.pestanas button { font: inherit; font-size: 0.84rem; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.pestanas button[aria-selected="true"] { background: var(--trama); color: #fff; border-color: var(--trama); font-weight: 600; }
+.reproductor { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; flex-wrap: wrap; }
+.reproductor .t { font-family: var(--mono); font-size: 0.84rem; color: var(--sel); font-variant-numeric: tabular-nums; flex: 1; }
+.reproductor button.btn { padding: 4px 10px; min-width: 36px; }
+.narra { padding: 10px 14px 12px; font-size: 0.95rem; margin: 0; min-height: 2.6em; }
+.narra b { color: var(--trama); }
+.lienzo { overflow-x: auto; padding: 6px 8px 10px; }
+.lienzo svg { display: block; margin: 0 auto; width: 100%; height: auto; max-width: 100%; }
+.dos { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 6fr); }
+.dos > div { padding: 12px 14px; min-width: 0; }
+.dos > div + div { border-left: 1px solid var(--line); }
+@media (max-width: 1000px) { .dos { grid-template-columns: minmax(0, 1fr); } .dos > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+h3.mod { font-family: var(--display); font-weight: 700; font-size: 0.98rem; margin: 0 0 8px; }
+.objetos { display: grid; grid-template-columns: minmax(0, 1.25fr) 48px minmax(0, 1.45fr) 58px 24px; gap: 4px; align-items: center; font-size: 0.8rem; }
+.objetos .cab { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.objetos input, .objetos select { padding: 4px 5px; font-size: 0.8rem; }
+.visita { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.visita .cabv { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
+.visita .cabv b { font-weight: 600; }
+.visita input[type="number"] { width: 84px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 0.8rem; }
+.chips label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: var(--mono); }
+.pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pred .fila > label.et { min-width: 110px; font-family: var(--mono); color: var(--fg); }
+.fb { font-size: 0.84rem; margin: 0; }
+.fb.ok { color: var(--bien); }
+.fb.ko { color: var(--aviso); }
+table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+.tabla { overflow-x: auto; padding: 0 0 6px; }
+th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; border-top: 0; }
+td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.actual td { background: var(--camino); }
+tr.pend td { color: var(--muted); opacity: .55; }
+td.dec-cache { color: var(--bien); font-weight: 500; }
+td.dec-get200, td.dec-getc200 { color: var(--html); font-weight: 500; }
+td.dec-getc304 { color: var(--ack); font-weight: 500; }
+details.sup { padding: 0; }
+details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.oculto-archivo { display: none; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 14px 12px; font-size: 0.8rem; color: var(--muted); }
+.leyenda i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.vis { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1 data-en-html="Browser cache: &lt;span&gt;cache or server?&lt;/span&gt;">Caché del navegador: <span>¿caché o servidor?</span></h1>
+    <div class="cab-der"><p class="sub" data-en="A page with several objects visited more than once. For each object and each visit, the browser decides: serve it from the cache, revalidate it with a conditional GET, or download it again. Follow the decision tree and the messages it produces.">Una página con varios objetos visitada más de una vez. Para cada objeto y cada visita, el navegador decide: servirlo de la caché, revalidarlo con un GET condicional o descargarlo de nuevo. Sigue el árbol de decisión y los mensajes que produce.</p>
+    </div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL -->
+    <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2 data-en="Page">Página</h2>
+        <p class="nota" data-en="The first object is the HTML page; the rest are the objects it references. The server sets the freshness of each one with Cache-Control.">El primer objeto es la página HTML; los demás, los objetos que referencia. El servidor fija la frescura de cada uno con <code>Cache-Control</code>.</p>
+        <div class="objetos" id="objetos"></div>
+        <div class="fila"><button type="button" class="btn mini" id="b-add-obj" data-en="+ Object">+ Objeto</button></div>
+        <p class="nota" data-en="max-age in seconds. no-cache: stored but always revalidated. no-store and “none”: never stored.">max-age en segundos. <code>no-cache</code>: se guarda pero siempre se revalida. <code>no-store</code> y «sin frescura»: no se guardan.</p>
+        <p class="error" id="err-esc" hidden></p>
+      </section>
+
+      <section>
+        <h2 data-en="Visits">Visitas</h2>
+        <p class="nota" data-en="Each visit happens t seconds after the previous one. Tick the objects that changed on the server in between.">Cada visita ocurre t segundos después de la anterior. Marca los objetos que han cambiado en el servidor entre medias.</p>
+        <div id="visitas" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="fila"><button type="button" class="btn mini" id="b-add-vis" data-en="+ Visit">+ Visita</button></div>
+      </section>
+
+      <section>
+        <h2 data-en="Examples">Ejemplos</h2>
+        <div class="fila">
+          <button type="button" class="btn" data-preset="clase" data-en="Class example">Ejemplo de clase</button>
+          <button type="button" class="btn" data-preset="fresco" data-en="All fresh">Todo fresco</button>
+          <button type="button" class="btn" data-preset="caducado" data-en="All expired">Todo caducado</button>
+          <button type="button" class="btn" data-preset="nostore" data-en="no-store">no-store</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-en="Practice">Practicar</h2>
+        <p class="nota" data-en="Generates a random page and visits and hides the decisions: for each object of the chosen visit, say what the browser does and what the server answers.">Genera una página y unas visitas aleatorias y oculta las decisiones: para cada objeto de la visita elegida, di qué hace el navegador y qué responde el servidor.</p>
+        <div class="fila">
+          <button type="button" class="btn prim" id="b-ejercicio" data-en="New exercise">Nuevo ejercicio</button>
+          <button type="button" class="btn" id="b-ocultar" data-en="Hide decisions">Ocultar decisiones</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-en="View">Vista</h2>
+        <div class="fila"><label class="et" data-en="Theme">Tema</label>
+          <div class="seg" data-k="vista.tema"><button type="button" data-v="auto" data-en="Auto">Auto</button><button type="button" data-v="light" data-en="Light">Claro</button><button type="button" data-v="dark" data-en="Dark">Oscuro</button></div></div>
+      </section>
+
+      <section>
+        <h2 data-en="Export">Exportar</h2>
+        <div class="fila">
+          <button data-en="Download SVG" type="button" class="btn" id="b-svg">Descargar SVG</button>
+          <button data-en="Download PNG" type="button" class="btn" id="b-png">Descargar PNG</button>
+        </div>
+        <div class="fila">
+          <button data-en="Save scenario" type="button" class="btn" id="b-json">Guardar escenario</button>
+          <button data-en="Open scenario" type="button" class="btn" id="b-cargar">Abrir escenario</button>
+          <input type="file" id="f-archivo" accept="application/json,.json" class="oculto-archivo">
+          <button data-en="Reset" type="button" class="btn peligro" id="b-reset">Restablecer</button>
+        </div>
+        <label class="fila" style="font-size:.84rem;gap:6px;cursor:pointer"><input type="checkbox" data-k="vista.claro"> <span data-en="Always export in light colors">Exportar siempre en colores claros</span></label>
+      </section>
+    </form>
+
+    <!-- ZONA -->
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="barra" id="resumen"></div>
+        <div class="pestanas" id="pestanas" role="tablist"></div>
+        <div class="reproductor">
+          <button type="button" class="btn" id="r-ini" aria-label="Al principio" data-en-aria="To the start">⏮</button>
+          <button type="button" class="btn" id="r-ant" aria-label="Objeto anterior" data-en-aria="Previous object">◀</button>
+          <button type="button" class="btn prim" id="r-play" aria-label="Reproducir" data-en-aria="Play">▶</button>
+          <button type="button" class="btn" id="r-sig" aria-label="Objeto siguiente" data-en-aria="Next object">▶︎|</button>
+          <button type="button" class="btn" id="r-fin" aria-label="Al final" data-en-aria="To the end">⏭</button>
+          <span class="t" id="r-etq"></span>
+        </div>
+        <p class="narra" id="narra" aria-live="polite"></p>
+      </div>
+
+      <div class="tarjeta" id="t-pred" hidden>
+        <div class="pred">
+          <h2 data-en="Your answer">Tu respuesta</h2>
+          <p class="nota" id="pred-nota"></p>
+          <div id="pred-filas" style="display:flex;flex-direction:column;gap:6px"></div>
+          <p class="fb" id="fb"></p>
+          <div class="fila">
+            <button type="button" class="btn prim" id="b-comprobar" data-en="Check">Comprobar</button>
+            <button type="button" class="btn" id="b-solucion" data-en="Show solution">Ver solución</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <div class="dos">
+          <div><h3 class="mod" data-en="Decision tree">Árbol de decisión</h3><div class="lienzo" id="arbol"></div></div>
+          <div><h3 class="mod" data-en="Messages of this visit">Mensajes de la visita</h3><div class="lienzo" id="lienzo"></div></div>
+        </div>
+        <div class="leyenda" id="leyenda"></div>
+      </div>
+
+      <div class="tarjeta" id="t-tabla">
+        <h3 class="mod" style="padding:12px 14px 0" data-en="Cache before and after the visit">La caché antes y después de la visita</h3>
+        <div class="tabla" id="tabla"></div>
+      </div>
+
+      <details class="tarjeta sup">
+        <summary data-en="Model assumptions">Supuestos del modelo</summary>
+        <ul>
+          <li data-en="Every 200 OK response carries Last-Modified and its explicit freshness: Cache-Control: max-age=N (fresh for N seconds from the moment it was received), no-cache (stored, but always revalidated) or no-store (not stored). A response without freshness information is not stored either.">Toda respuesta <code>200 OK</code> lleva <code>Last-Modified</code> y su frescura explícita: <code>Cache-Control: max-age=N</code> (fresca N segundos desde que se recibió), <code>no-cache</code> (se guarda, pero se revalida siempre) o <code>no-store</code> (no se guarda). Una respuesta sin información de frescura tampoco se guarda.</li>
+          <li data-en="An object that is not in the cache is requested with a normal GET and answered with 200 OK.">Un objeto que no está en caché se pide con un GET normal y se responde con <code>200 OK</code>.</li>
+          <li data-en="A fresh copy (age < max-age) is served from the cache without any message.">Una copia fresca (edad &lt; max-age) se sirve de la caché sin ningún mensaje.</li>
+          <li data-en="A stale copy (age ≥ max-age, or no-cache) is revalidated with a conditional GET: If-Modified-Since equal to the Last-Modified of the copy. The server answers 304 Not Modified without a body if the object has not changed (the copy becomes fresh again for another max-age), or 200 OK with the new object if it has.">Una copia no fresca (edad ≥ max-age, o <code>no-cache</code>) se revalida con un GET condicional: <code>If-Modified-Since</code> igual al <code>Last-Modified</code> de la copia. El servidor responde <code>304 Not Modified</code> sin cuerpo si el objeto no ha cambiado (la copia vuelve a ser fresca durante otro max-age) o <code>200 OK</code> con el objeto nuevo si ha cambiado.</li>
+          <li data-en="The page is one more object: if it is fresh or revalidated with 304, the browser knows the embedded objects from the cached copy. Within a visit the page is handled first and then the objects in order, over a persistent connection without pipelining.">La página es un objeto más: si está fresca o se revalida con 304, el navegador conoce los objetos incrustados por la copia en caché. Dentro de una visita se trata primero la página y después los objetos en orden, por una conexión persistente sin canalización.</li>
+          <li data-en="Last-Modified is shown symbolically as “L·version”; each change on the server increases the version. Visits are instantaneous: the model says which messages are sent, not how long they take. Out of scope: ETag, heuristic freshness, proxies.">El <code>Last-Modified</code> se muestra de forma simbólica como «L·versión»; cada cambio en el servidor sube la versión. Las visitas son instantáneas: el modelo dice qué mensajes se envían, no cuánto tardan. Fuera del modelo: <code>ETag</code>, frescura heurística, proxies.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+// Motor de la caché del navegador: qué hace el navegador con cada objeto en cada visita.
+// Modelo didáctico de GG23 (AR1): frescura explícita por objeto (max-age, no-cache, no-store o sin
+// información), Last-Modified en toda respuesta 200, GET condicional con If-Modified-Since.
+// Las visitas son instantáneas: solo importa qué mensajes salen y qué responde el servidor.
+const MotorCache = (() => {
+  'use strict';
+
+  // Políticas de frescura que puede llevar un objeto
+  const POLITICAS = ['max-age', 'no-cache', 'no-store', 'sin'];
+
+  // esc: { objetos: [{ nombre, kb, politica, maxAge }], visitas: [{ t, modificados: [nombre] }] }
+  // Devuelve { visitas: [{ tAbs, pasos: [...], cacheAntes, cacheDespues, mensajes, kb, kbTotal }] }
+  function simular(esc) {
+    const objetos = esc.objetos;
+    const servidor = {};               // versión actual de cada objeto en el servidor
+    for (const o of objetos) servidor[o.nombre] = 1;
+    let cache = {};                    // nombre → { v, recibidoEn, maxAge, politica }
+    let tAbs = 0;
+    const visitas = [];
+    esc.visitas.forEach((vis, k) => {
+      tAbs += k === 0 ? 0 : Math.max(0, vis.t || 0);
+      for (const n of vis.modificados || []) if (n in servidor) servidor[n] += 1;
+      const cacheAntes = copia(cache);
+      const pasos = [];
+      let mensajes = 0, kb = 0, kbTotal = 0;
+      for (const o of objetos) {
+        kbTotal += o.kb;
+        const c = cache[o.nombre];
+        const vServ = servidor[o.nombre];
+        const paso = { nombre: o.nombre, kb: o.kb, politica: o.politica, maxAge: o.maxAge, vServidor: vServ };
+        if (!c) {
+          // 1. no está en caché → GET normal → 200
+          paso.enCache = false; paso.fresca = null; paso.edad = null;
+          paso.peticion = 'get'; paso.respuesta = '200'; paso.vRecibida = vServ;
+          paso.decision = 'get200';
+          mensajes += 2; kb += o.kb;
+          if (o.politica === 'max-age' || o.politica === 'no-cache') cache[o.nombre] = { v: vServ, recibidoEn: tAbs, maxAge: o.maxAge, politica: o.politica };
+          paso.guardada = o.politica === 'max-age' || o.politica === 'no-cache';
+        } else {
+          paso.enCache = true; paso.vCopia = c.v; paso.edad = tAbs - c.recibidoEn;
+          const fresca = c.politica === 'max-age' && paso.edad < c.maxAge;
+          paso.fresca = fresca;
+          if (fresca) {
+            // 2. fresca → se sirve de la caché, ningún mensaje
+            paso.peticion = null; paso.respuesta = null; paso.decision = 'cache';
+            paso.guardada = true;
+          } else {
+            // 3. no fresca → GET condicional
+            paso.peticion = 'getc';
+            if (c.v === vServ) {
+              paso.respuesta = '304'; paso.decision = 'getc304';
+              c.recibidoEn = tAbs;           // vuelve a ser fresca otro max-age
+              mensajes += 2;
+            } else {
+              paso.respuesta = '200'; paso.decision = 'getc200'; paso.vRecibida = vServ;
+              cache[o.nombre] = { v: vServ, recibidoEn: tAbs, maxAge: c.maxAge, politica: c.politica };
+              mensajes += 2; kb += o.kb;
+            }
+            paso.guardada = true;
+          }
+        }
+        pasos.push(paso);
+      }
+      visitas.push({ k, t: k === 0 ? 0 : vis.t, tAbs, modificados: (vis.modificados || []).filter(n => n in servidor), pasos, cacheAntes, cacheDespues: copia(cache), mensajes, kb, kbTotal });
+    });
+    return { visitas };
+  }
+
+  function copia(c) { const o = {}; for (const k in c) o[k] = { ...c[k] }; return o; }
+
+  // Comprobación del escenario; devuelve una lista de errores (vacía si es válido)
+  function validar(esc, L = (es) => es) {
+    const err = [];
+    if (!esc || !Array.isArray(esc.objetos) || !esc.objetos.length) { err.push(L('Hace falta al menos un objeto (la página).', 'At least one object (the page) is needed.')); return err; }
+    const nombres = new Set();
+    esc.objetos.forEach((o, i) => {
+      if (!o.nombre || !String(o.nombre).trim()) err.push(L(`El objeto ${i + 1} no tiene nombre.`, `Object ${i + 1} has no name.`));
+      else if (nombres.has(o.nombre)) err.push(L(`Nombre repetido: ${o.nombre}.`, `Duplicate name: ${o.nombre}.`));
+      nombres.add(o.nombre);
+      if (!(o.kb > 0)) err.push(L(`${o.nombre || i + 1}: el tamaño debe ser mayor que 0.`, `${o.nombre || i + 1}: the size must be greater than 0.`));
+      if (!POLITICAS.includes(o.politica)) err.push(L(`${o.nombre || i + 1}: política desconocida.`, `${o.nombre || i + 1}: unknown policy.`));
+      if (o.politica === 'max-age' && !(o.maxAge >= 0)) err.push(L(`${o.nombre || i + 1}: max-age debe ser un número mayor o igual que 0.`, `${o.nombre || i + 1}: max-age must be a number greater than or equal to 0.`));
+    });
+    if (!Array.isArray(esc.visitas) || !esc.visitas.length) err.push(L('Hace falta al menos una visita.', 'At least one visit is needed.'));
+    else esc.visitas.forEach((v, k) => { if (k > 0 && !(v.t >= 0)) err.push(L(`Visita ${k + 1}: el tiempo desde la anterior debe ser mayor o igual que 0.`, `Visit ${k + 1}: the time since the previous one must be greater than or equal to 0.`)); });
+    return err;
+  }
+
+  // Escenario aleatorio para practicar (azar inyectable para las pruebas)
+  function aleatorio(rnd = Math.random) {
+    const r = a => a[Math.floor(rnd() * a.length)];
+    const imgs = ['logo.png', 'foto.jpg', 'banner.png', 'mapa.svg', 'estilo.css', 'app.js', 'portada.jpg', 'icono.png'];
+    const n = r([2, 3, 3, 4]);
+    const elegidas = [];
+    while (elegidas.length < n) { const x = r(imgs); if (!elegidas.includes(x)) elegidas.push(x); }
+    const pol = () => { const p = r(['max-age', 'max-age', 'max-age', 'no-cache', 'no-store', 'sin']); return { politica: p, maxAge: p === 'max-age' ? r([60, 300, 600, 3600, 86400]) : 0 }; };
+    const objetos = [{ nombre: 'index.html', kb: r([2, 5, 10]), ...pol() }, ...elegidas.map(nm => ({ nombre: nm, kb: r([20, 50, 100, 200]), ...pol() }))];
+    const t2 = r([30, 120, 600, 1800, 7200, 172800]);
+    const mod = () => objetos.filter(() => rnd() < 0.35).map(o => o.nombre);
+    const visitas = [{ t: 0, modificados: [] }, { t: t2, modificados: mod() }];
+    if (rnd() < 0.5) visitas.push({ t: r([10, 300, 3600, 86400]), modificados: mod() });
+    return { objetos, visitas };
+  }
+
+  return { simular, validar, aleatorio, POLITICAS };
+})();
+if (typeof module !== 'undefined') module.exports = MotorCache;
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const CLAVE = 'httpCache.v1';
+  const CLARO = { '--lienzo': '#ffffff', '--fg': '#16202a', '--muted': '#5a6876', '--line': '#c8d1d9', '--suave': '#e7ecf0', '--trama': '#1f5fbf', '--ack': '#17855a', '--html': '#7a4fb5', '--sel': '#c97a00', '--aviso': '#b4482a', '--bien': '#17855a', '--camino': '#fff1d6', '--panel': '#ffffff' };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduceMov = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ------------------------------------------------------------ presets
+  const PRESETS = {
+    clase: { objetos: [
+      { nombre: 'index.html', kb: 10, politica: 'max-age', maxAge: 300 },
+      { nombre: 'logo.png', kb: 50, politica: 'max-age', maxAge: 86400 },
+      { nombre: 'foto.png', kb: 200, politica: 'no-cache', maxAge: 0 }],
+      visitas: [{ t: 0, modificados: [] }, { t: 600, modificados: ['foto.png'] }, { t: 100, modificados: [] }] },
+    fresco: { objetos: [
+      { nombre: 'index.html', kb: 10, politica: 'max-age', maxAge: 3600 },
+      { nombre: 'estilo.css', kb: 20, politica: 'max-age', maxAge: 86400 },
+      { nombre: 'logo.png', kb: 50, politica: 'max-age', maxAge: 86400 }],
+      visitas: [{ t: 0, modificados: [] }, { t: 120, modificados: ['logo.png'] }] },
+    caducado: { objetos: [
+      { nombre: 'index.html', kb: 10, politica: 'max-age', maxAge: 60 },
+      { nombre: 'portada.jpg', kb: 300, politica: 'max-age', maxAge: 60 },
+      { nombre: 'logo.png', kb: 50, politica: 'max-age', maxAge: 60 }],
+      visitas: [{ t: 0, modificados: [] }, { t: 3600, modificados: ['portada.jpg'] }, { t: 30, modificados: [] }] },
+    nostore: { objetos: [
+      { nombre: 'index.html', kb: 10, politica: 'no-store', maxAge: 0 },
+      { nombre: 'saldo.json', kb: 2, politica: 'sin', maxAge: 0 },
+      { nombre: 'logo.png', kb: 50, politica: 'max-age', maxAge: 86400 }],
+      visitas: [{ t: 0, modificados: [] }, { t: 10, modificados: [] }] }
+  };
+
+  // ------------------------------------------------------------ estado
+  function base() {
+    return { esc: JSON.parse(JSON.stringify(PRESETS.clase)), visita: 1, vista: { idioma: 'es', tema: 'auto', claro: true }, oculto: false };
+  }
+  function normalizar(o) {
+    if (!o || typeof o !== 'object' || !o.esc || !Array.isArray(o.esc.objetos)) return null;
+    const b = base();
+    const objetos = o.esc.objetos.map(x => ({ nombre: String(x.nombre ?? ''), kb: Number(x.kb), politica: MotorCache.POLITICAS.includes(x.politica) ? x.politica : 'max-age', maxAge: Number(x.maxAge) || 0 }));
+    const visitas = (Array.isArray(o.esc.visitas) && o.esc.visitas.length ? o.esc.visitas : b.esc.visitas).map((v, k) => ({ t: k === 0 ? 0 : Number(v.t) || 0, modificados: Array.isArray(v.modificados) ? v.modificados.map(String) : [] }));
+    return { esc: { objetos, visitas }, visita: Math.min(Math.max(0, Number(o.visita) || 0), visitas.length - 1), vista: { ...b.vista, ...(o.vista || {}) }, oculto: !!o.oculto };
+  }
+  function cargarLocal() { try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; } }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  let estado = cargarLocal() || base();
+  estado.vista.idioma = 'es';  // idioma fijo en cada copia
+  let paso = null;        // null = toda la visita; k = hasta el objeto k (0-based)
+  let animando = null;
+  let ultimoSVG = '';
+  let res = null;         // resultado de la simulación
+
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const leer = k => k.split('.').reduce((o, p) => o[p], estado);
+  const escribir = (k, v) => { const p = k.split('.'); p.slice(0, -1).reduce((o, q) => o[q], estado)[p.at(-1)] = v; };
+  const fmtN = v => Number(v).toLocaleString(L('es-ES', 'en-GB'), { maximumFractionDigits: 1, useGrouping: false });
+  const fmtKB = kb => fmtN(kb) + ' KB';
+  const fmtS = s => { if (s >= 86400 && s % 86400 === 0) return fmtN(s / 86400) + ' ' + L('d', 'd'); if (s >= 3600 && s % 3600 === 0) return fmtN(s / 3600) + ' h'; if (s >= 60 && s % 60 === 0) return fmtN(s / 60) + ' min'; return fmtN(s) + ' s'; };
+  const etqPol = o => o.politica === 'max-age' ? `max-age=${o.maxAge}` : o.politica === 'sin' ? L('sin frescura', 'no freshness') : o.politica;
+  const LM = (nombre, v) => `L${nombre.replace(/\..*$/, '')}·${v}`;
+
+  // ------------------------------------------------------------ panel: página y visitas
+  function rellenarObjetos() {
+    const o = estado.esc.objetos;
+    let h = `<div class="cab" data-en="Object">${L('Objeto', 'Object')}</div><div class="cab">KB</div><div class="cab">Cache-Control</div><div class="cab">max-age</div><div></div>`;
+    o.forEach((x, i) => {
+      const sel = p => x.politica === p ? ' selected' : '';
+      h += `<input type="text" data-obj="${i}" data-c="nombre" value="${esc(x.nombre)}" aria-label="${L('Nombre', 'Name')}">`;
+      h += `<input type="number" data-obj="${i}" data-c="kb" value="${esc(x.kb)}" min="0" step="1" aria-label="KB">`;
+      h += `<select data-obj="${i}" data-c="politica" aria-label="Cache-Control"><option value="max-age"${sel('max-age')}>max-age</option><option value="no-cache"${sel('no-cache')}>no-cache</option><option value="no-store"${sel('no-store')}>no-store</option><option value="sin"${sel('sin')}>${L('sin frescura', 'none')}</option></select>`;
+      h += `<input type="number" data-obj="${i}" data-c="maxAge" value="${esc(x.maxAge)}" min="0" step="1" aria-label="max-age"${x.politica === 'max-age' ? '' : ' disabled'}>`;
+      h += `<button type="button" class="btn mini" data-del-obj="${i}" aria-label="${L('Quitar', 'Remove')}" title="${L('Quitar', 'Remove')}"${i === 0 ? ' disabled' : ''}>×</button>`;
+    });
+    $('#objetos').innerHTML = h;
+  }
+  function rellenarVisitas() {
+    const vs = estado.esc.visitas, objs = estado.esc.objetos;
+    let h = '';
+    vs.forEach((v, k) => {
+      h += `<div class="visita"><div class="cabv"><b>${L('Visita', 'Visit')} ${k + 1}</b>`;
+      if (k === 0) h += `<span class="nota">${L('primera vez, caché vacía', 'first time, empty cache')}</span>`;
+      else h += `<span class="nota">${L('a los', 'after')}</span> <input type="number" data-vis="${k}" value="${esc(v.t)}" min="0" step="1" aria-label="${L('segundos desde la anterior', 'seconds since the previous one')}"> <span class="nota">s</span>`;
+      h += `<span style="flex:1"></span><button type="button" class="btn mini" data-del-vis="${k}" aria-label="${L('Quitar', 'Remove')}"${vs.length === 1 ? ' disabled' : ''}>×</button></div>`;
+      if (k > 0) {
+        h += `<div class="nota">${L('Modificados en el servidor desde la visita anterior:', 'Changed on the server since the previous visit:')}</div><div class="chips">`;
+        objs.forEach(o => { h += `<label><input type="checkbox" data-mod="${k}" value="${esc(o.nombre)}"${v.modificados.includes(o.nombre) ? ' checked' : ''}> ${esc(o.nombre)}</label>`; });
+        h += `</div>`;
+      }
+      h += `</div>`;
+    });
+    $('#visitas').innerHTML = h;
+  }
+  function rellenar() {
+    rellenarObjetos(); rellenarVisitas();
+    document.querySelectorAll('[data-k]').forEach(el => {
+      const v = leer(el.dataset.k);
+      if (el.classList.contains('seg')) marcarSeg(el, v);
+      else if (el.type === 'checkbox') el.checked = !!v;
+    });
+    aplicarTema();
+  }
+  function marcarSeg(seg, v) { seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+
+  $('#objetos').addEventListener('input', e => {
+    const el = e.target; if (!el.dataset.obj) return;
+    const o = estado.esc.objetos[Number(el.dataset.obj)];
+    const c = el.dataset.c;
+    const viejo = o.nombre;
+    if (c === 'nombre') { o.nombre = el.value; estado.esc.visitas.forEach(v => { v.modificados = v.modificados.map(n => n === viejo ? o.nombre : n); }); }
+    else if (c === 'kb') o.kb = Number(el.value);
+    else if (c === 'maxAge') o.maxAge = Number(el.value);
+    else if (c === 'politica') { o.politica = el.value; rellenarObjetos(); }
+    if (c === 'nombre') rellenarVisitas();
+    paso = null; pintar();
+  });
+  $('#objetos').addEventListener('click', e => {
+    const b = e.target.closest('[data-del-obj]'); if (!b) return;
+    const i = Number(b.dataset.delObj); const n = estado.esc.objetos[i].nombre;
+    estado.esc.objetos.splice(i, 1); estado.esc.visitas.forEach(v => { v.modificados = v.modificados.filter(x => x !== n); });
+    rellenarObjetos(); rellenarVisitas(); paso = null; pintar();
+  });
+  $('#b-add-obj').addEventListener('click', () => {
+    const usados = new Set(estado.esc.objetos.map(o => o.nombre));
+    const nombre = ['logo.png', 'foto.jpg', 'estilo.css', 'app.js', 'banner.png', 'mapa.svg', 'icono.png'].find(n => !usados.has(n)) || `objeto${estado.esc.objetos.length}.png`;
+    estado.esc.objetos.push({ nombre, kb: 50, politica: 'max-age', maxAge: 3600 });
+    rellenarObjetos(); rellenarVisitas(); paso = null; pintar();
+  });
+  $('#visitas').addEventListener('input', e => {
+    const el = e.target;
+    if (el.dataset.vis) { estado.esc.visitas[Number(el.dataset.vis)].t = Number(el.value); paso = null; pintar(); }
+    if (el.dataset.mod) {
+      const v = estado.esc.visitas[Number(el.dataset.mod)];
+      v.modificados = el.checked ? [...new Set([...v.modificados, el.value])] : v.modificados.filter(n => n !== el.value);
+      paso = null; pintar();
+    }
+  });
+  $('#visitas').addEventListener('click', e => {
+    const b = e.target.closest('[data-del-vis]'); if (!b) return;
+    estado.esc.visitas.splice(Number(b.dataset.delVis), 1);
+    if (estado.esc.visitas.length) estado.esc.visitas[0].t = 0;
+    estado.visita = Math.min(estado.visita, estado.esc.visitas.length - 1);
+    rellenarVisitas(); paso = null; pintar();
+  });
+  $('#b-add-vis').addEventListener('click', () => {
+    estado.esc.visitas.push({ t: 600, modificados: [] });
+    estado.visita = estado.esc.visitas.length - 1;
+    rellenarVisitas(); paso = null; pintar();
+  });
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    estado.esc = JSON.parse(JSON.stringify(PRESETS[b.dataset.preset])); estado.visita = 1; estado.oculto = false; paso = null;
+    rellenar(); pintar();
+  }));
+  document.querySelectorAll('.seg[data-k]').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    escribir(seg.dataset.k, b.dataset.v); marcarSeg(seg, b.dataset.v); aplicarTema(); pintar();
+  }));
+  document.querySelectorAll('input[type="checkbox"][data-k]').forEach(el => el.addEventListener('change', () => { escribir(el.dataset.k, el.checked); guardarLocal(); }));
+  function aplicarTema() { const t = estado.vista.tema; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+
+  // ------------------------------------------------------------ texto de cada decisión
+  const DEC = {
+    cache: { es: 'de la caché, sin mensajes', en: 'from the cache, no messages' },
+    get200: { es: 'GET normal → 200 OK', en: 'normal GET → 200 OK' },
+    getc304: { es: 'GET condicional → 304 Not Modified', en: 'conditional GET → 304 Not Modified' },
+    getc200: { es: 'GET condicional → 200 OK (objeto nuevo)', en: 'conditional GET → 200 OK (new object)' }
+  };
+  const decTxt = d => DEC[d][estado.vista.idioma === 'en' ? 'en' : 'es'];
+
+  function narrar(p, vis) {
+    const n = `<code>${esc(p.nombre)}</code>`;
+    if (!p.enCache) {
+      const g = p.guardada ? L(`se guarda en caché (${etqPol(p)}, ${LM(p.nombre, p.vRecibida)})`, `stored in the cache (${etqPol(p)}, ${LM(p.nombre, p.vRecibida)})`) : L(`no se guarda (${etqPol(p)})`, `not stored (${etqPol(p)})`);
+      return L(`${n}: no está en caché → <b>GET normal</b> → <b>200 OK</b> con el objeto (${fmtKB(p.kb)}); ${g}.`, `${n}: not in the cache → <b>normal GET</b> → <b>200 OK</b> with the object (${fmtKB(p.kb)}); ${g}.`);
+    }
+    const edad = L(`edad ${fmtS(p.edad)}`, `age ${fmtS(p.edad)}`);
+    if (p.fresca) return L(`${n}: en caché, ${edad} &lt; max-age ${fmtS(p.maxAge)} → <b>fresca</b> → se sirve de la caché, <b>ningún mensaje</b>.`, `${n}: in the cache, ${edad} &lt; max-age ${fmtS(p.maxAge)} → <b>fresh</b> → served from the cache, <b>no messages</b>.`);
+    const porque = p.politica === 'no-cache' ? L('<code>no-cache</code>: nunca es fresca', '<code>no-cache</code>: never fresh') : L(`${edad} ≥ max-age ${fmtS(p.maxAge)}: no es fresca`, `${edad} ≥ max-age ${fmtS(p.maxAge)}: stale`);
+    const cond = `<b>GET ${L('condicional', 'conditional')}</b> <code>If-Modified-Since: ${LM(p.nombre, p.vCopia)}</code>`;
+    if (p.respuesta === '304') return L(`${n}: en caché, ${porque} → ${cond} → el servidor tiene la misma versión → <b>304 Not Modified</b> sin cuerpo; la copia vuelve a ser fresca.`, `${n}: in the cache, ${porque} → ${cond} → the server has the same version → <b>304 Not Modified</b> without a body; the copy is fresh again.`);
+    return L(`${n}: en caché, ${porque} → ${cond} → el servidor tiene la ${LM(p.nombre, p.vServidor)} → <b>200 OK</b> con el objeto nuevo (${fmtKB(p.kb)}); se sustituye la copia.`, `${n}: in the cache, ${porque} → ${cond} → the server has ${LM(p.nombre, p.vServidor)} → <b>200 OK</b> with the new object (${fmtKB(p.kb)}); the copy is replaced.`);
+  }
+
+  // ------------------------------------------------------------ árbol de decisión (SVG)
+  function dibujarArbol(p) {
+    const W = 520, H = 400;
+    const camino = new Set();
+    if (p) {
+      camino.add('q1');
+      if (!p.enCache) { camino.add('e-no1'); camino.add('get'); camino.add('r200a'); camino.add('e-get'); }
+      else {
+        camino.add('e-si1'); camino.add('q2');
+        if (p.fresca) { camino.add('e-si2'); camino.add('cache'); }
+        else {
+          camino.add('e-no2'); camino.add('getc'); camino.add('e-getc'); camino.add('q3');
+          if (p.respuesta === '304') { camino.add('e-no3'); camino.add('r304'); } else { camino.add('e-si3'); camino.add('r200b'); }
+        }
+      }
+    }
+    const on = id => camino.has(id);
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Árbol de decisión de la caché del navegador', 'Browser cache decision tree'))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="12">`;
+    s += `<defs><marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--muted)" stroke-width="1.5"/></marker><marker id="fa2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--sel)" stroke-width="2"/></marker></defs>`;
+    s += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    const caja = (id, x, y, w, h, lineas, tipo) => {
+      const act = on(id);
+      const fill = act ? 'var(--camino)' : 'var(--panel)';
+      const stroke = act ? 'var(--sel)' : tipo === 'q' ? 'var(--trama)' : 'var(--line)';
+      s += `<g>` + (tipo === 'q'
+        ? `<path d="M${x + w / 2},${y} L${x + w},${y + h / 2} L${x + w / 2},${y + h} L${x},${y + h / 2} Z" fill="${fill}" stroke="${stroke}" stroke-width="${act ? 2 : 1.3}"/>`
+        : `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${act ? 2 : 1.2}"/>`);
+      lineas.forEach((t, i) => { s += `<text x="${x + w / 2}" y="${y + h / 2 + (i - (lineas.length - 1) / 2) * 14 + 4}" text-anchor="middle" fill="var(--fg)" font-weight="${i === 0 ? 600 : 400}" ${i > 0 ? 'font-size="11" fill="var(--muted)"' : ''}>${esc(t)}</text>`; });
+      s += `</g>`;
+    };
+    const flecha = (id, x1, y1, x2, y2, etq) => {
+      const act = on(id);
+      const mid = `${(x1 + x2) / 2},${y2}`;
+      s += `<path d="M${x1},${y1} L${x1},${y2} L${x2},${y2}" fill="none" stroke="${act ? 'var(--sel)' : 'var(--muted)'}" stroke-width="${act ? 2.2 : 1.3}" marker-end="url(#${act ? 'fa2' : 'fa'})"/>`;
+      if (etq) s += `<text x="${(x1 + x2) / 2}" y="${y2 - 5}" text-anchor="middle" font-size="11" font-weight="600" fill="${act ? 'var(--sel)' : 'var(--muted)'}">${esc(etq)}</text>`;
+      void mid;
+    };
+    const SI = L('sí', 'yes'), NO = 'no';
+    // q1
+    caja('q1', 190, 10, 140, 54, [L('¿Está en caché?', 'In the cache?')], 'q');
+    flecha('e-no1', 190 + 70 - 60, 37, 70, 100, NO);
+    caja('get', 10, 100, 120, 46, ['GET', L('normal', 'normal')]);
+    flecha('e-get', 70, 146, 70, 200, '');
+    caja('r200a', 10, 200, 120, 60, ['200 OK', L('se guarda', 'stored'), L('(salvo no-store/sin)', '(unless no-store/none)')]);
+    flecha('e-si1', 260, 64, 260, 100, SI);
+    caja('q2', 170, 100, 180, 60, [L('¿Es fresca?', 'Fresh?'), L('edad < max-age', 'age < max-age')], 'q');
+    flecha('e-si2', 350, 130, 398, 130, SI);
+    caja('cache', 400, 100, 110, 60, [L('de la caché', 'from cache'), L('ningún mensaje', 'no messages')]);
+    flecha('e-no2', 260, 160, 260, 200, NO);
+    caja('getc', 170, 200, 180, 50, [L('GET condicional', 'conditional GET'), 'If-Modified-Since']);
+    flecha('e-getc', 260, 250, 260, 290, '');
+    caja('q3', 160, 290, 200, 60, [L('¿Ha cambiado', 'Changed'), L('en el servidor?', 'on the server?')], 'q');
+    flecha('e-no3', 160, 320, 132, 320, NO);
+    caja('r304', 10, 290, 120, 60, ['304', 'Not Modified', L('vuelve a ser fresca', 'fresh again')]);
+    flecha('e-si3', 360, 320, 398, 320, SI);
+    caja('r200b', 400, 290, 110, 60, ['200 OK', L('objeto nuevo', 'new object'), L('sustituye la copia', 'replaces the copy')]);
+    s += `</svg>`;
+    return s;
+  }
+
+  // ------------------------------------------------------------ diagrama de secuencia (SVG)
+  function dibujarSecuencia(vis, hasta) {
+    const XN = 120, XS = 470, W = 590, TOP = 54, PASO = 44;
+    const filas = [];
+    vis.pasos.forEach((p, i) => {
+      const vivo = hasta === null || i <= hasta;
+      if (p.decision === 'cache') filas.push({ tipo: 'cache', p, vivo });
+      else { filas.push({ tipo: 'req', p, vivo }); filas.push({ tipo: 'res', p, vivo }); }
+    });
+    const H = TOP + filas.length * PASO + 30;
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Mensajes HTTP de la visita', 'HTTP messages of the visit'))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="12">`;
+    s += `<defs><marker id="fs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--fg)" stroke-width="1.6"/></marker></defs>`;
+    s += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    const cab = (x, t) => `<rect x="${x - 55}" y="8" width="110" height="28" rx="4" fill="var(--panel)" stroke="var(--line)"/><text x="${x}" y="27" text-anchor="middle" font-weight="600" fill="var(--fg)">${esc(t)}</text><line x1="${x}" y1="36" x2="${x}" y2="${H - 10}" stroke="var(--line)" stroke-dasharray="4 4"/>`;
+    s += cab(XN, L('Navegador', 'Browser')) + cab(XS, L('Servidor', 'Server'));
+    filas.forEach((f, i) => {
+      const y = TOP + i * PASO + 20;
+      const op = f.vivo ? 1 : 0.18;
+      const p = f.p;
+      if (f.tipo === 'cache') {
+        s += `<g opacity="${op}"><rect x="${XN + 12}" y="${y - 14}" width="230" height="26" rx="4" fill="var(--suave)" stroke="var(--bien)"/><text x="${XN + 22}" y="${y + 4}" fill="var(--bien)" font-weight="500">${esc(p.nombre)}: ${esc(L('de la caché (fresca)', 'from the cache (fresh)'))}</text></g>`;
+        return;
+      }
+      if (f.tipo === 'req') {
+        const cond = p.peticion === 'getc';
+        const etq = cond ? `GET ${p.nombre}` : `GET ${p.nombre}`;
+        const sub = cond ? `If-Modified-Since: ${LM(p.nombre, p.vCopia)}` : '';
+        s += `<g opacity="${op}"><line x1="${XN}" y1="${y}" x2="${XS - 2}" y2="${y + 8}" stroke="var(--fg)" stroke-width="1.5" marker-end="url(#fs)"/>`;
+        s += `<text x="${(XN + XS) / 2}" y="${y - 6}" text-anchor="middle" fill="var(--fg)" font-family="IBM Plex Mono, Menlo, monospace" font-weight="500">${esc(etq)}</text>`;
+        if (sub) s += `<text x="${(XN + XS) / 2}" y="${y + 20}" text-anchor="middle" fill="var(--trama)" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5">${esc(sub)}</text>`;
+        s += `</g>`;
+      } else {
+        const es304 = p.respuesta === '304';
+        const col = es304 ? 'var(--ack)' : 'var(--html)';
+        const etq = es304 ? '304 Not Modified' : `200 OK · ${p.nombre} (${fmtKB(p.kb)})`;
+        const sub = es304 ? L('sin cuerpo', 'no body') : `Last-Modified: ${LM(p.nombre, p.vRecibida)} · Cache-Control: ${etqPol(p)}`;
+        s += `<g opacity="${op}"><line x1="${XS}" y1="${y}" x2="${XN + 2}" y2="${y + 8}" stroke="${col}" stroke-width="${es304 ? 1.5 : 2.4}" ${es304 ? 'stroke-dasharray="6 3"' : ''} marker-end="url(#fs)"/>`;
+        s += `<text x="${(XN + XS) / 2}" y="${y - 6}" text-anchor="middle" fill="${col}" font-family="IBM Plex Mono, Menlo, monospace" font-weight="500">${esc(etq)}</text>`;
+        s += `<text x="${(XN + XS) / 2}" y="${y + 20}" text-anchor="middle" fill="var(--muted)" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5">${esc(sub)}</text></g>`;
+      }
+    });
+    if (!filas.length) s += `<text x="${W / 2}" y="${TOP + 20}" text-anchor="middle" fill="var(--muted)">${esc(L('Sin objetos', 'No objects'))}</text>`;
+    s += `</svg>`;
+    return s;
+  }
+
+  // ------------------------------------------------------------ tabla
+  function tabla(vis, hasta) {
+    const en = estado.vista.idioma === 'en';
+    let h = `<table><thead><tr><th>${L('Objeto', 'Object')}</th><th>Cache-Control</th><th>${L('Antes', 'Before')}</th><th>${L('Edad', 'Age')}</th><th>${L('¿Fresca?', 'Fresh?')}</th><th>${L('Decisión', 'Decision')}</th><th>${L('Después', 'After')}</th></tr></thead><tbody>`;
+    vis.pasos.forEach((p, i) => {
+      const pend = hasta !== null && i > hasta;
+      const act = hasta !== null && i === hasta;
+      const antes = vis.cacheAntes[p.nombre];
+      const despues = vis.cacheDespues[p.nombre];
+      const oc = estado.oculto;
+      h += `<tr class="${act ? 'actual' : ''}${pend ? ' pend' : ''}"><td><code>${esc(p.nombre)}</code> <span class="nota">${fmtKB(p.kb)}</span></td><td class="n">${esc(etqPol(p))}</td>`;
+      h += `<td class="n">${antes ? LM(p.nombre, antes.v) : '—'}</td>`;
+      h += `<td class="n">${pend || oc ? '?' : antes ? fmtS(p.edad) : '—'}</td>`;
+      h += `<td>${pend || oc ? '?' : !antes ? '—' : p.fresca ? L('sí', 'yes') : 'no'}</td>`;
+      h += `<td class="${pend || oc ? '' : 'dec-' + p.decision}">${pend || oc ? '?' : decTxt(p.decision)}</td>`;
+      h += `<td class="n">${pend || oc ? '?' : despues ? `${LM(p.nombre, despues.v)} · ${L('edad', 'age')} 0` : '—'}</td></tr>`;
+    });
+    h += `</tbody></table>`;
+    void en;
+    return h;
+  }
+
+  // ------------------------------------------------------------ pintar
+  function pintar() {
+    guardarLocal();
+    const errs = MotorCache.validar(estado.esc, L);
+    const errEl = $('#err-esc');
+    errEl.hidden = !errs.length; errEl.textContent = errs.join(' ');
+    if (errs.length) { $('#resumen').innerHTML = ''; $('#pestanas').innerHTML = ''; $('#arbol').innerHTML = ''; $('#lienzo').innerHTML = ''; $('#tabla').innerHTML = ''; $('#narra').innerHTML = ''; $('#r-etq').textContent = ''; return; }
+    res = MotorCache.simular(estado.esc);
+    estado.visita = Math.min(estado.visita, res.visitas.length - 1);
+    const vis = res.visitas[estado.visita];
+    const n = vis.pasos.length;
+    if (paso !== null && paso >= n) paso = null;
+    const hasta = estado.oculto ? -1 : paso;
+    const actual = paso !== null ? vis.pasos[paso] : null;
+
+    // pestañas de visitas
+    $('#pestanas').innerHTML = res.visitas.map((v, k) => `<button type="button" role="tab" aria-selected="${k === estado.visita}" data-vis-tab="${k}">${L('Visita', 'Visit')} ${k + 1} · ${k === 0 ? 't = 0' : '+' + fmtS(v.t)}${v.modificados.length ? ' ✎' : ''}</button>`).join('');
+
+    // resumen
+    const ahorro = vis.kbTotal > 0 ? 1 - vis.kb / vis.kbTotal : 0;
+    const mods = vis.modificados.length ? vis.modificados.join(', ') : L('ninguno', 'none');
+    const oc = estado.oculto;
+    $('#resumen').innerHTML = [
+      [L('Visita', 'Visit'), `${estado.visita + 1} / ${res.visitas.length}`],
+      [L('Tiempo desde la primera', 'Time since the first'), fmtS(vis.tAbs)],
+      [L('Cambiados en el servidor', 'Changed on the server'), mods],
+      [L('Mensajes', 'Messages'), oc ? '?' : String(vis.mensajes)],
+      [L('Descargado', 'Downloaded'), oc ? '?' : `${fmtKB(vis.kb)} / ${fmtKB(vis.kbTotal)}`],
+      [L('Ahorro', 'Saved'), oc ? '?' : fmtN(ahorro * 100) + ' %']
+    ].map(([k, v], i) => `<div class="dato${i >= 3 ? ' fuerte' : ''}"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
+
+    // reproductor
+    $('#r-etq').textContent = paso === null ? L(`toda la visita (${n} ${n === 1 ? 'objeto' : 'objetos'})`, `whole visit (${n} ${n === 1 ? 'object' : 'objects'})`) : `${paso + 1} / ${n} · ${vis.pasos[paso].nombre}`;
+    $('#narra').innerHTML = oc ? L('Decisiones ocultas: responde abajo y pulsa «Comprobar».', 'Decisions hidden: answer below and press “Check”.') : actual ? narrar(actual, vis) : L(`Visita ${estado.visita + 1}: ${vis.mensajes} mensajes, ${fmtKB(vis.kb)} descargados de ${fmtKB(vis.kbTotal)}. Usa ▶ o ▶| para ver la decisión de cada objeto.`, `Visit ${estado.visita + 1}: ${vis.mensajes} messages, ${fmtKB(vis.kb)} downloaded out of ${fmtKB(vis.kbTotal)}. Use ▶ or ▶| to see the decision for each object.`);
+
+    // árbol, diagrama, tabla
+    $('#arbol').innerHTML = dibujarArbol(oc ? null : actual);
+    ultimoSVG = oc ? '' : dibujarSecuencia(vis, hasta);
+    $('#lienzo').innerHTML = oc ? `<p class="nota" style="padding:30px 10px;text-align:center">${esc(L('Los mensajes se muestran al comprobar la respuesta.', 'The messages are shown when the answer is checked.'))}</p>` : ultimoSVG;
+    $('#leyenda').innerHTML = `<span><i style="background:var(--html)"></i>200 OK ${L('con el objeto', 'with the object')}</span><span><i style="background:var(--ack)"></i>304 Not Modified</span><span><i style="background:var(--suave);border:1px solid var(--bien)"></i>${L('servido de la caché', 'served from the cache')}</span><span>✎ ${L('visita con objetos cambiados en el servidor', 'visit with objects changed on the server')}</span>`;
+    $('#tabla').innerHTML = tabla(vis, hasta);
+
+    // predicción
+    $('#t-pred').hidden = !oc;
+    if (oc) rellenarPred(vis);
+    $('#b-ocultar').textContent = oc ? L('Mostrar decisiones', 'Show decisions') : L('Ocultar decisiones', 'Hide decisions');
+  }
+
+  $('#pestanas').addEventListener('click', e => { const b = e.target.closest('[data-vis-tab]'); if (!b) return; estado.visita = Number(b.dataset.visTab); paso = null; parar(); pintar(); });
+
+  // ------------------------------------------------------------ reproductor
+  function parar() { if (animando) { clearInterval(animando); animando = null; $('#r-play').textContent = '▶'; } }
+  function avanzar() {
+    const n = res ? res.visitas[estado.visita].pasos.length : 0;
+    if (paso === null) paso = 0; else if (paso + 1 < n) paso++; else { paso = null; parar(); }
+    pintar();
+  }
+  $('#r-ini').addEventListener('click', () => { parar(); paso = 0; pintar(); });
+  $('#r-fin').addEventListener('click', () => { parar(); paso = null; pintar(); });
+  $('#r-sig').addEventListener('click', () => { parar(); avanzar(); });
+  $('#r-ant').addEventListener('click', () => { parar(); const n = res ? res.visitas[estado.visita].pasos.length : 0; paso = paso === null ? Math.max(0, n - 1) : Math.max(0, paso - 1); pintar(); });
+  $('#r-play').addEventListener('click', () => {
+    if (animando) { parar(); return; }
+    if (reduceMov) { avanzar(); return; }
+    $('#r-play').textContent = '⏸'; paso = paso === null ? -1 : paso;
+    avanzar(); animando = setInterval(avanzar, 2600);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.key === ' ') { e.preventDefault(); $('#r-play').click(); }
+    else if (e.key === 'ArrowRight') { parar(); avanzar(); }
+    else if (e.key === 'ArrowLeft') { $('#r-ant').click(); }
+  });
+
+  // ------------------------------------------------------------ practicar
+  function rellenarPred(vis) {
+    $('#pred-nota').textContent = L(`Visita ${estado.visita + 1}, ${estado.visita === 0 ? 'caché vacía' : fmtS(vis.t) + ' después de la anterior'}; cambiados en el servidor: ${vis.modificados.length ? vis.modificados.join(', ') : 'ninguno'}. Para cada objeto, ¿qué ocurre?`, `Visit ${estado.visita + 1}, ${estado.visita === 0 ? 'empty cache' : fmtS(vis.t) + ' after the previous one'}; changed on the server: ${vis.modificados.length ? vis.modificados.join(', ') : 'none'}. What happens to each object?`);
+    const ops = ['cache', 'get200', 'getc304', 'getc200'];
+    const previo = {}; document.querySelectorAll('[data-pred]').forEach(s => { previo[s.dataset.pred] = s.value; });
+    $('#pred-filas').innerHTML = vis.pasos.map(p => `<div class="fila"><label class="et" for="pr-${esc(p.nombre)}">${esc(p.nombre)}</label><div class="campo"><select class="ancho" id="pr-${esc(p.nombre)}" data-pred="${esc(p.nombre)}"><option value="">—</option>${ops.map(o => `<option value="${o}"${previo[p.nombre] === o ? ' selected' : ''}>${esc(decTxt(o))}</option>`).join('')}</select></div></div>`).join('');
+    $('#fb').textContent = ''; $('#fb').className = 'fb';
+  }
+  $('#b-ejercicio').addEventListener('click', () => {
+    estado.esc = MotorCache.aleatorio(); estado.visita = 1; estado.oculto = true; paso = null; parar();
+    rellenar(); pintar();
+  });
+  $('#b-ocultar').addEventListener('click', () => { estado.oculto = !estado.oculto; paso = null; parar(); pintar(); });
+  $('#b-comprobar').addEventListener('click', () => {
+    if (!res) return;
+    const vis = res.visitas[estado.visita];
+    let bien = 0, sin = 0;
+    const malos = [];
+    vis.pasos.forEach(p => { const v = $(`[data-pred="${CSS.escape(p.nombre)}"]`)?.value; if (!v) sin++; else if (v === p.decision) bien++; else malos.push(p.nombre); });
+    const fb = $('#fb');
+    if (sin) { fb.className = 'fb ko'; fb.textContent = L(`Faltan ${sin} respuestas.`, `${sin} answers missing.`); return; }
+    if (!malos.length) { fb.className = 'fb ok'; fb.textContent = L(`Correcto: ${bien} de ${vis.pasos.length}.`, `Correct: ${bien} out of ${vis.pasos.length}.`); estado.oculto = false; pintar(); toast(L('¡Bien! Ahí tienes los mensajes.', 'Well done! Here are the messages.')); }
+    else { fb.className = 'fb ko'; fb.textContent = L(`${bien} de ${vis.pasos.length} correctas. Revisa: ${malos.join(', ')}. Piensa si está en caché, si es fresca y si ha cambiado en el servidor.`, `${bien} out of ${vis.pasos.length} correct. Check: ${malos.join(', ')}. Think about whether it is cached, whether it is fresh and whether it changed on the server.`); }
+  });
+  $('#b-solucion').addEventListener('click', () => { estado.oculto = false; paso = 0; pintar(); });
+
+  // ------------------------------------------------------------ exportar
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('vis'), 1800); }
+  function svgExportable(svg) {
+    const cs = getComputedStyle(document.documentElement);
+    const color = n => (estado.vista.claro ? CLARO[n] : cs.getPropertyValue(n).trim()) || '#000';
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + svg.replace(/var\((--[\w-]+)\)/g, (_, n) => color(n));
+  }
+  function descargar(blob, nombreArchivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nombreArchivo;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  const sinDiagrama = () => { if (estado.oculto || !ultimoSVG) { toast(L('Muestra las decisiones para exportar el diagrama', 'Show the decisions to export the diagram')); return true; } return false; };
+  const nombreExp = () => L('cache-navegador', 'browser-cache') + '-' + L('visita', 'visit') + (estado.visita + 1);
+  $('#b-svg').addEventListener('click', () => { if (!sinDiagrama()) descargar(new Blob([svgExportable(ultimoSVG)], { type: 'image/svg+xml' }), nombreExp() + '.svg'); });
+  $('#b-png').addEventListener('click', () => {
+    if (sinDiagrama()) return;
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svgExportable(ultimoSVG)], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      const c = document.createElement('canvas'), f = 2;
+      c.width = img.width * f; c.height = img.height * f;
+      const ctx = c.getContext('2d'); ctx.scale(f, f); ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b && descargar(b, nombreExp() + '.png'), 'image/png');
+    };
+    img.onerror = () => toast(L('No se pudo generar el PNG', 'Could not create the PNG'));
+    img.src = url;
+  });
+  $('#b-json').addEventListener('click', () => descargar(new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' }), L('escenario-cache', 'cache-scenario') + '.json'));
+  $('#b-cargar').addEventListener('click', () => $('#f-archivo').click());
+  $('#f-archivo').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const s = normalizar(JSON.parse(await f.text()));
+      if (!s) throw new Error();
+      s.vista.idioma = estado.vista.idioma;
+      estado = s; parar(); paso = null; rellenar(); pintar(); toast(L('Escenario cargado', 'Scenario loaded'));
+    } catch { toast(L('El fichero no es un escenario válido', 'The file is not a valid scenario')); }
+  });
+  $('#b-reset').addEventListener('click', () => { const i = estado.vista.idioma; estado = base(); estado.vista.idioma = i; parar(); paso = null; rellenar(); pintar(); });
+
+  // ------------------------------------------------------------ idioma
+  const ORIG = new WeakMap();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'Browser cache: cache or server?' : 'Caché del navegador: ¿caché o servidor?';
+    if ($('#idioma')) marcarSeg($('#idioma'), estado.vista.idioma);
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 't', el.textContent); el.textContent = en ? el.dataset.en : es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+    rellenar();
+  }
+  
+
+  rellenar();
+  aplicarIdioma();
+  pintar();
+})();
+</script>
+
+</body>
+</html>
