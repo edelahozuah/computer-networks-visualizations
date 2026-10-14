@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cookies: state on top of HTTP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Mismo banco de trabajo que HTTP persistente: panel de parámetros a la izquierda; árbol, diagrama y tabla a la derecha; una columna en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --html: #7a4fb5;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --camino: #fff1d6;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+.campo { display: flex; gap: 4px; flex: 1; min-width: 0; }
+input[type="text"], input[type="number"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.84rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="text"], input[type="number"] { width: 100%; }
+select { cursor: pointer; }
+select.ancho { flex: 1; width: 100%; font-family: var(--body); }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover { border-color: var(--fg); }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+button.btn.mini { padding: 2px 7px; font-size: 0.8rem; line-height: 1.3; }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.nota code, .narra code, td code { font-family: var(--mono); font-size: 0.92em; background: var(--suave); padding: 0 4px; border-radius: 3px; }
+.error { font-size: 0.84rem; color: var(--aviso); margin: 0; }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+.barra { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
+.dato { display: flex; gap: 6px; align-items: baseline; }
+.dato b { font-weight: 500; color: var(--muted); }
+.dato span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dato.fuerte span { font-weight: 500; color: var(--fg); }
+.pestanas { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+.pestanas button { font: inherit; font-size: 0.84rem; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.pestanas button[aria-selected="true"] { background: var(--trama); color: #fff; border-color: var(--trama); font-weight: 600; }
+.reproductor { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; flex-wrap: wrap; }
+.reproductor .t { font-family: var(--mono); font-size: 0.84rem; color: var(--sel); font-variant-numeric: tabular-nums; flex: 1; }
+.reproductor button.btn { padding: 4px 10px; min-width: 36px; }
+.narra { padding: 10px 14px 12px; font-size: 0.95rem; margin: 0; min-height: 2.6em; }
+.narra b { color: var(--trama); }
+.lienzo { overflow-x: auto; padding: 6px 8px 10px; }
+.lienzo svg { display: block; margin: 0 auto; width: 100%; height: auto; max-width: 100%; }
+.dos { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 6fr); }
+.dos > div { padding: 12px 14px; min-width: 0; }
+.dos > div + div { border-left: 1px solid var(--line); }
+@media (max-width: 1000px) { .dos { grid-template-columns: minmax(0, 1fr); } .dos > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+h3.mod { font-family: var(--display); font-weight: 700; font-size: 0.98rem; margin: 0 0 8px; }
+.objetos { display: grid; grid-template-columns: minmax(0, 1.25fr) 48px minmax(0, 1.45fr) 58px 24px; gap: 4px; align-items: center; font-size: 0.8rem; }
+.objetos .cab { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.objetos input, .objetos select { padding: 4px 5px; font-size: 0.8rem; }
+.visita { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.visita .cabv { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
+.visita .cabv b { font-weight: 600; }
+.visita input[type="number"] { width: 84px; }
+.visita .cabv input[type="number"] { width: 104px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 0.8rem; }
+.chips label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: var(--mono); }
+.pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pred .fila > label.et { min-width: 110px; font-family: var(--mono); color: var(--fg); }
+.fb { font-size: 0.84rem; margin: 0; }
+.fb.ok { color: var(--bien); }
+.fb.ko { color: var(--aviso); }
+table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+.tabla { overflow-x: auto; padding: 0 0 6px; }
+th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; border-top: 0; }
+td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.actual td { background: var(--camino); }
+tr.pend td { color: var(--muted); opacity: .55; }
+td.dec-cache { color: var(--bien); font-weight: 500; }
+td.dec-get200, td.dec-getc200 { color: var(--html); font-weight: 500; }
+td.dec-getc304 { color: var(--ack); font-weight: 500; }
+details.sup { padding: 0; }
+details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.oculto-archivo { display: none; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 14px 12px; font-size: 0.8rem; color: var(--muted); }
+.leyenda i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.vis { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+/* Propio de cookies */
+.sitio { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.sitio .cabs { display: flex; align-items: center; gap: 6px; }
+.sitio .cabs input[type="text"] { flex: 1; font-weight: 500; }
+.sitio label.chk { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; cursor: pointer; white-space: nowrap; }
+.cookiedef { display: grid; grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1.1fr) minmax(0, 1.3fr); gap: 4px; align-items: center; font-size: 0.8rem; }
+.cookiedef .igual { text-align: center; color: var(--muted); font-family: var(--mono); }
+.cookiedef input { padding: 4px 5px; font-size: 0.8rem; }
+.objs { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) 24px; gap: 4px; align-items: center; font-size: 0.8rem; }
+.objs .cab { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.objs input, .objs select { padding: 4px 5px; font-size: 0.8rem; }
+.objs select { font-family: var(--mono); }
+.inicial { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) 10px minmax(0, 0.8fr) 24px; gap: 4px; align-items: center; font-size: 0.8rem; }
+.inicial input { padding: 4px 5px; font-size: 0.8rem; }
+.inicial .igual { text-align: center; color: var(--muted); font-family: var(--mono); }
+.visita select { font-family: var(--mono); font-size: 0.8rem; padding: 4px 5px; flex: 1; min-width: 0; }
+.visita label.chk { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; cursor: pointer; }
+td.dec-envia { color: var(--trama); font-weight: 500; }
+td.dec-nueva { color: var(--html); font-weight: 500; }
+td.dec-ninguna { color: var(--muted); }
+td.borrada { color: var(--aviso); }
+.narra .ck { color: var(--trama); }
+.narra .sk { color: var(--html); }
+</style>
+</head>
+<body>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1>Cookies: <span>state on top of HTTP</span></h1>
+    <div class="cab-der"><p class="sub">Several sites, some of which use cookies, visited several times. For each request, the browser looks in its cookie store: if it has a live cookie for that site it sends Cookie; if not, the server may answer with Set-Cookie. Follow the decision, the messages and the store.</p>
+    </div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL -->
+    <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2>Sites</h2>
+        <p class="nota">Each site has a page (index.html) with objects, which may be hosted by another site (third party). A site that uses cookies assigns the indicated cookie to a browser that arrives without it. Max-Age in seconds; empty: session cookie, deleted when the browser closes.</p>
+        <div id="sitios" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="fila"><button type="button" class="btn mini" id="b-add-sitio">+ Site</button></div>
+        <p class="error" id="err-esc" hidden></p>
+      </section>
+
+      <section>
+        <h2>Cookies already in the store</h2>
+        <p class="nota">Rows of other sites in the cookie store before the first visit. They do not expire in this scenario.</p>
+        <div class="inicial" id="inicial"></div>
+        <div class="fila"><button type="button" class="btn mini" id="b-add-ini">+ Cookie</button></div>
+      </section>
+
+      <section>
+        <h2>Visits</h2>
+        <p class="nota">Each visit loads the page of a site t seconds after the previous visit. Tick whether the browser was closed in between: session cookies are then deleted; the rest survive until their Max-Age.</p>
+        <div id="visitas" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="fila"><button type="button" class="btn mini" id="b-add-vis">+ Visit</button></div>
+      </section>
+
+      <section>
+        <h2>Examples</h2>
+        <div class="fila">
+          <button type="button" class="btn" data-preset="clase">Class example</button>
+          <button type="button" class="btn" data-preset="kurose">Kurose fig. 2.10</button>
+          <button type="button" class="btn" data-preset="terceros">Third-party tracking</button>
+          <button type="button" class="btn" data-preset="sesion">Session cookie</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Practice</h2>
+        <p class="nota">Generates random sites and visits and hides the headers: for each request of the chosen visit, say whether it carries Cookie and whether the response carries Set-Cookie.</p>
+        <div class="fila">
+          <button type="button" class="btn prim" id="b-ejercicio">New exercise</button>
+          <button type="button" class="btn" id="b-ocultar">Hide headers</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <div class="fila"><label class="et">Theme</label>
+          <div class="seg" data-k="vista.tema"><button type="button" data-v="auto">Auto</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div></div>
+      </section>
+
+      <section>
+        <h2>Export</h2>
+        <div class="fila">
+          <button type="button" class="btn" id="b-svg">Download SVG</button>
+          <button type="button" class="btn" id="b-png">Download PNG</button>
+        </div>
+        <div class="fila">
+          <button type="button" class="btn" id="b-json">Save scenario</button>
+          <button type="button" class="btn" id="b-cargar">Open scenario</button>
+          <input type="file" id="f-archivo" accept="application/json,.json" class="oculto-archivo">
+          <button type="button" class="btn peligro" id="b-reset">Reset</button>
+        </div>
+        <label class="fila" style="font-size:.84rem;gap:6px;cursor:pointer"><input type="checkbox" data-k="vista.claro"> <span>Always export in light colors</span></label>
+      </section>
+    </form>
+
+    <!-- ZONA -->
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="barra" id="resumen"></div>
+        <div class="pestanas" id="pestanas" role="tablist"></div>
+        <div class="reproductor">
+          <button type="button" class="btn" id="r-ini" aria-label="To the start">⏮</button>
+          <button type="button" class="btn" id="r-ant" aria-label="Previous request">◀</button>
+          <button type="button" class="btn prim" id="r-play" aria-label="Play">▶</button>
+          <button type="button" class="btn" id="r-sig" aria-label="Next request">▶︎|</button>
+          <button type="button" class="btn" id="r-fin" aria-label="To the end">⏭</button>
+          <span class="t" id="r-etq"></span>
+        </div>
+        <p class="narra" id="narra" aria-live="polite"></p>
+      </div>
+
+      <div class="tarjeta" id="t-pred" hidden>
+        <div class="pred">
+          <h2>Your answer</h2>
+          <p class="nota" id="pred-nota"></p>
+          <div id="pred-filas" style="display:flex;flex-direction:column;gap:6px"></div>
+          <p class="fb" id="fb"></p>
+          <div class="fila">
+            <button type="button" class="btn prim" id="b-comprobar">Check</button>
+            <button type="button" class="btn" id="b-solucion">Show solution</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <div class="dos">
+          <div><h3 class="mod">Decision for each request</h3><div class="lienzo" id="arbol"></div></div>
+          <div><h3 class="mod">Messages of this visit</h3><div class="lienzo" id="lienzo"></div></div>
+        </div>
+        <div class="leyenda" id="leyenda"></div>
+      </div>
+
+      <div class="tarjeta" id="t-tabla">
+        <h3 class="mod" style="padding:12px 14px 0">Cookie store before and after the visit</h3>
+        <div class="tabla" id="tabla"></div>
+      </div>
+
+      <div class="tarjeta" id="t-conocido">
+        <h3 class="mod" style="padding:12px 14px 0">What each server knows so far</h3>
+        <p class="nota" style="padding:4px 14px 0">A server that uses cookies sees the same value in every request that carries it, and the Referer header tells it which page the request came from.</p>
+        <div class="tabla" id="conocido"></div>
+      </div>
+
+      <details class="tarjeta sup">
+        <summary>Model assumptions</summary>
+        <ul>
+          <li>HTTP is stateless: each request arrives without memory of the previous ones. Cookies add that state on top: Set-Cookie in responses, Cookie in requests, and a cookie store managed by the browser with one row (site, name=value, expiry) per cookie.</li>
+          <li>A site that uses cookies answers a request that arrives without its cookie with Set-Cookie: a new identifier, only in that response. The browser stores the row and from then on sends Cookie in every request to that site: the embedded objects, later visits, and also requests made from a page of another site (third-party cookie).</li>
+          <li>The store is per site: a cookie is never sent to another site. One cookie per site in this model.</li>
+          <li>With Max-Age=N the cookie lives N seconds from when it was received; when it expires, the browser deletes it and the next request arrives without it, so the server assigns a new identifier. Without Max-Age (or Expires) it is a session cookie: it is deleted when the browser closes.</li>
+          <li>Within a visit the page is requested first and then its objects in order. Every response is 200 OK; the cache, authorization (401) and the other cookie attributes (Domain, Path, Secure, HttpOnly) are out of the model. Visits are instantaneous.</li>
+          <li>The cookie value is only a key: the real state (session, cart, what pages a browser has visited) is in the server's database. A cookie identifies a browser on a computer, not a person.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+// Motor de cookies HTTP: qué cabeceras de estado lleva cada mensaje de cada visita.
+// Modelo didáctico de GG23 (AR1), el mismo que SEC_HTTP_ESTADO de la web de ejercicios (Practica_Web
+// docs/18): el almacén de cookies del navegador tiene una fila por sitio; el servidor que usa cookies pone
+// Set-Cookie solo en la respuesta a una petición que llega sin su cookie; desde entonces toda petición a ese
+// sitio lleva Cookie, también en visitas posteriores y también desde páginas de otros sitios (terceros).
+// Una cookie muere al caducar (Max-Age) o, si no tiene Max-Age, al cerrar el navegador.
+const MotorCookies = (() => {
+  'use strict';
+
+  // esc: { sitios: [{ host, usaCookies, nombre, valor, maxAge (s; null = de sesión), objetos: [{ nombre, host }] }],
+  //        almacenInicial: [{ host, nombre, valor }]   (cookies que el navegador ya tenía; no caducan en el escenario)
+  //        visitas: [{ sitio (host), t (s desde la anterior), cerrado (el navegador se cerró entre medias) }] }
+  // Devuelve { visitas: [{ k, t, tAbs, sitio, cerrado, borradas, pasos, almacenAntes, almacenDespues, conCookie,
+  //            setCookies, mensajes, conocido }] }
+  function simular(esc) {
+    const sitios = {};
+    for (const s of esc.sitios) sitios[s.host] = s;
+    const siguiente = {};                       // host → próximo valor que asignará el servidor
+    for (const s of esc.sitios) siguiente[s.host] = String(s.valor ?? '');
+    const conocido = {};                        // host → [{ valor, vistas: [{ k, pagina, objeto }] }]
+    for (const s of esc.sitios) if (s.usaCookies) conocido[s.host] = [];
+    let almacen = (esc.almacenInicial || []).map(c => ({ host: c.host, nombre: c.nombre, valor: String(c.valor), recibidoEn: 0, maxAge: null, persistente: true, desde: 0 }));
+    const motivo = {};                          // host → por qué no hay cookie suya ('nunca' | 'caducada' | 'cierre')
+    let tAbs = 0;
+    const visitas = [];
+    esc.visitas.forEach((vis, k) => {
+      tAbs += k === 0 ? 0 : Math.max(0, vis.t || 0);
+      const cerrado = k > 0 && !!vis.cerrado;
+      // 1. limpieza del almacén al empezar la visita
+      const borradas = [];
+      almacen = almacen.filter(c => {
+        if (c.persistente) return true;
+        if (c.maxAge === null) { if (cerrado) { borradas.push({ ...c, motivo: 'cierre' }); motivo[c.host] = 'cierre'; return false; } return true; }
+        if (tAbs - c.recibidoEn >= c.maxAge) { borradas.push({ ...c, motivo: 'caducada' }); motivo[c.host] = 'caducada'; return false; }
+        return true;
+      });
+      const almacenAntes = copia(almacen, tAbs);
+      // 2. peticiones de la visita: la página y después sus objetos, en orden
+      const sitio = sitios[vis.sitio];
+      const peticiones = [{ nombre: 'index.html', host: vis.sitio }, ...(sitio.objetos || []).map(o => ({ nombre: o.nombre, host: o.host }))];
+      const pasos = [];
+      let conCookie = 0, setCookies = 0;
+      for (const pet of peticiones) {
+        const servidor = sitios[pet.host];
+        const fila = almacen.find(c => c.host === pet.host);
+        const tercero = pet.host !== vis.sitio;
+        const paso = { nombre: pet.nombre, host: pet.host, tercero, pagina: vis.sitio, usaCookies: !!servidor.usaCookies, edad: fila ? tAbs - fila.recibidoEn : null };
+        if (fila) {
+          paso.cookie = `${fila.nombre}=${fila.valor}`; paso.valor = fila.valor; paso.setCookie = null; paso.decision = 'envia'; paso.motivo = fila.persistente ? 'inicial' : 'guardada';
+          conCookie++;
+          if (servidor.usaCookies) anotar(conocido, pet.host, fila.valor, k, vis.sitio, pet.nombre);
+        } else {
+          paso.cookie = null; paso.motivo = motivo[pet.host] || 'nunca';
+          if (servidor.usaCookies) {
+            const valor = siguiente[pet.host];
+            siguiente[pet.host] = incrementar(valor);
+            paso.setCookie = `${servidor.nombre}=${valor}` + (servidor.maxAge === null ? '' : `; Max-Age=${servidor.maxAge}`);
+            paso.valor = valor; paso.decision = 'nueva'; paso.maxAge = servidor.maxAge;
+            almacen.push({ host: pet.host, nombre: servidor.nombre, valor, recibidoEn: tAbs, maxAge: servidor.maxAge, persistente: false, desde: k });
+            delete motivo[pet.host];
+            setCookies++;
+            anotar(conocido, pet.host, valor, k, vis.sitio, pet.nombre);
+          } else { paso.setCookie = null; paso.decision = 'ninguna'; }
+        }
+        pasos.push(paso);
+      }
+      visitas.push({ k, t: k === 0 ? 0 : vis.t, tAbs, sitio: vis.sitio, cerrado, borradas, pasos, almacenAntes, almacenDespues: copia(almacen, tAbs), conCookie, setCookies, mensajes: 2 * pasos.length, conocido: copiaConocido(conocido) });
+    });
+    return { visitas };
+  }
+
+  function anotar(conocido, host, valor, k, pagina, objeto) {
+    let e = conocido[host].find(x => x.valor === valor);
+    if (!e) { e = { valor, vistas: [] }; conocido[host].push(e); }
+    e.vistas.push({ k, pagina, objeto });
+  }
+  function incrementar(v) { return /^\d+$/.test(v) ? String(Number(v) + 1) : v + '-2'; }
+  function copia(a, tAbs) { return a.map(c => ({ ...c, edad: c.persistente ? null : tAbs - c.recibidoEn })); }
+  function copiaConocido(c) { const o = {}; for (const h in c) o[h] = c[h].map(e => ({ valor: e.valor, vistas: e.vistas.map(v => ({ ...v })) })); return o; }
+
+  // Comprobación del escenario; devuelve una lista de errores (vacía si es válido)
+  function validar(esc, L = (es) => es) {
+    const err = [];
+    if (!esc || !Array.isArray(esc.sitios) || !esc.sitios.length) { err.push(L('Hace falta al menos un sitio.', 'At least one site is needed.')); return err; }
+    const hosts = new Set();
+    esc.sitios.forEach((s, i) => {
+      const h = String(s.host || '').trim();
+      if (!h) err.push(L(`El sitio ${i + 1} no tiene nombre.`, `Site ${i + 1} has no name.`));
+      else if (hosts.has(h)) err.push(L(`Sitio repetido: ${h}.`, `Duplicate site: ${h}.`));
+      hosts.add(h);
+      if (s.usaCookies) {
+        if (!String(s.nombre || '').trim() || !String(s.valor ?? '').trim()) err.push(L(`${h || i + 1}: la cookie necesita nombre y valor.`, `${h || i + 1}: the cookie needs a name and a value.`));
+        if (s.maxAge !== null && !(s.maxAge >= 0)) err.push(L(`${h || i + 1}: Max-Age debe ser un número mayor o igual que 0, o vacío.`, `${h || i + 1}: Max-Age must be a number greater than or equal to 0, or empty.`));
+      }
+      const nombres = new Set();
+      (s.objetos || []).forEach((o, j) => {
+        if (!String(o.nombre || '').trim()) err.push(L(`${h || i + 1}: el objeto ${j + 1} no tiene nombre.`, `${h || i + 1}: object ${j + 1} has no name.`));
+        else if (nombres.has(o.nombre)) err.push(L(`${h || i + 1}: objeto repetido ${o.nombre}.`, `${h || i + 1}: duplicate object ${o.nombre}.`));
+        nombres.add(o.nombre);
+      });
+    });
+    esc.sitios.forEach(s => (s.objetos || []).forEach(o => { if (!hosts.has(o.host)) err.push(L(`${s.host}: el objeto ${o.nombre} apunta a un sitio que no existe (${o.host}).`, `${s.host}: object ${o.nombre} points to a site that does not exist (${o.host}).`)); }));
+    const ini = new Set();
+    (esc.almacenInicial || []).forEach((c, i) => {
+      if (!String(c.host || '').trim() || !String(c.nombre || '').trim() || !String(c.valor ?? '').trim()) err.push(L(`Cookie inicial ${i + 1}: hacen falta sitio, nombre y valor.`, `Initial cookie ${i + 1}: site, name and value are needed.`));
+      else if (ini.has(c.host)) err.push(L(`Cookie inicial repetida para ${c.host}.`, `Duplicate initial cookie for ${c.host}.`));
+      ini.add(c.host);
+    });
+    if (!Array.isArray(esc.visitas) || !esc.visitas.length) err.push(L('Hace falta al menos una visita.', 'At least one visit is needed.'));
+    else esc.visitas.forEach((v, k) => {
+      if (!hosts.has(v.sitio)) err.push(L(`Visita ${k + 1}: el sitio no existe.`, `Visit ${k + 1}: the site does not exist.`));
+      if (k > 0 && !(v.t >= 0)) err.push(L(`Visita ${k + 1}: el tiempo desde la anterior debe ser mayor o igual que 0.`, `Visit ${k + 1}: the time since the previous one must be greater than or equal to 0.`));
+    });
+    return err;
+  }
+
+  // Escenario aleatorio para practicar (rnd: función que devuelve [0, 1))
+  function aleatorio(rnd = Math.random) {
+    const el = a => a[Math.floor(rnd() * a.length)];
+    const tipo = el(['simple', 'sesion', 'terceros', 'dos']);
+    const hostA = el(['www.tienda.es', 'www.periodico.es', 'www.uah.es', 'www.viajes.com']);
+    const hostB = el(['www.foro.net', 'www.recetas.org', 'www.musica.io']);
+    const ads = 'ads.ejemplo.net';
+    const DUR = [3600, 86400, 604800, 2592000];
+    const SEP = [600, 3600, 86400, 604800, 2592000];
+    const valor = String(1000 + Math.floor(rnd() * 9000));
+    const objs = (h, n) => ['logo.png', 'foto.jpg', 'estilo.css'].slice(0, n).map(nombre => ({ nombre, host: h }));
+    const sitios = [], visitas = [];
+    if (tipo === 'simple' || tipo === 'dos') {
+      sitios.push({ host: hostA, usaCookies: true, nombre: 'id', valor, maxAge: el(DUR), objetos: objs(hostA, 1 + Math.floor(rnd() * 2)) });
+      if (tipo === 'dos') sitios.push({ host: hostB, usaCookies: rnd() < 0.5, nombre: 'sid', valor: incrementar(valor), maxAge: el(DUR), objetos: objs(hostB, 1) });
+      const n = 2 + Math.floor(rnd() * 2);
+      for (let k = 0; k < n; k++) visitas.push({ sitio: tipo === 'dos' && k === 1 ? hostB : hostA, t: k ? el(SEP) : 0, cerrado: k ? rnd() < 0.7 : false });
+    } else if (tipo === 'sesion') {
+      sitios.push({ host: hostA, usaCookies: true, nombre: 'sesion', valor, maxAge: null, objetos: objs(hostA, 2) });
+      visitas.push({ sitio: hostA, t: 0, cerrado: false }, { sitio: hostA, t: el([300, 600, 3600]), cerrado: rnd() < 0.5 }, { sitio: hostA, t: el(SEP), cerrado: rnd() < 0.6 });
+    } else {
+      sitios.push({ host: hostA, usaCookies: rnd() < 0.4, nombre: 'id', valor, maxAge: 2592000, objetos: [...objs(hostA, 1), { nombre: 'anuncio.gif', host: ads }] });
+      sitios.push({ host: hostB, usaCookies: false, nombre: 'id', valor: '1', maxAge: null, objetos: [{ nombre: 'banner.gif', host: ads }] });
+      sitios.push({ host: ads, usaCookies: true, nombre: 'uid', valor: incrementar(valor), maxAge: 31536000, objetos: [] });
+      visitas.push({ sitio: hostA, t: 0, cerrado: false }, { sitio: hostB, t: el(SEP), cerrado: rnd() < 0.5 });
+      if (rnd() < 0.5) visitas.push({ sitio: hostA, t: el(SEP), cerrado: true });
+    }
+    const almacenInicial = rnd() < 0.3 ? [{ host: 'www.ebay.com', nombre: 'id', valor: '8734' }] : [];
+    return { sitios, almacenInicial, visitas };
+  }
+
+  return { simular, validar, aleatorio, DECISIONES: ['ninguna', 'nueva', 'envia'] };
+})();
+if (typeof module !== 'undefined') module.exports = MotorCookies;
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const CLAVE = 'httpCookies.v1';
+  const CLARO = { '--lienzo': '#ffffff', '--fg': '#16202a', '--muted': '#5a6876', '--line': '#c8d1d9', '--suave': '#e7ecf0', '--trama': '#1f5fbf', '--ack': '#17855a', '--html': '#7a4fb5', '--sel': '#c97a00', '--aviso': '#b4482a', '--bien': '#17855a', '--camino': '#fff1d6', '--panel': '#ffffff' };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduceMov = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DIA = 86400, SEMANA = 604800, MES = 2592000, ANO = 31536000;
+
+  // ------------------------------------------------------------ presets
+  const PRESETS = {
+    clase: { sitios: [
+      { host: 'www.tienda.es', usaCookies: true, nombre: 'id', valor: '1678', maxAge: MES, objetos: [{ nombre: 'logo.png', host: 'www.tienda.es' }, { nombre: 'foto.jpg', host: 'www.tienda.es' }] }],
+      almacenInicial: [],
+      visitas: [{ sitio: 'www.tienda.es', t: 0, cerrado: false }, { sitio: 'www.tienda.es', t: SEMANA, cerrado: true }, { sitio: 'www.tienda.es', t: MES, cerrado: true }] },
+    kurose: { sitios: [
+      { host: 'www.amazon.com', usaCookies: true, nombre: 'id', valor: '1678', maxAge: ANO, objetos: [{ nombre: 'logo.png', host: 'www.amazon.com' }] }],
+      almacenInicial: [{ host: 'www.ebay.com', nombre: 'id', valor: '8734' }],
+      visitas: [{ sitio: 'www.amazon.com', t: 0, cerrado: false }, { sitio: 'www.amazon.com', t: SEMANA, cerrado: true }] },
+    terceros: { sitios: [
+      { host: 'www.periodico.es', usaCookies: false, nombre: '', valor: '', maxAge: null, objetos: [{ nombre: 'portada.jpg', host: 'www.periodico.es' }, { nombre: 'anuncio.gif', host: 'ads.ejemplo.net' }] },
+      { host: 'www.tienda.es', usaCookies: true, nombre: 'id', valor: '1678', maxAge: MES, objetos: [{ nombre: 'logo.png', host: 'www.tienda.es' }, { nombre: 'anuncio.gif', host: 'ads.ejemplo.net' }] },
+      { host: 'ads.ejemplo.net', usaCookies: true, nombre: 'uid', valor: '4411', maxAge: ANO, objetos: [] }],
+      almacenInicial: [],
+      visitas: [{ sitio: 'www.periodico.es', t: 0, cerrado: false }, { sitio: 'www.tienda.es', t: 3600, cerrado: true }, { sitio: 'www.periodico.es', t: DIA, cerrado: true }] },
+    sesion: { sitios: [
+      { host: 'www.uah.es', usaCookies: true, nombre: 'sesion', valor: 'a1f3', maxAge: null, objetos: [{ nombre: 'logo.png', host: 'www.uah.es' }] }],
+      almacenInicial: [],
+      visitas: [{ sitio: 'www.uah.es', t: 0, cerrado: false }, { sitio: 'www.uah.es', t: 600, cerrado: false }, { sitio: 'www.uah.es', t: 3600, cerrado: true }] }
+  };
+
+  // ------------------------------------------------------------ estado
+  function base() {
+    return { esc: JSON.parse(JSON.stringify(PRESETS.clase)), visita: 1, vista: { idioma: 'es', tema: 'auto', claro: true }, oculto: false };
+  }
+  function normalizar(o) {
+    if (!o || typeof o !== 'object' || !o.esc || !Array.isArray(o.esc.sitios)) return null;
+    const b = base();
+    const sitios = o.esc.sitios.map(s => ({ host: String(s.host ?? ''), usaCookies: !!s.usaCookies, nombre: String(s.nombre ?? ''), valor: String(s.valor ?? ''), maxAge: s.maxAge === null || s.maxAge === undefined || s.maxAge === '' ? null : Number(s.maxAge), objetos: Array.isArray(s.objetos) ? s.objetos.map(x => ({ nombre: String(x.nombre ?? ''), host: String(x.host ?? '') })) : [] }));
+    const almacenInicial = Array.isArray(o.esc.almacenInicial) ? o.esc.almacenInicial.map(c => ({ host: String(c.host ?? ''), nombre: String(c.nombre ?? ''), valor: String(c.valor ?? '') })) : [];
+    const visitas = (Array.isArray(o.esc.visitas) && o.esc.visitas.length ? o.esc.visitas : b.esc.visitas).map((v, k) => ({ sitio: String(v.sitio ?? ''), t: k === 0 ? 0 : Number(v.t) || 0, cerrado: k === 0 ? false : !!v.cerrado }));
+    return { esc: { sitios, almacenInicial, visitas }, visita: Math.min(Math.max(0, Number(o.visita) || 0), visitas.length - 1), vista: { ...b.vista, ...(o.vista || {}) }, oculto: !!o.oculto };
+  }
+  function cargarLocal() { try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; } }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  let estado = cargarLocal() || base();
+  estado.vista.idioma = 'en';  // idioma fijo en cada copia
+  let paso = null;        // null = toda la visita; k = hasta la petición k (0-based)
+  let animando = null;
+  let ultimoSVG = '';
+  let res = null;         // resultado de la simulación
+
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const leer = k => k.split('.').reduce((o, p) => o[p], estado);
+  const escribir = (k, v) => { const p = k.split('.'); p.slice(0, -1).reduce((o, q) => o[q], estado)[p.at(-1)] = v; };
+  const fmtN = v => Number(v).toLocaleString(L('es-ES', 'en-GB'), { maximumFractionDigits: 1, useGrouping: false });
+  const fmtS = s => { if (s >= DIA && s % DIA === 0) return fmtN(s / DIA) + ' d'; if (s >= 3600 && s % 3600 === 0) return fmtN(s / 3600) + ' h'; if (s >= 60 && s % 60 === 0) return fmtN(s / 60) + ' min'; return fmtN(s) + ' s'; };
+  const corto = h => h.replace(/^www\./, '');
+  const fmtMaxAge = c => c.persistente ? L('no caduca aquí', 'does not expire here') : c.maxAge === null ? L('de sesión', 'session') : `Max-Age=${c.maxAge} (${fmtS(c.maxAge)})`;
+
+  // ------------------------------------------------------------ panel: sitios, almacén inicial y visitas
+  function selHosts(valor, attrs) {
+    return `<select ${attrs}>${estado.esc.sitios.map(s => `<option value="${esc(s.host)}"${s.host === valor ? ' selected' : ''}>${esc(s.host || '—')}</option>`).join('')}</select>`;
+  }
+  function rellenarSitios() {
+    let h = '';
+    estado.esc.sitios.forEach((s, i) => {
+      h += `<div class="sitio"><div class="cabs"><input type="text" data-sit="${i}" data-c="host" value="${esc(s.host)}" aria-label="${L('Sitio', 'Site')}" placeholder="www.ejemplo.es">`;
+      h += `<label class="chk"><input type="checkbox" data-sit="${i}" data-c="usaCookies"${s.usaCookies ? ' checked' : ''}> ${L('usa cookies', 'uses cookies')}</label>`;
+      h += `<button type="button" class="btn mini" data-del-sit="${i}" aria-label="${L('Quitar sitio', 'Remove site')}" title="${L('Quitar sitio', 'Remove site')}"${estado.esc.sitios.length === 1 ? ' disabled' : ''}>×</button></div>`;
+      if (s.usaCookies) {
+        h += `<div class="cookiedef"><input type="text" data-sit="${i}" data-c="nombre" value="${esc(s.nombre)}" aria-label="${L('Nombre de la cookie', 'Cookie name')}" placeholder="id"><span class="igual">=</span><input type="text" data-sit="${i}" data-c="valor" value="${esc(s.valor)}" aria-label="${L('Valor', 'Value')}" placeholder="1678"><input type="text" inputmode="numeric" data-sit="${i}" data-c="maxAge" value="${s.maxAge === null ? '' : esc(s.maxAge)}" aria-label="Max-Age" placeholder="Max-Age (s)" title="Max-Age"></div>`;
+      }
+      h += `<div class="objs"><div class="cab">${L('Objeto', 'Object')}</div><div class="cab">${L('Alojado en', 'Hosted at')}</div><div></div>`;
+      s.objetos.forEach((o, j) => {
+        h += `<input type="text" data-sit="${i}" data-obj="${j}" data-c="onombre" value="${esc(o.nombre)}" aria-label="${L('Nombre del objeto', 'Object name')}">`;
+        h += selHosts(o.host, `data-sit="${i}" data-obj="${j}" data-c="ohost" aria-label="${L('Sitio que aloja el objeto', 'Site hosting the object')}"`);
+        h += `<button type="button" class="btn mini" data-del-obj="${j}" data-sit="${i}" aria-label="${L('Quitar', 'Remove')}">×</button>`;
+      });
+      h += `</div><div class="fila"><button type="button" class="btn mini" data-add-obj="${i}">+ ${L('Objeto', 'Object')}</button></div></div>`;
+    });
+    $('#sitios').innerHTML = h;
+  }
+  function rellenarInicial() {
+    const a = estado.esc.almacenInicial;
+    let h = a.length ? `<div class="cab" style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em">${L('Sitio', 'Site')}</div><div class="cab" style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em">${L('Nombre', 'Name')}</div><div></div><div class="cab" style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em">${L('Valor', 'Value')}</div><div></div>` : '';
+    a.forEach((c, i) => {
+      h += `<input type="text" data-ini="${i}" data-c="host" value="${esc(c.host)}" aria-label="${L('Sitio', 'Site')}"><input type="text" data-ini="${i}" data-c="nombre" value="${esc(c.nombre)}" aria-label="${L('Nombre', 'Name')}"><span class="igual">=</span><input type="text" data-ini="${i}" data-c="valor" value="${esc(c.valor)}" aria-label="${L('Valor', 'Value')}"><button type="button" class="btn mini" data-del-ini="${i}" aria-label="${L('Quitar', 'Remove')}">×</button>`;
+    });
+    $('#inicial').innerHTML = h;
+  }
+  function rellenarVisitas() {
+    const vs = estado.esc.visitas;
+    let h = '';
+    vs.forEach((v, k) => {
+      h += `<div class="visita"><div class="cabv"><b>${L('Visita', 'Visit')} ${k + 1}</b>${selHosts(v.sitio, `data-vis="${k}" data-c="sitio" aria-label="${L('Sitio visitado', 'Site visited')}"`)}`;
+      h += `<button type="button" class="btn mini" data-del-vis="${k}" aria-label="${L('Quitar', 'Remove')}"${vs.length === 1 ? ' disabled' : ''}>×</button></div>`;
+      if (k === 0) h += `<span class="nota">${L('primera visita del escenario', 'first visit of the scenario')}</span>`;
+      else h += `<div class="cabv"><span class="nota">${L('a los', 'after')}</span> <input type="number" data-vis="${k}" data-c="t" value="${esc(v.t)}" min="0" step="1" aria-label="${L('segundos desde la anterior', 'seconds since the previous one')}"> <span class="nota">s</span> <label class="chk"><input type="checkbox" data-vis="${k}" data-c="cerrado"${v.cerrado ? ' checked' : ''}> ${L('navegador cerrado entre medias', 'browser closed in between')}</label></div>`;
+      h += `</div>`;
+    });
+    $('#visitas').innerHTML = h;
+  }
+  function rellenar() {
+    rellenarSitios(); rellenarInicial(); rellenarVisitas();
+    document.querySelectorAll('[data-k]').forEach(el => {
+      const v = leer(el.dataset.k);
+      if (el.classList.contains('seg')) marcarSeg(el, v);
+      else if (el.type === 'checkbox') el.checked = !!v;
+    });
+    aplicarTema();
+  }
+  function marcarSeg(seg, v) { seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+  const renombrarHost = (viejo, nuevo) => {
+    estado.esc.sitios.forEach(s => s.objetos.forEach(o => { if (o.host === viejo) o.host = nuevo; }));
+    estado.esc.visitas.forEach(v => { if (v.sitio === viejo) v.sitio = nuevo; });
+  };
+
+  $('#sitios').addEventListener('input', e => {
+    const el = e.target; if (el.dataset.sit === undefined) return;
+    const s = estado.esc.sitios[Number(el.dataset.sit)];
+    const c = el.dataset.c;
+    if (c === 'host') { const viejo = s.host; s.host = el.value; renombrarHost(viejo, s.host); document.querySelectorAll('select[data-c="ohost"], select[data-c="sitio"]').forEach(sel => { const v = sel.value === viejo ? s.host : sel.value; sel.innerHTML = selHosts(v, '').replace(/^<select >|<\/select>$/g, ''); }); }
+    else if (c === 'usaCookies') { s.usaCookies = el.checked; rellenarSitios(); }
+    else if (c === 'nombre') s.nombre = el.value;
+    else if (c === 'valor') s.valor = el.value;
+    else if (c === 'maxAge') s.maxAge = el.value.trim() === '' ? null : Number(el.value);
+    else if (c === 'onombre') s.objetos[Number(el.dataset.obj)].nombre = el.value;
+    else if (c === 'ohost') s.objetos[Number(el.dataset.obj)].host = el.value;
+    paso = null; pintar();
+  });
+  $('#sitios').addEventListener('click', e => {
+    const d = e.target.closest('[data-del-sit]'), o = e.target.closest('[data-del-obj]'), a = e.target.closest('[data-add-obj]');
+    if (d) { const i = Number(d.dataset.delSit); const h = estado.esc.sitios[i].host; estado.esc.sitios.splice(i, 1); const h0 = estado.esc.sitios[0].host; renombrarHost(h, h0); }
+    else if (o) estado.esc.sitios[Number(o.dataset.sit)].objetos.splice(Number(o.dataset.delObj), 1);
+    else if (a) { const s = estado.esc.sitios[Number(a.dataset.addObj)]; const usados = new Set(s.objetos.map(x => x.nombre)); const nombre = ['logo.png', 'foto.jpg', 'estilo.css', 'anuncio.gif', 'mapa.svg', 'icono.png'].find(n => !usados.has(n)) || `objeto${s.objetos.length}.png`; s.objetos.push({ nombre, host: s.host }); }
+    else return;
+    rellenarSitios(); rellenarVisitas(); paso = null; pintar();
+  });
+  $('#b-add-sitio').addEventListener('click', () => {
+    const usados = new Set(estado.esc.sitios.map(s => s.host));
+    const host = ['www.periodico.es', 'ads.ejemplo.net', 'www.foro.net', 'www.uah.es', 'www.recetas.org'].find(h => !usados.has(h)) || `www.sitio${estado.esc.sitios.length}.es`;
+    estado.esc.sitios.push({ host, usaCookies: true, nombre: 'id', valor: String(1000 + Math.floor(Math.random() * 9000)), maxAge: DIA, objetos: [] });
+    rellenarSitios(); rellenarVisitas(); paso = null; pintar();
+  });
+  $('#inicial').addEventListener('input', e => {
+    const el = e.target; if (el.dataset.ini === undefined) return;
+    estado.esc.almacenInicial[Number(el.dataset.ini)][el.dataset.c] = el.value; paso = null; pintar();
+  });
+  $('#inicial').addEventListener('click', e => { const b = e.target.closest('[data-del-ini]'); if (!b) return; estado.esc.almacenInicial.splice(Number(b.dataset.delIni), 1); rellenarInicial(); paso = null; pintar(); });
+  $('#b-add-ini').addEventListener('click', () => { estado.esc.almacenInicial.push({ host: 'www.ebay.com', nombre: 'id', valor: '8734' }); rellenarInicial(); paso = null; pintar(); });
+  $('#visitas').addEventListener('input', e => {
+    const el = e.target; if (el.dataset.vis === undefined) return;
+    const v = estado.esc.visitas[Number(el.dataset.vis)];
+    if (el.dataset.c === 'sitio') v.sitio = el.value; else if (el.dataset.c === 't') v.t = Number(el.value); else if (el.dataset.c === 'cerrado') v.cerrado = el.checked;
+    paso = null; pintar();
+  });
+  $('#visitas').addEventListener('click', e => {
+    const b = e.target.closest('[data-del-vis]'); if (!b) return;
+    estado.esc.visitas.splice(Number(b.dataset.delVis), 1);
+    if (estado.esc.visitas.length) { estado.esc.visitas[0].t = 0; estado.esc.visitas[0].cerrado = false; }
+    estado.visita = Math.min(estado.visita, estado.esc.visitas.length - 1);
+    rellenarVisitas(); paso = null; pintar();
+  });
+  $('#b-add-vis').addEventListener('click', () => {
+    const ult = estado.esc.visitas.at(-1);
+    estado.esc.visitas.push({ sitio: ult ? ult.sitio : estado.esc.sitios[0].host, t: DIA, cerrado: true });
+    estado.visita = estado.esc.visitas.length - 1;
+    rellenarVisitas(); paso = null; pintar();
+  });
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    estado.esc = JSON.parse(JSON.stringify(PRESETS[b.dataset.preset])); estado.visita = 1; estado.oculto = false; paso = null; parar();
+    rellenar(); pintar();
+  }));
+  document.querySelectorAll('.seg[data-k]').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    escribir(seg.dataset.k, b.dataset.v); marcarSeg(seg, b.dataset.v); aplicarTema(); pintar();
+  }));
+  document.querySelectorAll('input[type="checkbox"][data-k]').forEach(el => el.addEventListener('change', () => { escribir(el.dataset.k, el.checked); guardarLocal(); }));
+  function aplicarTema() { const t = estado.vista.tema; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+
+  // ------------------------------------------------------------ texto de cada decisión
+  const DEC = {
+    ninguna: { es: 'sin Cookie → 200 OK sin Set-Cookie', en: 'no Cookie → 200 OK without Set-Cookie' },
+    nueva: { es: 'sin Cookie → 200 OK con Set-Cookie (id nuevo)', en: 'no Cookie → 200 OK with Set-Cookie (new id)' },
+    envia: { es: 'con Cookie → 200 OK sin Set-Cookie', en: 'with Cookie → 200 OK without Set-Cookie' },
+    ambas: { es: 'con Cookie → 200 OK con Set-Cookie', en: 'with Cookie → 200 OK with Set-Cookie' }
+  };
+  const decTxt = d => DEC[d][estado.vista.idioma === 'en' ? 'en' : 'es'];
+  const MOTIVO = {
+    nunca: { es: 'nunca la ha tenido', en: 'it never had one' },
+    caducada: { es: 'caducó y el navegador la borró', en: 'it expired and the browser deleted it' },
+    cierre: { es: 'era de sesión y se borró al cerrar el navegador', en: 'it was a session cookie and was deleted when the browser closed' }
+  };
+  const motivoTxt = m => MOTIVO[m][estado.vista.idioma === 'en' ? 'en' : 'es'];
+
+  function narrar(p, vis) {
+    const n = `<code>${esc(p.nombre)}</code> → <code>${esc(p.host)}</code>`;
+    const terc = p.tercero ? L(` (tercero: la página es de <code>${esc(p.pagina)}</code>, pero la petición va a <code>${esc(p.host)}</code>, que recibe su propia cookie y <code>Referer</code>)`, ` (third party: the page belongs to <code>${esc(p.pagina)}</code>, but the request goes to <code>${esc(p.host)}</code>, which receives its own cookie and <code>Referer</code>)`) : '';
+    if (p.decision === 'envia') {
+      const fila = vis.almacenAntes.find(c => c.host === p.host) || vis.almacenDespues.find(c => c.host === p.host);
+      const viva = fila.persistente ? L('ya estaba en el almacén', 'it was already in the store') : fila.maxAge === null ? L('de sesión: el navegador no se ha cerrado', 'session cookie: the browser has not been closed') : L(`edad ${fmtS(fila.edad)} &lt; Max-Age ${fmtS(fila.maxAge)}`, `age ${fmtS(fila.edad)} &lt; Max-Age ${fmtS(fila.maxAge)}`);
+      return L(`${n}: el almacén tiene una cookie viva de este sitio (${viva}) → GET con <b class="ck">Cookie: ${esc(p.cookie)}</b> → <b>200 OK</b> sin Set-Cookie: el servidor sabe que eres el navegador ${esc(p.valor)}${terc}.`, `${n}: the store has a live cookie for this site (${viva}) → GET with <b class="ck">Cookie: ${esc(p.cookie)}</b> → <b>200 OK</b> without Set-Cookie: the server knows you are browser ${esc(p.valor)}${terc}.`);
+    }
+    const sin = L(`no hay cookie de este sitio (${motivoTxt(p.motivo)}) → GET <b>sin Cookie</b>`, `there is no cookie for this site (${motivoTxt(p.motivo)}) → GET <b>without Cookie</b>`);
+    if (p.decision === 'nueva') {
+      const dura = p.maxAge === null ? L('de sesión: durará hasta cerrar el navegador', 'session cookie: it lasts until the browser closes') : L(`caduca en ${fmtS(p.maxAge)}`, `expires in ${fmtS(p.maxAge)}`);
+      return L(`${n}: ${sin} → el sitio usa cookies → <b>200 OK</b> con <b class="sk">Set-Cookie: ${esc(p.setCookie)}</b> → el navegador guarda la fila (<code>${esc(p.host)}</code>, <code>${esc(p.valor)}</code>, ${dura})${terc}.`, `${n}: ${sin} → the site uses cookies → <b>200 OK</b> with <b class="sk">Set-Cookie: ${esc(p.setCookie)}</b> → the browser stores the row (<code>${esc(p.host)}</code>, <code>${esc(p.valor)}</code>, ${dura})${terc}.`);
+    }
+    return L(`${n}: ${sin} → el sitio no usa cookies → <b>200 OK</b> sin Set-Cookie. Petición anónima${terc}.`, `${n}: ${sin} → the site does not use cookies → <b>200 OK</b> without Set-Cookie. Anonymous request${terc}.`);
+  }
+
+  // ------------------------------------------------------------ árbol de decisión (SVG)
+  function dibujarArbol(p) {
+    const W = 520, H = 380;
+    const camino = new Set();
+    if (p) {
+      camino.add('q1');
+      if (p.decision === 'envia') { camino.add('e-si1'); camino.add('conc'); camino.add('e-conc'); camino.add('r-conc'); }
+      else {
+        camino.add('e-no1'); camino.add('sinc'); camino.add('e-sinc'); camino.add('q2');
+        if (p.decision === 'nueva') { camino.add('e-si2'); camino.add('r-set'); } else { camino.add('e-no2'); camino.add('r-nada'); }
+      }
+    }
+    const on = id => camino.has(id);
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Decisión del navegador y del servidor sobre las cookies en cada petición', 'Browser and server decision about cookies for each request'))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="12">`;
+    s += `<defs><marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--muted)" stroke-width="1.5"/></marker><marker id="fa2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--sel)" stroke-width="2"/></marker></defs>`;
+    s += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    const caja = (id, x, y, w, h, lineas, tipo) => {
+      const act = on(id);
+      const fill = act ? 'var(--camino)' : 'var(--panel)';
+      const stroke = act ? 'var(--sel)' : tipo === 'q' ? 'var(--trama)' : 'var(--line)';
+      s += `<g>` + (tipo === 'q'
+        ? `<path d="M${x + w / 2},${y} L${x + w},${y + h / 2} L${x + w / 2},${y + h} L${x},${y + h / 2} Z" fill="${fill}" stroke="${stroke}" stroke-width="${act ? 2 : 1.3}"/>`
+        : `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${act ? 2 : 1.2}"/>`);
+      lineas.forEach((t, i) => { s += `<text x="${x + w / 2}" y="${y + h / 2 + (i - (lineas.length - 1) / 2) * 14 + 4}" text-anchor="middle" fill="var(--fg)" font-weight="${i === 0 ? 600 : 400}" ${i > 0 ? 'font-size="11" fill="var(--muted)"' : ''}>${esc(t)}</text>`; });
+      s += `</g>`;
+    };
+    const flecha = (id, x1, y1, x2, y2, etq) => {
+      const act = on(id);
+      s += `<path d="M${x1},${y1} L${x1},${y2} L${x2},${y2}" fill="none" stroke="${act ? 'var(--sel)' : 'var(--muted)'}" stroke-width="${act ? 2.2 : 1.3}" marker-end="url(#${act ? 'fa2' : 'fa'})"/>`;
+      if (etq) s += `<text x="${x1 === x2 ? x1 + 6 : (x1 + x2) / 2}" y="${x1 === x2 ? (y1 + y2) / 2 + 4 : y2 - 5}" text-anchor="${x1 === x2 ? 'start' : 'middle'}" font-size="11" font-weight="600" fill="${act ? 'var(--sel)' : 'var(--muted)'}">${esc(etq)}</text>`;
+    };
+    const SI = L('sí', 'yes'), NO = 'no';
+    const noEtq = p && p.decision !== 'envia' && p.motivo !== 'nunca' ? (p.motivo === 'caducada' ? L('no (caducó)', 'no (expired)') : L('no (se borró al cerrar)', 'no (deleted on close)')) : NO;
+    const ck = p && p.decision === 'envia' ? `Cookie: ${p.cookie}` : 'Cookie: nombre=valor';
+    const sk = p && p.decision === 'nueva' ? `Set-Cookie: ${p.setCookie.replace(/;.*$/, '')}` : 'Set-Cookie: id nuevo';
+    caja('q1', 140, 10, 210, 60, [L('¿Hay una cookie viva', 'Is there a live cookie'), L('de este sitio en el almacén?', 'for this site in the store?')], 'q');
+    flecha('e-si1', 350, 40, 368, 40, SI);
+    caja('conc', 370, 12, 142, 56, ['GET', L('con', 'with'), ck.length > 24 ? ck.slice(0, 23) + '…' : ck]);
+    flecha('e-conc', 441, 68, 441, 110, '');
+    caja('r-conc', 370, 110, 142, 64, ['200 OK', L('sin Set-Cookie', 'no Set-Cookie'), L('te reconoce', 'recognises you')]);
+    flecha('e-no1', 245, 70, 245, 110, noEtq);
+    caja('sinc', 185, 110, 120, 46, ['GET', L('sin Cookie', 'without Cookie')]);
+    flecha('e-sinc', 245, 156, 245, 200, '');
+    caja('q2', 140, 200, 210, 60, [L('¿El sitio usa cookies?', 'Does the site use cookies?')], 'q');
+    flecha('e-no2', 140, 230, 132, 230, NO);
+    caja('r-nada', 10, 200, 120, 60, ['200 OK', L('sin Set-Cookie', 'no Set-Cookie'), L('anónimo', 'anonymous')]);
+    flecha('e-si2', 245, 260, 245, 300, SI);
+    caja('r-set', 135, 300, 220, 64, ['200 OK', sk.length > 30 ? sk.slice(0, 29) + '…' : sk, L('→ fila nueva en el almacén', '→ new row in the store')]);
+    s += `</svg>`;
+    return s;
+  }
+
+  // ------------------------------------------------------------ diagrama de secuencia (SVG)
+  function dibujarSecuencia(vis, hasta) {
+    const hosts = [];
+    vis.pasos.forEach(p => { if (!hosts.includes(p.host)) hosts.push(p.host); });
+    const XN = 100, X0 = 360, DX = 230;
+    const XH = h => X0 + hosts.indexOf(h) * DX;
+    const W = X0 + (hosts.length - 1) * DX + 110, TOP = 54, PASO = 46;
+    const filas = [];
+    if (vis.borradas.length) filas.push({ tipo: 'nota', vivo: true });
+    vis.pasos.forEach((p, i) => { const vivo = hasta === null || i <= hasta; filas.push({ tipo: 'req', p, vivo }); filas.push({ tipo: 'res', p, vivo }); });
+    const H = TOP + filas.length * PASO + 30;
+    const mono = 'font-family="IBM Plex Mono, Menlo, monospace"';
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Mensajes HTTP de la visita con sus cabeceras de cookies', 'HTTP messages of the visit with their cookie headers'))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="12">`;
+    s += `<defs><marker id="fs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L9,5 L0,10" fill="none" stroke="var(--fg)" stroke-width="1.6"/></marker></defs>`;
+    s += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    const cab = (x, t, w) => `<rect x="${x - w / 2}" y="8" width="${w}" height="28" rx="4" fill="var(--panel)" stroke="var(--line)"/><text x="${x}" y="27" text-anchor="middle" font-weight="600" fill="var(--fg)" ${t.length > 14 ? 'font-size="11"' : ''}>${esc(t)}</text><line x1="${x}" y1="36" x2="${x}" y2="${H - 10}" stroke="var(--line)" stroke-dasharray="4 4"/>`;
+    s += cab(XN, L('Navegador', 'Browser'), 110);
+    hosts.forEach(h => { s += cab(XH(h), h, 150); });
+    filas.forEach((f, i) => {
+      const y = TOP + i * PASO + 20;
+      if (f.tipo === 'nota') {
+        const t = vis.borradas.map(c => `${c.host}: ${c.nombre}=${c.valor} (${c.motivo === 'cierre' ? L('de sesión, navegador cerrado', 'session, browser closed') : L('caducada', 'expired')})`).join(' · ');
+        s += `<g><rect x="${XN - 50}" y="${y - 14}" width="${Math.min(W - XN + 40, 40 + t.length * 6.4)}" height="26" rx="4" fill="var(--suave)" stroke="var(--aviso)"/><text x="${XN - 40}" y="${y + 4}" fill="var(--aviso)" font-size="11">${esc(L('Al empezar, el navegador borra: ', 'On starting, the browser deletes: ') + t)}</text></g>`;
+        return;
+      }
+      const p = f.p, op = f.vivo ? 1 : 0.18, xs = XH(p.host), xm = (XN + xs) / 2;
+      if (f.tipo === 'req') {
+        const sub = p.cookie ? `Cookie: ${p.cookie}` : L('sin Cookie', 'no Cookie');
+        const ref = p.tercero ? ` · Referer: ${p.pagina}` : '';
+        s += `<g opacity="${op}"><line x1="${XN}" y1="${y}" x2="${xs - 2}" y2="${y + 8}" stroke="var(--fg)" stroke-width="1.5" marker-end="url(#fs)"/>`;
+        s += `<text x="${xm}" y="${y - 6}" text-anchor="middle" fill="var(--fg)" ${mono} font-weight="500">GET ${esc(p.nombre)}</text>`;
+        s += `<text x="${xm}" y="${y + 20}" text-anchor="middle" fill="${p.cookie ? 'var(--trama)' : 'var(--muted)'}" ${mono} font-size="10.5" ${p.cookie ? 'font-weight="500"' : ''}>${esc(sub + ref)}</text></g>`;
+      } else {
+        const sub = p.setCookie ? `Set-Cookie: ${p.setCookie}` : L('sin Set-Cookie', 'no Set-Cookie');
+        const col = p.setCookie ? 'var(--html)' : 'var(--ack)';
+        s += `<g opacity="${op}"><line x1="${xs}" y1="${y}" x2="${XN + 2}" y2="${y + 8}" stroke="${col}" stroke-width="${p.setCookie ? 2.4 : 1.5}" marker-end="url(#fs)"/>`;
+        s += `<text x="${xm}" y="${y - 6}" text-anchor="middle" fill="${col}" ${mono} font-weight="500">200 OK · ${esc(p.nombre)}</text>`;
+        s += `<text x="${xm}" y="${y + 20}" text-anchor="middle" fill="${p.setCookie ? 'var(--html)' : 'var(--muted)'}" ${mono} font-size="10.5" ${p.setCookie ? 'font-weight="500"' : ''}>${esc(sub)}</text></g>`;
+      }
+    });
+    s += `</svg>`;
+    return s;
+  }
+
+  // ------------------------------------------------------------ tablas
+  function tabla(vis, hasta) {
+    const hosts = [];
+    [...vis.borradas, ...vis.almacenAntes, ...vis.almacenDespues].forEach(c => { if (!hosts.includes(c.host)) hosts.push(c.host); });
+    let h = `<table><thead><tr><th>${L('Sitio', 'Site')}</th><th>${L('Antes de la visita', 'Before the visit')}</th><th>${L('Caducidad', 'Expiry')}</th><th>${L('Edad', 'Age')}</th><th>${L('En la visita', 'During the visit')}</th><th>${L('Después', 'After')}</th></tr></thead><tbody>`;
+    hosts.forEach(host => {
+      const b = vis.borradas.find(c => c.host === host), a = vis.almacenAntes.find(c => c.host === host), d = vis.almacenDespues.find(c => c.host === host);
+      const pasos = vis.pasos.map((p, i) => ({ p, i })).filter(x => x.p.host === host && (hasta === null || x.i <= hasta));
+      const act = hasta !== null && vis.pasos[hasta] && vis.pasos[hasta].host === host;
+      const env = pasos.filter(x => x.p.decision === 'envia').length, nueva = pasos.find(x => x.p.decision === 'nueva');
+      let durante = [];
+      if (b) durante.push(`<span class="borrada">${esc(L('borrada al empezar', 'deleted on starting'))} (${esc(b.motivo === 'cierre' ? L('sesión, navegador cerrado', 'session, browser closed') : L('caducada', 'expired'))})</span>`);
+      if (nueva) durante.push(`<span class="dec-nueva" style="color:var(--html);font-weight:500">Set-Cookie: ${esc(nueva.p.valor)}</span>`);
+      if (env) durante.push(`<span style="color:var(--trama);font-weight:500">Cookie ×${env}</span>`);
+      if (!durante.length) durante.push(pasos.length ? L('sin cookies', 'no cookies') : L('no se le pide nada', 'nothing requested'));
+      const antes = a ? `${esc(a.nombre)}=${esc(a.valor)}` : b ? `<span class="borrada">${esc(b.nombre)}=${esc(b.valor)}</span>` : '—';
+      const cad = a ? fmtMaxAge(a) : b ? fmtMaxAge(b) : d ? fmtMaxAge(d) : '—';
+      const edad = a ? (a.persistente ? '—' : fmtS(a.edad)) : b ? (b.maxAge === null ? '—' : fmtS(vis.tAbs - b.recibidoEn)) : '—';
+      const despues = d ? `${esc(d.nombre)}=${esc(d.valor)}${d.persistente ? '' : ` · ${L('edad', 'age')} ${fmtS(d.edad)}`}` : '—';
+      h += `<tr class="${act ? 'actual' : ''}"><td><code>${esc(host)}</code></td><td class="n">${antes}</td><td class="n">${esc(cad)}</td><td class="n">${edad}</td><td>${durante.join(' · ')}</td><td class="n">${despues}</td></tr>`;
+    });
+    if (!hosts.length) h += `<tr><td colspan="6" class="nota">${esc(L('Almacén vacío: ningún sitio ha puesto cookies.', 'Empty store: no site has set cookies.'))}</td></tr>`;
+    return h + `</tbody></table>`;
+  }
+  function tablaConocido(vis) {
+    const hosts = Object.keys(vis.conocido);
+    if (!hosts.length) return `<p class="nota" style="padding:8px 14px 12px">${esc(L('Ningún sitio del escenario usa cookies.', 'No site in the scenario uses cookies.'))}</p>`;
+    let h = `<table><thead><tr><th>${L('Servidor', 'Server')}</th><th>${L('Navegador', 'Browser')}</th><th>${L('Lo ha visto en', 'Has seen it in')}</th></tr></thead><tbody>`;
+    hosts.forEach(host => {
+      const es = vis.conocido[host];
+      if (!es.length) { h += `<tr><td><code>${esc(host)}</code></td><td class="nota" colspan="2">${esc(L('todavía no ha recibido ninguna petición', 'has not received any request yet'))}</td></tr>`; return; }
+      es.forEach(e => {
+        const vistas = []; e.vistas.forEach(v => { const t = `${L('visita', 'visit')} ${v.k + 1}${v.pagina !== host ? ` (${L('desde', 'from')} ${corto(v.pagina)})` : ''}`; if (!vistas.includes(t)) vistas.push(t); });
+        h += `<tr><td><code>${esc(host)}</code></td><td class="n">${esc(e.valor)}</td><td>${esc(vistas.join(', '))}</td></tr>`;
+      });
+    });
+    return h + `</tbody></table>`;
+  }
+
+  // ------------------------------------------------------------ pintar
+  function pintar() {
+    guardarLocal();
+    const errs = MotorCookies.validar(estado.esc, L);
+    const errEl = $('#err-esc');
+    errEl.hidden = !errs.length; errEl.textContent = errs.join(' ');
+    if (errs.length) { $('#resumen').innerHTML = ''; $('#pestanas').innerHTML = ''; $('#arbol').innerHTML = ''; $('#lienzo').innerHTML = ''; $('#tabla').innerHTML = ''; $('#conocido').innerHTML = ''; $('#narra').innerHTML = ''; $('#r-etq').textContent = ''; return; }
+    res = MotorCookies.simular(estado.esc);
+    estado.visita = Math.min(estado.visita, res.visitas.length - 1);
+    const vis = res.visitas[estado.visita];
+    const n = vis.pasos.length;
+    if (paso !== null && paso >= n) paso = null;
+    const oc = estado.oculto;
+    const hasta = oc ? -1 : paso;
+    const actual = paso !== null ? vis.pasos[paso] : null;
+
+    $('#pestanas').innerHTML = res.visitas.map((v, k) => `<button type="button" role="tab" aria-selected="${k === estado.visita}" data-vis-tab="${k}">${L('Visita', 'Visit')} ${k + 1} · ${esc(corto(v.sitio))} · ${k === 0 ? 't = 0' : '+' + fmtS(v.t)}${v.cerrado ? ' ⏻' : ''}</button>`).join('');
+
+    $('#resumen').innerHTML = [
+      [L('Visita', 'Visit'), `${estado.visita + 1} / ${res.visitas.length}`],
+      [L('Sitio', 'Site'), vis.sitio],
+      [L('Tiempo desde la primera', 'Time since the first'), fmtS(vis.tAbs)],
+      [L('Navegador cerrado antes', 'Browser closed before'), estado.visita === 0 ? '—' : vis.cerrado ? L('sí', 'yes') : 'no'],
+      [L('Peticiones con Cookie', 'Requests with Cookie'), oc ? '?' : `${vis.conCookie} / ${n}`],
+      ['Set-Cookie', oc ? '?' : String(vis.setCookies)],
+      [L('Cookies borradas', 'Cookies deleted'), oc ? '?' : String(vis.borradas.length)]
+    ].map(([k, v], i) => `<div class="dato${i >= 4 ? ' fuerte' : ''}"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
+
+    $('#r-etq').textContent = paso === null ? L(`toda la visita (${n} ${n === 1 ? 'petición' : 'peticiones'})`, `whole visit (${n} ${n === 1 ? 'request' : 'requests'})`) : `${paso + 1} / ${n} · ${vis.pasos[paso].nombre} → ${corto(vis.pasos[paso].host)}`;
+    const borr = vis.borradas.length ? L(` Al empezar, el navegador borra ${vis.borradas.map(c => `${c.nombre}=${c.valor} de ${corto(c.host)} (${c.motivo === 'cierre' ? 'de sesión, navegador cerrado' : 'caducada'})`).join(', ')}.`, ` On starting, the browser deletes ${vis.borradas.map(c => `${c.nombre}=${c.valor} of ${corto(c.host)} (${c.motivo === 'cierre' ? 'session, browser closed' : 'expired'})`).join(', ')}.`) : '';
+    $('#narra').innerHTML = oc ? L('Cabeceras ocultas: responde abajo y pulsa «Comprobar».', 'Headers hidden: answer below and press “Check”.') : actual ? narrar(actual, vis) : L(`Visita ${estado.visita + 1} a <code>${esc(vis.sitio)}</code>: ${vis.conCookie} de ${n} peticiones llevan Cookie y ${vis.setCookies === 1 ? 'una respuesta lleva' : vis.setCookies + ' respuestas llevan'} Set-Cookie.${borr} Usa ▶ o ▶| para ver la decisión de cada petición.`, `Visit ${estado.visita + 1} to <code>${esc(vis.sitio)}</code>: ${vis.conCookie} out of ${n} requests carry Cookie and ${vis.setCookies === 1 ? 'one response carries' : vis.setCookies + ' responses carry'} Set-Cookie.${borr} Use ▶ or ▶| to see the decision for each request.`);
+
+    $('#arbol').innerHTML = dibujarArbol(oc ? null : actual);
+    ultimoSVG = oc ? '' : dibujarSecuencia(vis, hasta);
+    $('#lienzo').innerHTML = oc ? `<p class="nota" style="padding:30px 10px;text-align:center">${esc(L('Los mensajes se muestran al comprobar la respuesta.', 'The messages are shown when the answer is checked.'))}</p>` : ultimoSVG;
+    $('#leyenda').innerHTML = `<span><i style="background:var(--trama)"></i>${L('petición con', 'request with')} Cookie</span><span><i style="background:var(--html)"></i>${L('respuesta con', 'response with')} Set-Cookie</span><span><i style="background:var(--ack)"></i>${L('respuesta sin', 'response without')} Set-Cookie</span><span>⏻ ${L('navegador cerrado antes de la visita', 'browser closed before the visit')}</span>`;
+    $('#t-tabla').hidden = oc; $('#t-conocido').hidden = oc;
+    if (!oc) { $('#tabla').innerHTML = tabla(vis, hasta); $('#conocido').innerHTML = tablaConocido(vis); }
+
+    $('#t-pred').hidden = !oc;
+    if (oc) rellenarPred(vis);
+    $('#b-ocultar').textContent = oc ? L('Mostrar cabeceras', 'Show headers') : L('Ocultar cabeceras', 'Hide headers');
+  }
+
+  $('#pestanas').addEventListener('click', e => { const b = e.target.closest('[data-vis-tab]'); if (!b) return; estado.visita = Number(b.dataset.visTab); paso = null; parar(); pintar(); });
+
+  // ------------------------------------------------------------ reproductor
+  function parar() { if (animando) { clearInterval(animando); animando = null; $('#r-play').textContent = '▶'; } }
+  function avanzar() {
+    const n = res ? res.visitas[estado.visita].pasos.length : 0;
+    if (paso === null) paso = 0; else if (paso + 1 < n) paso++; else { paso = null; parar(); }
+    pintar();
+  }
+  $('#r-ini').addEventListener('click', () => { parar(); paso = 0; pintar(); });
+  $('#r-fin').addEventListener('click', () => { parar(); paso = null; pintar(); });
+  $('#r-sig').addEventListener('click', () => { parar(); avanzar(); });
+  $('#r-ant').addEventListener('click', () => { parar(); const n = res ? res.visitas[estado.visita].pasos.length : 0; paso = paso === null ? Math.max(0, n - 1) : Math.max(0, paso - 1); pintar(); });
+  $('#r-play').addEventListener('click', () => {
+    if (animando) { parar(); return; }
+    if (reduceMov) { avanzar(); return; }
+    $('#r-play').textContent = '⏸'; paso = paso === null ? -1 : paso;
+    avanzar(); animando = setInterval(avanzar, 2800);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.key === ' ') { e.preventDefault(); $('#r-play').click(); }
+    else if (e.key === 'ArrowRight') { parar(); avanzar(); }
+    else if (e.key === 'ArrowLeft') { $('#r-ant').click(); }
+  });
+
+  // ------------------------------------------------------------ practicar
+  function rellenarPred(vis) {
+    const k = estado.visita;
+    const previa = k === 0 ? estado.esc.almacenInicial.map(c => ({ ...c, persistente: true })) : res.visitas[k - 1].almacenDespues;
+    const alm = previa.length ? previa.map(c => `${corto(c.host)}: ${c.nombre}=${c.valor} (${c.persistente ? L('no caduca', 'no expiry') : c.maxAge === null ? L('de sesión', 'session') : `Max-Age ${fmtS(c.maxAge)}, ${L('edad', 'age')} ${fmtS(c.edad + (k ? vis.t : 0))}`})`).join('; ') : L('vacío', 'empty');
+    const sit = estado.esc.sitios.map(s => `${corto(s.host)} ${s.usaCookies ? L(`usa cookies (asigna ${s.nombre}=${s.valor}…)`, `uses cookies (assigns ${s.nombre}=${s.valor}…)`) : L('no usa cookies', 'does not use cookies')}`).join('; ');
+    $('#pred-nota').textContent = L(`Visita ${k + 1} a ${vis.sitio}${k ? `, ${fmtS(vis.t)} después de la anterior, navegador cerrado entre medias: ${vis.cerrado ? 'sí' : 'no'}` : ''}. Sitios: ${sit}. Almacén al terminar la visita anterior: ${alm}. Para cada petición, ¿qué cabeceras de estado lleva y qué responde el servidor?`, `Visit ${k + 1} to ${vis.sitio}${k ? `, ${fmtS(vis.t)} after the previous one, browser closed in between: ${vis.cerrado ? 'yes' : 'no'}` : ''}. Sites: ${sit}. Store at the end of the previous visit: ${alm}. For each request, which state headers does it carry and what does the server answer?`);
+    const ops = ['ninguna', 'nueva', 'envia', 'ambas'];
+    const previo = {}; document.querySelectorAll('[data-pred]').forEach(s => { previo[s.dataset.pred] = s.value; });
+    $('#pred-filas').innerHTML = vis.pasos.map((p, i) => `<div class="fila"><label class="et" for="pr-${i}">${esc(p.nombre)} → ${esc(corto(p.host))}</label><div class="campo"><select class="ancho" id="pr-${i}" data-pred="${i}"><option value="">—</option>${ops.map(o => `<option value="${o}"${previo[String(i)] === o ? ' selected' : ''}>${esc(decTxt(o))}</option>`).join('')}</select></div></div>`).join('');
+    $('#fb').textContent = ''; $('#fb').className = 'fb';
+  }
+  $('#b-ejercicio').addEventListener('click', () => {
+    estado.esc = MotorCookies.aleatorio(); estado.visita = 1; estado.oculto = true; paso = null; parar();
+    rellenar(); pintar();
+  });
+  $('#b-ocultar').addEventListener('click', () => { estado.oculto = !estado.oculto; paso = null; parar(); pintar(); });
+  $('#b-comprobar').addEventListener('click', () => {
+    if (!res) return;
+    const vis = res.visitas[estado.visita];
+    let bien = 0, sin = 0;
+    const malos = [];
+    vis.pasos.forEach((p, i) => { const v = $(`[data-pred="${i}"]`)?.value; if (!v) sin++; else if (v === p.decision) bien++; else malos.push(`${p.nombre} → ${corto(p.host)}`); });
+    const fb = $('#fb');
+    if (sin) { fb.className = 'fb ko'; fb.textContent = L(`Faltan ${sin} respuestas.`, `${sin} answers missing.`); return; }
+    if (!malos.length) { fb.className = 'fb ok'; fb.textContent = L(`Correcto: ${bien} de ${vis.pasos.length}.`, `Correct: ${bien} out of ${vis.pasos.length}.`); estado.oculto = false; pintar(); toast(L('¡Bien! Ahí tienes los mensajes.', 'Well done! Here are the messages.')); }
+    else { fb.className = 'fb ko'; fb.textContent = L(`${bien} de ${vis.pasos.length} correctas. Revisa: ${malos.join(', ')}. Piensa a qué sitio va la petición, si el almacén tiene una cookie viva de ese sitio y si el sitio usa cookies.`, `${bien} out of ${vis.pasos.length} correct. Check: ${malos.join(', ')}. Think about which site the request goes to, whether the store has a live cookie for that site and whether the site uses cookies.`); }
+  });
+  $('#b-solucion').addEventListener('click', () => { estado.oculto = false; paso = 0; pintar(); });
+
+  // ------------------------------------------------------------ exportar
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('vis'), 1800); }
+  function svgExportable(svg) {
+    const cs = getComputedStyle(document.documentElement);
+    const color = n => (estado.vista.claro ? CLARO[n] : cs.getPropertyValue(n).trim()) || '#000';
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + svg.replace(/var\((--[\w-]+)\)/g, (_, n) => color(n));
+  }
+  function descargar(blob, nombreArchivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nombreArchivo;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  const sinDiagrama = () => { if (estado.oculto || !ultimoSVG) { toast(L('Muestra las cabeceras para exportar el diagrama', 'Show the headers to export the diagram')); return true; } return false; };
+  const nombreExp = () => 'cookies-' + L('visita', 'visit') + (estado.visita + 1);
+  $('#b-svg').addEventListener('click', () => { if (!sinDiagrama()) descargar(new Blob([svgExportable(ultimoSVG)], { type: 'image/svg+xml' }), nombreExp() + '.svg'); });
+  $('#b-png').addEventListener('click', () => {
+    if (sinDiagrama()) return;
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svgExportable(ultimoSVG)], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      const c = document.createElement('canvas'), f = 2;
+      c.width = img.width * f; c.height = img.height * f;
+      const ctx = c.getContext('2d'); ctx.scale(f, f); ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b && descargar(b, nombreExp() + '.png'), 'image/png');
+    };
+    img.onerror = () => toast(L('No se pudo generar el PNG', 'Could not create the PNG'));
+    img.src = url;
+  });
+  $('#b-json').addEventListener('click', () => descargar(new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' }), L('escenario-cookies', 'cookies-scenario') + '.json'));
+  $('#b-cargar').addEventListener('click', () => $('#f-archivo').click());
+  $('#f-archivo').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const s = normalizar(JSON.parse(await f.text()));
+      if (!s) throw new Error();
+      s.vista.idioma = estado.vista.idioma;
+      estado = s; parar(); paso = null; rellenar(); pintar(); toast(L('Escenario cargado', 'Scenario loaded'));
+    } catch { toast(L('El fichero no es un escenario válido', 'The file is not a valid scenario')); }
+  });
+  $('#b-reset').addEventListener('click', () => { const i = estado.vista.idioma; estado = base(); estado.vista.idioma = i; parar(); paso = null; rellenar(); pintar(); });
+
+  // ------------------------------------------------------------ idioma
+  const ORIG = new WeakMap();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'Cookies: state on top of HTTP' : 'Cookies: estado por encima de HTTP';
+    if ($('#idioma')) marcarSeg($('#idioma'), estado.vista.idioma);
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 't', el.textContent); el.textContent = en ? el.dataset.en : es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+    rellenar();
+  }
+  
+
+  rellenar();
+  aplicarIdioma();
+  pintar();
+})();
+</script>
+
+</body>
+</html>

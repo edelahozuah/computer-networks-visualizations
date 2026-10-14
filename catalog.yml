@@ -1067,3 +1067,80 @@ visualizations:
   thumbnail: thumbnails/http-cache.jpg
   source: src/http-cache
   added: '2026-10-12'
+- id: http-cookies
+  topic: 2
+  collection: http
+  session: '2.3'
+  title:
+    es: 'Cookies: estado por encima de HTTP'
+    en: 'Cookies: state on top of HTTP'
+  description:
+    es: >-
+      Varios sitios, algunos con cookies, visitados varias veces. Para cada petición, el navegador mira su
+      almacén: si tiene una cookie viva de ese sitio envía Cookie; si no, el servidor puede responder con
+      Set-Cookie. Sigue la decisión, los mensajes, el almacén y lo que sabe cada servidor; practica con ejercicios.
+    en: >-
+      Several sites, some of which use cookies, visited several times. For each request the browser looks in
+      its cookie store: if it has a live cookie for that site it sends Cookie; if not, the server may answer
+      with Set-Cookie. Follow the decision, the messages, the store and what each server knows; practise with exercises.
+  summary:
+    es: >-
+      Simulador de cookies HTTP con varios sitios web, cada uno con una página y objetos incrustados que
+      pueden estar alojados en otro sitio (cookies de terceros), visitados varias veces. Un sitio que usa
+      cookies responde a la primera petición que llega sin su cookie con Set-Cookie (nombre=valor y, si se
+      indica, Max-Age); el navegador guarda una fila (sitio, nombre=valor, caducidad) en su almacén y desde
+      entonces envía Cookie en toda petición a ese sitio: los objetos, las visitas posteriores y las peticiones
+      hechas desde páginas de otros sitios. Una cookie nunca se envía a otro sitio. Al caducar (Max-Age) o,
+      si es de sesión, al cerrar el navegador, se borra y el servidor asigna un identificador nuevo. La
+      visualización muestra el árbol de decisión de cada petición, el diagrama de secuencia navegador–servidores
+      con las cabeceras Cookie, Set-Cookie y Referer, el almacén de cookies antes y después de cada visita y
+      lo que sabe cada servidor (seguimiento por terceros). Incluye el ejemplo de clase, la figura 2.10 de
+      Kurose y Ross, el seguimiento por terceros, la cookie de sesión, ejercicios aleatorios y exportación SVG/PNG.
+    en: >-
+      An HTTP cookie simulator with several web sites, each with a page and embedded objects that may be hosted
+      by another site (third-party cookies), visited several times. A site that uses cookies answers the first
+      request that arrives without its cookie with Set-Cookie (name=value and, if given, Max-Age); the browser
+      stores a row (site, name=value, expiry) in its cookie store and from then on sends Cookie in every request
+      to that site: the objects, later visits and requests made from pages of other sites. A cookie is never
+      sent to another site. When it expires (Max-Age) or, for a session cookie, when the browser closes, it is
+      deleted and the server assigns a new identifier. The visualization shows the decision tree for each
+      request, the browser–servers sequence diagram with the Cookie, Set-Cookie and Referer headers, the cookie
+      store before and after each visit and what each server knows (third-party tracking). It includes the
+      class example, figure 2.10 of Kurose and Ross, third-party tracking, the session cookie, random exercises
+      and SVG/PNG export.
+  concepts:
+    es:
+    - cookies HTTP
+    - Set-Cookie
+    - Cookie
+    - almacén de cookies
+    - Max-Age
+    - cookie de sesión
+    - cookies de terceros
+    - seguimiento
+    - Referer
+    - estado por encima de HTTP
+    en:
+    - HTTP cookies
+    - Set-Cookie
+    - Cookie
+    - cookie store
+    - Max-Age
+    - session cookie
+    - third-party cookies
+    - tracking
+    - Referer
+    - state on top of HTTP
+  formulas:
+    es:
+    - 'Cookie en la petición ⇔ el almacén tiene una cookie viva de ese sitio (edad < Max-Age, o de sesión sin cerrar el navegador)'
+    - 'Set-Cookie en la respuesta ⇔ el sitio usa cookies y la petición llegó sin la suya'
+    en:
+    - 'Cookie in the request ⇔ the store has a live cookie for that site (age < Max-Age, or session cookie without closing the browser)'
+    - 'Set-Cookie in the response ⇔ the site uses cookies and the request arrived without its cookie'
+  files:
+    es: 02-application-layer/http/http-cookies.es.html
+    en: 02-application-layer/http/http-cookies.en.html
+  thumbnail: thumbnails/http-cookies.jpg
+  source: src/http-cookies
+  added: '2026-10-14'

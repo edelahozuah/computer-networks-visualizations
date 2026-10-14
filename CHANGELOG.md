@@ -9,6 +9,10 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 - Browser cache: cache or server? (`http-cache`, session 2.3): decision tree, sequence
   diagram and cache table for a page visited several times, with exercises. Source in
   `src/http-cache` (engine tested by `test_motor.js`).
+- Cookies: state on top of HTTP (`http-cookies`, session 2.3): decision tree, sequence
+  diagram with Cookie/Set-Cookie/Referer, cookie store and what each server knows, for several
+  sites visited several times (expiry, session cookies, third-party tracking), with exercises.
+  Source in `src/http-cookies` (engine tested by `test_motor.js`).
 
 ### Removed
 - Speaker notes and presenter window of the DNS step by step source
