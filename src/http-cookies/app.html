@@ -274,7 +274,7 @@ td.borrada { color: var(--aviso); }
 
       <div class="tarjeta" id="t-conocido">
         <h3 class="mod" style="padding:12px 14px 0" data-en="What each server knows so far">Lo que sabe cada servidor hasta esta visita</h3>
-        <p class="nota" style="padding:4px 14px 0" data-en="A server that uses cookies sees the same value in every request that carries it, and the Referer header tells it which page the request came from.">Un servidor con cookies ve el mismo valor en todas las peticiones que lo llevan, y la cabecera <code>Referer</code> le dice desde qué página llega cada una.</p>
+        <p class="nota" style="padding:4px 14px 0" data-en="Two headers with two roles: the cookie tells the server that it is the same browser (it joins the visits); Referer tells it which page each request came from (it names them). Without the cookie, two anonymous requests; without Referer, the same browser but unknown pages.">Dos cabeceras con dos papeles: la cookie le dice al servidor que es el mismo navegador (une las visitas); el <code>Referer</code>, desde qué página llega cada petición (les pone nombre). Sin cookie, dos peticiones anónimas; sin Referer, el mismo navegador pero sin saber de qué páginas.</p>
         <div class="tabla" id="conocido"></div>
       </div>
 
@@ -497,7 +497,7 @@ td.borrada { color: var(--aviso); }
 
   function narrar(p, vis) {
     const n = `<code>${esc(p.nombre)}</code> → <code>${esc(p.host)}</code>`;
-    const terc = p.tercero ? L(` (tercero: la página es de <code>${esc(p.pagina)}</code>, pero la petición va a <code>${esc(p.host)}</code>, que recibe su propia cookie y <code>Referer</code>)`, ` (third party: the page belongs to <code>${esc(p.pagina)}</code>, but the request goes to <code>${esc(p.host)}</code>, which receives its own cookie and <code>Referer</code>)`) : '';
+    const terc = p.tercero ? L(` (tercero: la página es de <code>${esc(p.pagina)}</code>, pero la petición va a <code>${esc(p.host)}</code>; ${p.cookie ? 'la cookie le dice que eres el mismo navegador' : 'la cookie que asigna le servirá para reconocerte'} y <code>Referer: ${esc(p.pagina)}</code>, desde qué página vienes)`, ` (third party: the page belongs to <code>${esc(p.pagina)}</code>, but the request goes to <code>${esc(p.host)}</code>; ${p.cookie ? 'the cookie tells it you are the same browser' : 'the cookie it assigns will let it recognise you'} and <code>Referer: ${esc(p.pagina)}</code>, which page you come from)`) : '';
     if (p.decision === 'envia') {
       const fila = vis.almacenAntes.find(c => c.host === p.host) || vis.almacenDespues.find(c => c.host === p.host);
       const viva = fila.persistente ? L('ya estaba en el almacén', 'it was already in the store') : fila.maxAge === null ? L('de sesión: el navegador no se ha cerrado', 'session cookie: the browser has not been closed') : L(`edad ${fmtS(fila.edad)} &lt; Max-Age ${fmtS(fila.maxAge)}`, `age ${fmtS(fila.edad)} &lt; Max-Age ${fmtS(fila.maxAge)}`);
