@@ -55,7 +55,14 @@ h1 span { color: var(--trama); }
 .seg.idioma { flex: 0 0 auto; }
 .seg.idioma button { padding: 4px 10px; font-weight: 600; }
 .rejilla { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } .zona { order: -1; } }
+@media (max-width: 900px) {
+  .rejilla { grid-template-columns: minmax(0, 1fr); }
+  .rejilla > .panel { display: contents; }
+  .rejilla > .panel > section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+  .rejilla > .panel > section.s-carga { order: -2; }
+  .zona { order: -1; }
+  .tam .escala.zoom { margin-left: 6px; }
+}
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
 .panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
 .panel section:first-child { border-top: 0; }
@@ -118,15 +125,18 @@ details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; displ
 @media (max-width: 560px) { .dg { grid-template-columns: 3.2em repeat(32, minmax(0, 1fr)); font-size: 0.74rem; } .dg .campo .v { font-size: 0.74rem; } .dg .campo { padding: 7px 1px; } }
 /* Calculadora de tamaños */
 .tam { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
-.lecturas { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.lecturas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
 .lectura { display: flex; flex-direction: column; }
 .lectura b { font-weight: 500; color: var(--muted); font-size: 0.78rem; }
-.lectura span { font-family: var(--mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.lectura span { font-family: var(--mono); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .lectura.fuerte span { color: var(--trama); font-weight: 600; }
 .estado { padding: 7px 10px; border-radius: 4px; border: 1px solid var(--line); border-left-width: 5px; font-size: 0.9rem; margin: 0; }
 .estado.ok { border-left-color: var(--bien); }
 .estado.ko { border-left-color: var(--aviso); }
-.escala { position: relative; height: 54px; margin: 6px 6px 0; }
+.tam { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 4px; }
+.escala { position: relative; height: 50px; margin: 0 6px; }
+.escala.zoom { margin-left: 45%; margin-top: 4px; }
+.escala .ventana { position: absolute; top: 12px; height: 22px; border: 1.5px dashed var(--muted); }
 .escala .barra { position: absolute; left: 0; right: 0; top: 18px; height: 10px; background: var(--suave); border: 1px solid var(--line); border-radius: 3px; }
 .escala .lleno { position: absolute; left: 0; top: 18px; height: 10px; background: var(--trama); border-radius: 3px 0 0 3px; }
 .escala .marca { position: absolute; top: 12px; width: 2px; height: 22px; background: var(--fg); }
@@ -148,19 +158,21 @@ svg .fade { transition: opacity .6s; }
 <div class="envoltura">
   <header class="cab">
     <h1>The UDP datagram <span>and its pseudo-header</span></h1>
-    <div class="cab-der"><p class="sub">Four 2-byte fields make an 8-byte header. Change the payload and watch the Length; build the pseudo-header that the checksum adds and that is never transmitted; follow the three levels of addressing in a host.</p>
+    <div class="cab-der"><p class="sub">Four 2-byte fields make an 8-byte header. Change the payload and watch the Length; build the pseudo-header that the checksum also covers and that is never transmitted; follow the three levels of addressing in a host.</p>
     </div>
   </header>
 
   <div class="rejilla">
     <!-- PANEL -->
     <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
-      <section>
+      <section class="s-carga">
         <h2>Payload</h2>
         <p class="nota">The application message, in bytes. UDP does not segment: one message = one datagram.</p>
         <input type="range" id="carga-r" min="0" max="65527" step="1" aria-label="Payload in bytes">
         <div class="fila"><label class="et" for="carga-n">Bytes</label><input type="number" id="carga-n" min="0" max="65527" step="1"></div>
         <div class="saltos" id="saltos"></div>
+        <div class="lecturas" id="lecturas"></div>
+        <p class="estado" id="estado" aria-live="polite"></p>
       </section>
 
       <section>
@@ -193,6 +205,10 @@ svg .fade { transition: opacity .6s; }
           <div class="dg" id="dg" role="group" aria-label="UDP segment"></div>
           <div class="expl" id="expl" aria-live="polite"></div>
         </div>
+        <div class="tam" aria-hidden="true">
+          <div class="escala" id="escala"></div>
+          <div class="escala zoom" id="zoom"></div>
+        </div>
       </div>
 
       <div class="tarjeta" id="t-pred" hidden>
@@ -209,21 +225,13 @@ svg .fade { transition: opacity .6s; }
         </div>
       </div>
 
-      <div class="tarjeta">
-        <h3 class="mod">Sizes</h3>
-        <div class="tam">
-          <div class="lecturas" id="lecturas"></div>
-          <div class="escala" id="escala" aria-hidden="true"></div>
-          <p class="estado" id="estado"></p>
-        </div>
-      </div>
 
       <div class="tarjeta">
         <h3 class="mod">The pseudo-header</h3>
         <div class="reproductor">
           <button type="button" class="btn prim" id="b-construir">Build pseudo-header</button>
           <button type="button" class="btn" id="r-ini" aria-label="To the start">⏮</button>
-          <button type="button" class="btn" id="r-ant" aria-label="Previous step">◀</button>
+          <button type="button" class="btn" id="r-ant" aria-label="Previous step">|◀︎</button>
           <button type="button" class="btn" id="r-play" aria-label="Play">▶</button>
           <button type="button" class="btn" id="r-sig" aria-label="Next step">▶︎|</button>
           <button type="button" class="btn" id="r-fin" aria-label="To the end">⏭</button>
@@ -252,7 +260,7 @@ svg .fade { transition: opacity .6s; }
         <summary>Model assumptions</summary>
         <ul>
           <li>Each header field takes 16 bits (2 B): the header is 8 B. Length = header + data, in bytes: 8 ≤ L ≤ 65 535. Maximum payload: 65 535 − 8 = 65 527 B; over IPv4 (20-byte header), 65 507 B.</li>
-          <li>The IPv4 header is drawn without options (20 B); it is covered in Topic 4. Only the source IP, destination IP and Protocol fields matter here.</li>
+          <li>The IPv4 header is assumed to have no options (20 B); the dashed row is not used. With options (up to 60 B) the maximum data drops to 65 467 B. The IPv4 header is covered in Topic 4; only the source IP, destination IP and Protocol fields matter here.</li>
           <li>The checksum value is not computed here: it is computed over the pseudo-header plus the whole segment, with the field set to 0. You will do it in the lab; the one's complement sum is in “UDP checksum step by step”.</li>
           <li>A datagram that does not fit in the network MTU is fragmented by IP (Topic 4); UDP still sends a single datagram.</li>
         </ul>
@@ -335,10 +343,14 @@ const MotorUDP = (() => {
     const suma = sumaC1(palabrasConChecksum).suma;
     return { suma, ok: suma === M16 };
   }
+  // Lo que viaja en el campo (RFC 768): en IPv4, 0 significa «sin checksum», así que un checksum calculado 0000
+  // se transmite como FFFF (que en complemento a 1 también es cero).
+  const checksumTransmitido = palabras => checksum(palabras) || M16;
   // Receptor, forma de la s.31: pone el campo a 0, recalcula y compara con el checksum recibido.
   function verificaRecalculo(datos, recibido) {
     const calculado = checksum([...datos, 0]);
-    return { calculado, recibido: recibido & M16, ok: calculado === (recibido & M16) };
+    const transmitido = calculado || M16;
+    return { calculado, transmitido, recibido: recibido & M16, ok: transmitido === (recibido & M16) };
   }
 
   // Bytes → palabras de 16 bits (el primer byte es el de más peso). Con un número impar de bytes se añade un
@@ -354,21 +366,17 @@ const MotorUDP = (() => {
   const bytesDePalabras = palabras => palabras.flatMap(w => [(w >> 8) & 0xff, w & 0xff]);
 
   // ------------------------------------------------------------ ejercicios aleatorios
-  // Valores que no salen nunca en los ejercicios: los de la actividad A4 (s.32–33, se hace en papel) y los de
-  // la captura y los bancos del laboratorio GP31.
-  const RESERVADOS = new Set([0x8A3C, 0x6F1E, 0xB247, 0xE112, 0x780D, 0xB669, 0xBA78]);
   function rngSemilla(semilla) {          // mulberry32
     let a = semilla >>> 0;
     return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   }
-  // n palabras al azar con al menos un acarreo que da la vuelta (así se ve el bit 17) y sin valores reservados.
+  // n palabras al azar, distintas y no nulas, con al menos un acarreo que da la vuelta (así se ve el bit 17).
   function aleatorio(rng, n = 3) {
     rng = rng || Math.random;
     for (let intento = 0; intento < 1000; intento++) {
       const ps = Array.from({ length: n }, () => Math.floor(rng() * 0x10000));
       const s = sumaC1(ps);
       if (!s.pasos.some(p => p.acarreo)) continue;
-      if (ps.some(w => RESERVADOS.has(w)) || RESERVADOS.has(s.suma) || RESERVADOS.has(complemento(s.suma))) continue;
       if (new Set(ps).size < n || ps.some(w => w === 0)) continue;
       return ps;
     }
@@ -424,8 +432,8 @@ const MotorUDP = (() => {
   const cabeceraUDP = (po, pd, longitud, cs = 0) => [po >> 8, po & 0xff, pd >> 8, pd & 0xff, longitud >> 8, longitud & 0xff, cs >> 8, cs & 0xff].map(x => x & 0xff);
 
   return {
-    hex16, bin16, bin17, bit, leerPalabra, sumar2, sumaC1, complemento, checksum, verifica, verificaRecalculo,
-    palabrasDeBytes, bytesDePalabras, RESERVADOS, rngSemilla, aleatorio, bitsQueSeCompensan,
+    hex16, bin16, bin17, bit, leerPalabra, sumar2, sumaC1, complemento, checksum, checksumTransmitido, verifica, verificaRecalculo,
+    palabrasDeBytes, bytesDePalabras, rngSemilla, aleatorio, bitsQueSeCompensan,
     TAM, longitudUDP, cargaDeLongitud, cabeEnIPv4, CAMPOS_UDP, ipBytes, pseudocabecera, cabeceraUDP
   };
 })();
@@ -443,6 +451,8 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
   // Ejemplo: A → C con los puertos del deck y direcciones de documentación (RFC 5737)
   const EJ = { ipO: '203.0.113.7', ipD: '198.51.100.20', po: 9157, pd: 6428 };
   const PUERTOS = { 6: [80, 443, 25], 17: [53, 443, 6428] };
+  const SERVICIO = { 6: ['HTTP', 'HTTPS', 'SMTP'], 17: ['DNS', 'HTTP/3', null] };   // null: el proceso de C del ejemplo
+  const servicio = (p, port) => SERVICIO[p][PUERTOS[p].indexOf(port)] || L('proceso de C', 'process in C');
 
   // ------------------------------------------------------------ estado
   function base() { return { carga: 3000, campo: 'lon', pseudo: 0, proto: 17, puerto: 443, practica: null, vista: { idioma: 'es', tema: 'auto' } }; }
@@ -484,26 +494,26 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
   function pintarDatagrama() {
     const Lg = lon(), c = estado.carga;
     const pr = id => `aria-pressed="${estado.campo === id}"`;
-    let h = `<span></span>`;
+    let h = `<span class="regla">byte</span>`;
     for (let b = 0; b < 32; b++) h += `<span class="regla">${b % 8 === 0 || b === 31 ? b : ''}</span>`;
-    const campo = (id, span, n, v, cls = 'cab') => `<button type="button" class="campo ${cls}" style="grid-column: span ${span}" data-campo="${id}" ${pr(id)}><span class="n">${esc(n)}</span>${v !== '' ? `<span class="v">${esc(v)}</span>` : ''}</button>`;
+    const campo = (id, span, n, v, cls = 'cab', ti = '') => `<button type="button" class="campo ${cls}" style="grid-column: span ${span}" data-campo="${id}" ${pr(id)}${ti}><span class="n">${esc(n)}</span>${v !== '' ? `<span class="v">${esc(v)}</span>` : ''}</button>`;
     const lat = t => `<span class="lat">${t}</span>`;
-    h += lat(L('B 0–3', 'B 0–3')) + campo('po', 16, L('Puerto origen', 'Source port'), EJ.po) + campo('pd', 16, L('Puerto destino', 'Destination port'), EJ.pd);
-    h += lat(L('B 4–7', 'B 4–7')) + campo('lon', 16, L('Longitud', 'Length'), fmtN(Lg)) + campo('cs', 16, 'Checksum', L('se calcula', 'computed'));
+    h += lat('0–3') + campo('po', 16, L('Puerto origen', 'Source port'), EJ.po) + campo('pd', 16, L('Puerto destino', 'Destination port'), EJ.pd);
+    h += lat('4–7') + campo('lon', 16, L('Longitud', 'Length'), fmtN(Lg)) + campo('cs', 16, 'Checksum', L('se calcula', 'computed'));
     const filas = Math.ceil(c / 4);
     const resto = c % 4;
-    const datos = (i, span, txt) => campo('datos', span, txt, '', 'datos');
+    const datos = (i, span, txt) => campo('datos', span, txt, '', 'datos', i ? ' tabindex="-1"' : '');
     if (!c) h += lat('') + `<button type="button" class="campo vacio" style="grid-column: span 32" data-campo="datos" ${pr('datos')}><span class="n">${esc(L('sin datos: L = 8', 'no data: L = 8'))}</span></button>`;
     else {
       const mostrar = filas <= 4 ? filas : 3;
       for (let i = 0; i < mostrar; i++) {
         const ult = i === filas - 1 && resto;
-        h += lat(`B ${fmtN(8 + 4 * i)}–${fmtN(8 + 4 * i + (ult ? resto : 4) - 1)}`) + datos(i, ult ? resto * 8 : 32, i === 0 ? L(`Datos (${fmtN(c)} B)`, `Data (${fmtN(c)} B)`) : '');
+        h += lat(fmtN(8 + 4 * i)) + datos(i, ult ? resto * 8 : 32, i === 0 ? L(`Datos (${fmtN(c)} B)`, `Data (${fmtN(c)} B)`) : '');
       }
       if (filas > 4) {
-        h += lat('⋮') + `<button type="button" class="campo puntos" style="grid-column: span 32" data-campo="datos" ${pr('datos')}><span>${esc(L(`⋮ ${fmtN(filas - 4)} filas más ⋮`, `⋮ ${fmtN(filas - 4)} more rows ⋮`))}</span></button>`;
+        h += lat('⋮') + `<button type="button" class="campo puntos" style="grid-column: span 32" data-campo="datos" ${pr('datos')} tabindex="-1"><span>${esc(L(`⋮ ${fmtN(filas - 4)} filas más ⋮`, `⋮ ${fmtN(filas - 4)} more rows ⋮`))}</span></button>`;
         const ult = resto;
-        h += lat(`B ${fmtN(8 + 4 * (filas - 1))}–${fmtN(Lg - 1)}`) + datos(filas - 1, ult ? resto * 8 : 32, '');
+        h += lat(fmtN(8 + 4 * (filas - 1))) + datos(filas - 1, ult ? resto * 8 : 32, '');
       }
     }
     $('#dg').innerHTML = h;
@@ -520,13 +530,18 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
     const c = estado.carga, Lg = lon(), cabe = M.cabeEnIPv4(c);
     $('#carga-r').value = c; if (document.activeElement !== $('#carga-n')) $('#carga-n').value = c;
     $('#saltos').innerHTML = MARCAS.map(v => `<button type="button" class="btn mini" data-salto="${v}" aria-pressed="${v === c}">${fmtN(v)}</button>`).join('');
-    const lec = [[L('Datos', 'Data'), fmtN(c) + ' B'], [L('Cabecera UDP', 'UDP header'), '8 B'], [L('Longitud UDP = 8 + datos', 'UDP Length = 8 + data'), fmtN(Lg) + ' B', true], [L('Datagrama IPv4 = 20 + L', 'IPv4 datagram = 20 + L'), fmtN(Lg + 20) + ' B']];
+    const lec = [[L('Datos', 'Data'), fmtN(c) + ' B'], [L('Cabecera UDP', 'UDP header'), '8 B'], [L('Longitud: 8 + datos', 'Length: 8 + data'), fmtN(Lg) + ' B', true], [L('IPv4: 20 + L', 'IPv4: 20 + L'), fmtN(Lg + 20) + ' B']];
     $('#lecturas').innerHTML = lec.map(([k, v, f]) => `<div class="lectura${f ? ' fuerte' : ''}"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
     const pct = v => (v / 65535 * 100).toFixed(3) + '%';
+    const Z0 = 65435, zp = v => ((Math.min(65535, Math.max(Z0, v)) - Z0) / 100 * 100).toFixed(2) + '%';
+    $('#zoom').innerHTML = `<div class="barra"></div><div class="lleno" style="width:${Lg >= Z0 ? zp(Lg) : '0%'}"></div>` +
+      `<span class="et arr" style="left:0">L = ${fmtN(Z0)}</span>` +
+      `<div class="marca" style="left:${zp(65515)};background:var(--aviso)"></div><span class="et abj" style="left:${zp(65515)};transform:translateX(-100%)">L = ${fmtN(65515)} · ${L('datos ≤ 65 507 sobre IPv4', 'data ≤ 65 507 over IPv4')} </span>` +
+      `<div class="marca" style="left:calc(100% - 2px)"></div><span class="et arr" style="right:0">L = ${fmtN(65535)} · ${L('datos ≤ 65 527', 'data ≤ 65 527')}</span>`;
     $('#escala').innerHTML = `<div class="barra"></div><div class="lleno" style="width:${pct(Lg)}"></div>` +
-      `<div class="marca" style="left:${pct(8)}"></div><span class="et arr" style="left:0">L = 8 (${L('mín.', 'min')})</span>` +
-      `<div class="marca" style="left:${pct(65515)};background:var(--aviso)"></div><span class="et abj" style="right:2.4em">${L('IPv4: datos ≤ 65 507', 'IPv4: data ≤ 65 507')}</span>` +
-      `<div class="marca" style="left:calc(${pct(65535)} - 2px)"></div><span class="et arr" style="right:0">L = 65 535 · ${L('datos ≤ 65 527', 'data ≤ 65 527')}</span>`;
+      `<div class="ventana" style="left:${pct(Z0)};right:0"></div>` +
+      `<div class="marca" style="left:${pct(8)}"></div><span class="et arr" style="left:0">L = 8 (${L('mín.: sin datos', 'min: no data')})</span>` +
+      `<div class="marca" style="left:calc(${pct(65535)} - 2px)"></div><span class="et arr" style="right:0">L = ${fmtN(65535)}</span><span class="et abj" style="right:0">${L('últimos 100 B ↓', 'last 100 B ↓')}</span>`;
     const e = $('#estado');
     e.className = 'estado ' + (cabe ? 'ok' : 'ko');
     e.innerHTML = c === 0 ? L('Sin datos: el datagrama es solo la cabecera, L = 8. Es el mínimo.', 'No data: the datagram is just the header, L = 8. That is the minimum.')
@@ -549,9 +564,9 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
   let geo = null;
   function construirSVG() {
     const comp = estrecho.matches;
-    const BW = comp ? 10 : 21, X0 = comp ? 6 : 150, RH = comp ? 30 : 38, FS = comp ? 10 : 13;
+    const BW = comp ? 10 : 21, X0 = comp ? 6 : 150, RH = comp ? 30 : 32, FS = comp ? 10 : 12.5;
     const W = X0 + 32 * BW + (comp ? 6 : 20);
-    const yI = comp ? 40 : 34, yP = yI + 6 * RH + (comp ? 70 : 56), yU = yP + 3 * RH + (comp ? 56 : 46);
+    const yI = comp ? 40 : 26, yP = yI + 6 * RH + (comp ? 56 : 34), yU = yP + 3 * RH + (comp ? 50 : 38);
     const H = yU + 3 * RH + 16;
     const x = b => X0 + b * BW;
     const ph = M.pseudocabecera(EJ.ipO, EJ.ipD, lon());
@@ -559,8 +574,8 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
     const caja = (b, n, y, txt, opc = {}) => {
       const w = n * BW;
       return `<rect x="${x(b)}" y="${y}" width="${w}" height="${RH}" fill="${opc.fill || 'var(--panel)'}" stroke="${opc.stroke || 'var(--fg)'}" stroke-width="${opc.sw || 1.2}"${opc.dash ? ' stroke-dasharray="4 3"' : ''}/>` +
-        `<text x="${x(b) + w / 2}" y="${y + RH / 2 + (opc.sub ? -2 : 4)}" text-anchor="middle" font-size="${opc.fs || FS}" fill="${opc.color || 'var(--fg)'}"${opc.bold ? ' font-weight="600"' : ''}>${esc(txt)}</text>` +
-        (opc.sub ? `<text x="${x(b) + w / 2}" y="${y + RH / 2 + 11}" text-anchor="middle" font-size="${FS - 1}" fill="${opc.color || 'var(--fg)'}" font-family="IBM Plex Mono, ui-monospace, monospace">${esc(opc.sub)}</text>` : '');
+        `<text x="${x(b) + w / 2}" y="${y + RH / 2 + (opc.sub ? -3 : 4)}" text-anchor="middle" font-size="${opc.fs || FS}" fill="${opc.color || 'var(--fg)'}"${opc.bold ? ' font-weight="600"' : ''}>${esc(txt)}</text>` +
+        (opc.sub ? `<text x="${x(b) + w / 2}" y="${y + RH / 2 + 10}" text-anchor="middle" font-size="${FS - 1}" fill="${opc.color || 'var(--fg)'}" font-family="IBM Plex Mono, ui-monospace, monospace">${esc(opc.sub)}</text>` : '');
     };
     const C = comp
       ? { ver: 'V', ihl: 'IHL', tos: 'ToS', tot: L('Long. total', 'Total length'), id: 'Id', fl: 'Fl', frag: L('Pos. frag.', 'Frag. off.'), ttl: 'TTL', proto: L('Protocolo', 'Protocol'), csip: L('Checksum cab.', 'Header cks.'), ipo: L('IP origen', 'Source IP'), ipd: L('IP destino', 'Destination IP'), opc: L('Opciones + relleno', 'Options + padding') }
@@ -588,7 +603,7 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
     const u = k => yU + k * RH;
     o += `<g id="ps-udp">`;
     o += caja(0, 16, u(0), L('Puerto origen', 'Source port'), { sub: String(EJ.po), fill: 'var(--camino)' }) + caja(16, 16, u(0), L('Puerto destino', 'Destination port'), { sub: String(EJ.pd), fill: 'var(--camino)' });
-    o += `<g id="ps-o-lon">${caja(0, 16, u(1), L('Longitud', 'Length'), { sub: String(lon()), fill: 'var(--camino)' })}</g>` + caja(16, 16, u(1), 'Checksum', { sub: L('pseudocab. + segmento', 'pseudo-hdr + segment'), fill: 'var(--camino)', color: 'var(--html)' });
+    o += `<g id="ps-o-lon">${caja(0, 16, u(1), L('Longitud', 'Length'), { sub: fmtN(lon()), fill: 'var(--camino)' })}</g>` + caja(16, 16, u(1), 'Checksum', { sub: L('pseudocab. + segmento', 'pseudo-hdr + segment'), fill: 'var(--camino)', color: 'var(--html)' });
     o += caja(0, 32, u(2), L(`Datos (${fmtN(estado.carga)} B)`, `Data (${fmtN(estado.carga)} B)`), { fill: 'var(--suave)', dash: true });
     o += `</g>`;
     if (!comp) o += `<text x="10" y="${u(0) + 18}" font-family="Archivo, sans-serif" font-weight="700" font-size="15" fill="var(--trama)">${esc(L('Segmento UDP', 'UDP segment'))}</text><text x="10" y="${u(0) + 36}" font-size="12" fill="var(--muted)">${esc(L('(se transmite)', '(transmitted)'))}</text>`;
@@ -609,7 +624,7 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
     o += pieza('ps-ipd', 0, 32, 1, C.ipd + (comp ? '' : ' (4 B)'), `${EJ.ipD} = ${hexs(ph.bytes.slice(4, 8))}`, [0, r(4) - p(1)]);
     o += pieza('ps-cero', 0, 8, 2, '0x00', comp ? '' : '1 B', [0, 0]);
     o += pieza('ps-proto', 8, 8, 2, comp ? '17' : L('Protocolo', 'Protocol'), comp ? '' : '17 = UDP', [0, r(2) - p(2)]);
-    o += `<g id="ps-lon" class="mueve" opacity="0" data-dx="${-16 * BW}" data-dy="${u(1) - p(2)}" style="transform: translate(${-16 * BW}px, ${u(1) - p(2)}px)">${caja(16, 16, p(2), L('Longitud UDP', 'UDP length'), { ...PS, sub: `${lon()} = ${hexs(ph.bytes.slice(10, 12))}` })}</g>`;
+    o += `<g id="ps-lon" class="mueve" opacity="0" data-dx="${-16 * BW}" data-dy="${u(1) - p(2)}" style="transform: translate(${-16 * BW}px, ${u(1) - p(2)}px)">${caja(16, 16, p(2), L('Longitud UDP', 'UDP length'), { ...PS, sub: `${fmtN(lon())} = ${hexs(ph.bytes.slice(10, 12))}` })}</g>`;
     // rótulo final
     o += `<g id="ps-rotulo" class="fade" opacity="0"><text x="${x(16)}" y="${p(3) + (comp ? 18 : 22)}" text-anchor="middle" font-size="${comp ? 10.5 : 14}" font-weight="600" fill="var(--rojo)">${esc(L('no se transmite; cada extremo la reconstruye', 'not transmitted; each end rebuilds it'))}</text></g>`;
     o += '</svg>';
@@ -655,14 +670,18 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
     $('#r-play').textContent = '⏸'; $('#r-play').setAttribute('aria-label', L('Pausa', 'Pause'));
     animando = setTimeout(tic, desde0 ? 900 : 50);
   }
-  $('#b-construir').addEventListener('click', () => reproducir(true));
+  $('#b-construir').addEventListener('click', () => {
+    $('#lienzo').scrollIntoView({ block: 'nearest', behavior: reduceMov ? 'auto' : 'smooth' });
+    if (reduceMov) { parar(); irPaso(NPASOS - 1); } else reproducir(true);
+  });
   $('#r-play').addEventListener('click', () => { if (animando) parar(); else reproducir(false); });
   $('#r-ini').addEventListener('click', () => { parar(); irPaso(0); });
   $('#r-fin').addEventListener('click', () => { parar(); irPaso(NPASOS - 1); });
   $('#r-sig').addEventListener('click', () => { parar(); irPaso(estado.pseudo + 1); });
   $('#r-ant').addEventListener('click', () => { parar(); irPaso(estado.pseudo - 1); });
   document.addEventListener('keydown', e => {
-    if (e.target.matches && e.target.matches('input, select, textarea')) return;
+    const el = e.target.closest ? e.target.closest('button, a, summary, [role="tab"], [role="button"], input, select, textarea') : null;
+    if (el && !el.closest('.reproductor')) return;   // los botones del reproductor sí usan la tecla
     if (e.key === ' ') { e.preventDefault(); $('#r-play').click(); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); $('#r-sig').click(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#r-ant').click(); }
@@ -672,10 +691,10 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
   // ------------------------------------------------------------ cascada IP → 6/17 → puerto (s.21)
   function pintarCascada() {
     const comp = estrecho.matches;
-    const W = comp ? 480 : 700, H = 300, FS = comp ? 18 : 15;
+    const W = comp ? 480 : 720, H = 300, FS = comp ? 18 : 15;
     const yA = comp ? 52 : 46, yT = 150, yR = comp ? 250 : 254;
-    const xs = comp ? { 6: 120, 17: 360 } : { 6: 230, 17: 530 };
-    const SP = comp ? 78 : 98, BX = comp ? 35 : 42;
+    const xs = comp ? { 6: 120, 17: 360 } : { 6: 230, 17: 545 };
+    const SP = comp ? 78 : 104, BX = comp ? 37 : 50;
     const app = (p, i) => xs[p] - SP + i * SP;
     const pr = estado.proto, pu = estado.puerto;
     const on = 'var(--rojo)', off = 'var(--line)';
@@ -692,8 +711,10 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
         const b = a && port === pu;
         o += `<line x1="${xs[p]}" y1="${yT - 16}" x2="${app(p, i)}" y2="${yA + 16}" stroke="${b ? on : off}" stroke-width="${b ? 3.5 : 2}"/>`;
         o += `<rect x="${app(p, i) - BX}" y="${yA - 16}" width="${2 * BX}" height="32" rx="4" fill="var(--panel)" stroke="${b ? on : 'var(--fg)'}" stroke-width="${b ? 3 : 1.2}"/>`;
-        o += `<text x="${app(p, i)}" y="${yA + 5}" text-anchor="middle" fill="${b ? on : 'var(--fg)'}"${b ? ' font-weight="600"' : ''}>${comp ? '' : L('Ap. ', 'App ')}${comp ? 'A' : ''}${i + 1}</text>`;
-        o += `<text x="${(xs[p] + app(p, i)) / 2 + (i === 0 ? -14 : i === 2 ? 14 : 22)}" y="${(yA + yT) / 2 + 4}" text-anchor="middle" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="13" fill="${b ? on : 'var(--muted)'}"${b ? ' font-weight="700"' : ''}>${port}</text>`;
+        const nom = SERVICIO[p][i] || (comp ? L('proc. C', 'proc. C') : L('proceso de C', 'process in C'));
+        o += `<text x="${app(p, i)}" y="${yA + 5}" text-anchor="middle" font-size="${comp ? 15 : 13}" fill="${b ? on : 'var(--fg)'}"${b ? ' font-weight="600"' : ''}>${esc(nom)}</text>`;
+        const f = 0.62, lx = xs[p] + (app(p, i) - xs[p]) * f, ly = (yT - 16) - ((yT - 16) - (yA + 16)) * f;
+        o += `<text x="${lx + (i === 0 ? -6 : 6)}" y="${ly + 4}" text-anchor="${i === 0 ? 'end' : 'start'}" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${comp ? 15 : 13}" fill="${b ? on : 'var(--muted)'}"${b ? ' font-weight="700"' : ''}>${port}</text>`;
       });
       o += `<rect x="${xs[p] - 46}" y="${yT - 16}" width="92" height="32" rx="4" fill="var(--panel)" stroke="${a ? on : 'var(--fg)'}" stroke-width="${a ? 3 : 1.2}"/><text x="${xs[p]}" y="${yT + 5}" text-anchor="middle" font-weight="600" fill="${a ? on : 'var(--fg)'}">${p === 6 ? 'TCP' : 'UDP'}</text>`;
     });
@@ -703,9 +724,9 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
     o += '</svg>';
     $('#cascada').innerHTML = o;
     document.querySelectorAll('#s-proto button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === pr)));
-    $('#s-puerto').innerHTML = PUERTOS[pr].map(p => `<button type="button" data-v="${p}" aria-pressed="${p === pu}">${p}</button>`).join('');
+    $('#s-puerto').innerHTML = PUERTOS[pr].map(p => `<button type="button" data-v="${p}" aria-pressed="${p === pu}" title="${esc(servicio(pr, p))}">${p}</button>`).join('');
     const i = PUERTOS[pr].indexOf(pu);
-    $('#cascada-txt').innerHTML = L(`Llega un datagrama a C: la <b>IP destino</b> (198.51.100.20) dice que es para este host; el campo <b>Protocolo = ${pr}</b> lo entrega a ${pr === 6 ? 'TCP' : 'UDP'}; el <b>puerto destino ${pu}</b> elige el proceso (Ap. ${i + 1}).${pu === 443 ? ` El 443 existe en TCP y en UDP a la vez (HTTP/3 usa 443/UDP): el protocolo forma parte de la dirección.` : ''}`, `A datagram reaches C: the <b>destination IP</b> (198.51.100.20) says it is for this host; the <b>Protocol = ${pr}</b> field hands it to ${pr === 6 ? 'TCP' : 'UDP'}; the <b>destination port ${pu}</b> chooses the process (App ${i + 1}).${pu === 443 ? ' Port 443 exists in TCP and in UDP at the same time (HTTP/3 uses 443/UDP): the protocol is part of the address.' : ''}`);
+    $('#cascada-txt').innerHTML = L(`Llega un datagrama a C: la <b>IP destino</b> (198.51.100.20) dice que es para este host; el campo <b>Protocolo = ${pr}</b> lo entrega a ${pr === 6 ? 'TCP' : 'UDP'}; el <b>puerto destino ${pu}</b> elige el proceso: ${esc(servicio(pr, pu))}${SERVICIO[pr][i] ? '' : ' (ejemplo)'}.${pu === 443 ? ` El 443 existe en TCP y en UDP a la vez (HTTP/3 usa 443/UDP): el protocolo forma parte de la dirección.` : ''}`, `A datagram reaches C: the <b>destination IP</b> (198.51.100.20) says it is for this host; the <b>Protocol = ${pr}</b> field hands it to ${pr === 6 ? 'TCP' : 'UDP'}; the <b>destination port ${pu}</b> chooses the process: ${esc(servicio(pr, pu))}${SERVICIO[pr][i] ? '' : ' (example)'}.${pu === 443 ? ' Port 443 exists in TCP and in UDP at the same time (HTTP/3 uses 443/UDP): the protocol is part of the address.' : ''}`);
   }
   $('#s-proto').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const p = Number(b.dataset.v); if (p !== estado.proto) { estado.proto = p; if (!PUERTOS[p].includes(estado.puerto)) estado.puerto = PUERTOS[p][1]; } pintarCascada(); guardarLocal(); });
   $('#s-puerto').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; estado.puerto = Number(b.dataset.v); pintarCascada(); guardarLocal(); });
@@ -714,10 +735,14 @@ if (typeof module !== 'undefined') module.exports = MotorUDP;
   const rnd = n => Math.floor(Math.random() * n);
   function nuevaPregunta() {
     const tipo = ['datos', 'longitud', 'cabe'][rnd(3)];
-    let v;
-    if (tipo === 'datos') v = 8 + [rnd(60), rnd(1500), 65507 + 8 - rnd(40)][rnd(3)];        // valor del campo Longitud
-    else if (tipo === 'longitud') v = [1 + rnd(100), 100 + rnd(3000), 65400 + rnd(127)][rnd(3)];  // bytes de datos
-    else v = 65507 + [-rnd(30) - 1, 0, 1, rnd(20) + 2][rnd(4)];                                // bytes de datos
+    // se evitan los ejemplos de clase (L = 39 / 31 B y 3000 B / 3008); la carga nunca pasa de 65 527
+    let v, carga;
+    do {
+      if (tipo === 'datos') v = 8 + [rnd(60), rnd(1500), 65507 - rnd(40)][rnd(3)];               // valor del campo Longitud
+      else if (tipo === 'longitud') v = [1 + rnd(100), 100 + rnd(3000), 65400 + rnd(128)][rnd(3)]; // bytes de datos
+      else v = 65507 + [-rnd(30) - 1, 0, 1, rnd(20) + 2][rnd(4)];                                 // bytes de datos
+      carga = tipo === 'datos' ? v - 8 : v;
+    } while (carga < 0 || carga > M.TAM.maxCarga || carga === 31 || carga === 3000);
     estado.practica = { tipo, v };
     $('#fb').textContent = ''; $('#fb').className = 'fb';
     pintarPred();

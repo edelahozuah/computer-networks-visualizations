@@ -1,6 +1,5 @@
 // Pruebas de lo que udp-datagram usa del motor de udp-checksum (tamaños, campos y pseudocabecera) y de que
 // la página no contiene valores del laboratorio GP31 ni del banco B2.
-const fs = require('fs');
 const path = require('path');
 const M = require('../udp-checksum/motor.js');
 let fallos = 0, n = 0;
@@ -23,10 +22,14 @@ ok(ph.campos.map(c => c.id).join(',') === 'ipo,ipd,cero,proto,lon' && ph.campos.
 ok(M.pseudocabecera('203.0.113.7', '198.51.100.20', 8, 6).bytes[9] === 6, 'protocolo TCP = 6');
 ok(M.cabeceraUDP(9157, 6428, 3008).length === 8, 'cabecera UDP de 8 B');
 
-// La página no usa valores de GP31 ni del banco B2
-const app = fs.readFileSync(path.join(__dirname, 'app.html'), 'utf8');
-const PROHIBIDOS = ['192.168.1.10', '192.168.1.20', '192.168.1.30', '10.0.2.15', '172.31.254.2', '10.0.0.5', '50123', '8888', '41000', '50200', '9999', '44458', 'e112', '780d', 'b669', 'ba78', '8A3C', '6F1E', 'B247', '545D'];
-for (const p of PROHIBIDOS) ok(!app.toLowerCase().includes(p.toLowerCase()), 'valor prohibido en app.html: ' + p);
+// Ni las fuentes ni lo construido ni lo publicado contienen valores de GP31, B2 o A4
+const { escanear } = require('../udp-checksum/prohibidos.js');
+const D = __dirname, PUB = path.join(D, '../../03-transport-layer');
+// con --fuentes (antes de construir) solo se miran las fuentes; build.sh repite la prueba sobre lo publicado
+const soloFuentes = process.argv.includes('--fuentes');
+const malos = escanear([path.join(D, 'app.html'), path.join(D, '../udp-checksum/motor.js'), ...(soloFuentes ? [] : [path.join(D, 'dist/app.html'), path.join(D, 'dist/index.html'),
+  path.join(PUB, 'udp-datagram.es.html'), path.join(PUB, 'udp-datagram.en.html')])]);
+ok(!malos.length, 'valores prohibidos: ' + malos.map(m => m.join(' → ')).join(', '));
 
 console.log(fallos ? `${fallos} de ${n} pruebas fallan` : `OK: ${n} pruebas`);
 process.exit(fallos ? 1 : 0);
