@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The UDP datagram and its pseudo-header</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Mismo banco de trabajo que HTTP cookies y el checksum UDP: panel a la izquierda; datagrama, pseudocabecera y niveles a la derecha. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --html: #7a4fb5;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --camino: #fff1d6;
+  --rojo: #c0262d;
+  --tema4: #e9edf1;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12; --rojo: #ff6b6b; --tema4: #1b232b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12; --rojo: #ff6b6b; --tema4: #1b232b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } .zona { order: -1; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+input[type="text"], input[type="number"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.9rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="number"] { width: 9em; }
+input[type="range"] { width: 100%; accent-color: var(--trama); }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover:not(:disabled) { border-color: var(--fg); }
+button.btn:disabled { opacity: .45; cursor: default; }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+button.btn.mini { padding: 2px 8px; font-size: 0.8rem; line-height: 1.3; font-family: var(--mono); }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.nota code, .narra code, .expl code, .lectura code { font-family: var(--mono); font-size: 0.92em; background: var(--suave); padding: 0 4px; border-radius: 3px; }
+a { color: var(--trama); }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+h3.mod { font-family: var(--display); font-weight: 700; font-size: 0.98rem; margin: 0; padding: 12px 14px 6px; }
+.reproductor { display: flex; align-items: center; gap: 8px; padding: 4px 14px 0; flex-wrap: wrap; }
+.reproductor .t { font-family: var(--mono); font-size: 0.84rem; color: var(--sel); font-variant-numeric: tabular-nums; flex: 1; }
+.reproductor button.btn { padding: 4px 10px; min-width: 36px; }
+.narra { padding: 10px 14px 12px; font-size: 0.98rem; margin: 0; min-height: 3.9em; }
+.narra b { color: var(--rojo); }
+.lienzo { overflow-x: auto; padding: 6px 8px 10px; }
+.lienzo svg { display: block; margin: 0 auto; width: 100%; height: auto; max-width: 900px; }
+.fb { font-size: 0.86rem; margin: 0; }
+.fb.ok { color: var(--bien); }
+.fb.ko { color: var(--aviso); }
+details.sup { padding: 0; }
+details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+/* Datagrama en filas de 32 bits */
+.dg-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 14px; padding: 0 14px 14px; align-items: start; }
+@media (max-width: 1100px) { .dg-wrap { grid-template-columns: minmax(0, 1fr); } }
+.dg { display: grid; grid-template-columns: 4.6em repeat(32, minmax(0, 1fr)); row-gap: 0; font-size: 0.86rem; }
+.dg .regla { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); text-align: left; padding-bottom: 2px; }
+.dg .lat { font-size: 0.74rem; color: var(--muted); align-self: center; padding-right: 6px; line-height: 1.2; }
+.dg .campo { font: inherit; text-align: center; border: 1.5px solid var(--fg); margin: -0.75px; background: var(--panel); color: var(--fg); padding: 9px 4px; cursor: help; min-width: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.2; }
+.dg .campo .n { font-weight: 600; }
+.dg .campo .v { font-family: var(--mono); font-size: 0.86rem; color: var(--trama); }
+.dg .campo.cab { background: var(--camino); }
+.dg .campo.datos { background: var(--suave); cursor: help; }
+.dg .campo.vacio { background: transparent; border-style: dashed; color: var(--muted); }
+.dg .campo.puntos { border-top-style: dashed; border-bottom-style: dashed; color: var(--muted); font-family: var(--mono); padding: 4px; }
+.dg .campo[aria-pressed="true"], .dg .campo:hover { outline: 3px solid var(--sel); outline-offset: -3px; z-index: 1; }
+.expl { border: 1px solid var(--line); border-left: 5px solid var(--sel); border-radius: 4px; padding: 10px 12px; font-size: 0.92rem; min-height: 8em; }
+.expl h4 { margin: 0 0 4px; font-family: var(--display); font-size: 0.95rem; }
+.expl p { margin: 0 0 6px; }
+@media (max-width: 560px) { .dg { grid-template-columns: 3.2em repeat(32, minmax(0, 1fr)); font-size: 0.74rem; } .dg .campo .v { font-size: 0.74rem; } .dg .campo { padding: 7px 1px; } }
+/* Calculadora de tamaños */
+.tam { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.lecturas { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.lectura { display: flex; flex-direction: column; }
+.lectura b { font-weight: 500; color: var(--muted); font-size: 0.78rem; }
+.lectura span { font-family: var(--mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.lectura.fuerte span { color: var(--trama); font-weight: 600; }
+.estado { padding: 7px 10px; border-radius: 4px; border: 1px solid var(--line); border-left-width: 5px; font-size: 0.9rem; margin: 0; }
+.estado.ok { border-left-color: var(--bien); }
+.estado.ko { border-left-color: var(--aviso); }
+.escala { position: relative; height: 54px; margin: 6px 6px 0; }
+.escala .barra { position: absolute; left: 0; right: 0; top: 18px; height: 10px; background: var(--suave); border: 1px solid var(--line); border-radius: 3px; }
+.escala .lleno { position: absolute; left: 0; top: 18px; height: 10px; background: var(--trama); border-radius: 3px 0 0 3px; }
+.escala .marca { position: absolute; top: 12px; width: 2px; height: 22px; background: var(--fg); }
+.escala .et { position: absolute; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+.escala .et.arr { top: -4px; }
+.escala .et.abj { top: 34px; }
+.saltos { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Niveles */
+.niveles { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 14px; padding: 0 14px 14px; align-items: start; }
+@media (max-width: 1100px) { .niveles { grid-template-columns: minmax(0, 1fr); } }
+.pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+svg .mueve { transition: transform .9s ease-in-out, opacity .6s; transform-box: view-box; }
+svg .fade { transition: opacity .6s; }
+@media (prefers-reduced-motion: reduce) { svg .mueve, svg .fade { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1>The UDP datagram <span>and its pseudo-header</span></h1>
+    <div class="cab-der"><p class="sub">Four 2-byte fields make an 8-byte header. Change the payload and watch the Length; build the pseudo-header that the checksum adds and that is never transmitted; follow the three levels of addressing in a host.</p>
+    </div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL -->
+    <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2>Payload</h2>
+        <p class="nota">The application message, in bytes. UDP does not segment: one message = one datagram.</p>
+        <input type="range" id="carga-r" min="0" max="65527" step="1" aria-label="Payload in bytes">
+        <div class="fila"><label class="et" for="carga-n">Bytes</label><input type="number" id="carga-n" min="0" max="65527" step="1"></div>
+        <div class="saltos" id="saltos"></div>
+      </section>
+
+      <section>
+        <h2>Example</h2>
+        <p class="nota">Process in A (port 9157) sends to a process in C (port 6428). The IP addresses are documentation addresses (RFC 5737).</p>
+        <div class="fila"><label class="et">Source</label><code class="nota" style="font-family:var(--mono)">A · 203.0.113.7 : 9157</code></div>
+        <div class="fila"><label class="et">Destination</label><code class="nota" style="font-family:var(--mono)">C · 198.51.100.20 : 6428</code></div>
+      </section>
+
+      <section>
+        <h2>Practice</h2>
+        <p class="nota">Questions on sizes, like the ones in class: the answer is hidden until you press Check.</p>
+        <div class="fila"><button type="button" class="btn prim" id="b-ejercicio">New exercise</button></div>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <div class="fila"><label class="et">Theme</label>
+          <div class="seg" data-k="vista.tema"><button type="button" data-v="auto">Auto</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div></div>
+        <div class="fila"><button type="button" class="btn peligro" id="b-reset">Reset</button></div>
+        <p class="nota"><span>The checksum is computed step by step in</span> <a id="enlace-cs" href="udp-checksum.es.html">UDP checksum step by step</a>.</p>
+      </section>
+    </form>
+
+    <!-- ZONA -->
+    <div class="zona">
+      <div class="tarjeta">
+        <h3 class="mod">The UDP segment in 32-bit rows (hover over or focus a field)</h3>
+        <div class="dg-wrap">
+          <div class="dg" id="dg" role="group" aria-label="UDP segment"></div>
+          <div class="expl" id="expl" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="tarjeta" id="t-pred" hidden>
+        <div class="pred">
+          <h2>Your answer</h2>
+          <p id="pred-q" style="margin:0;font-size:.98rem"></p>
+          <div class="fila" id="pred-in"></div>
+          <p class="fb" id="fb" aria-live="polite"></p>
+          <div class="fila">
+            <button type="button" class="btn prim" id="b-comprobar">Check</button>
+            <button type="button" class="btn" id="b-solucion">Show solution</button>
+            <button type="button" class="btn" id="b-otra">Another</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h3 class="mod">Sizes</h3>
+        <div class="tam">
+          <div class="lecturas" id="lecturas"></div>
+          <div class="escala" id="escala" aria-hidden="true"></div>
+          <p class="estado" id="estado"></p>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h3 class="mod">The pseudo-header</h3>
+        <div class="reproductor">
+          <button type="button" class="btn prim" id="b-construir">Build pseudo-header</button>
+          <button type="button" class="btn" id="r-ini" aria-label="To the start">⏮</button>
+          <button type="button" class="btn" id="r-ant" aria-label="Previous step">◀</button>
+          <button type="button" class="btn" id="r-play" aria-label="Play">▶</button>
+          <button type="button" class="btn" id="r-sig" aria-label="Next step">▶︎|</button>
+          <button type="button" class="btn" id="r-fin" aria-label="To the end">⏭</button>
+          <span class="t" id="r-etq"></span>
+        </div>
+        <p class="narra" id="narra" aria-live="polite"></p>
+        <div class="lienzo" id="lienzo"></div>
+      </div>
+
+      <div class="tarjeta">
+        <h3 class="mod">Three levels of addressing in a host</h3>
+        <div class="niveles">
+          <div class="lienzo" id="cascada" style="padding:0"></div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="fila"><label class="et">Protocol</label>
+              <div class="seg" id="s-proto"><button type="button" data-v="6">TCP · 6</button><button type="button" data-v="17">UDP · 17</button></div></div>
+            <div class="fila"><label class="et">Port</label>
+              <div class="seg" id="s-puerto"></div></div>
+            <p class="narra" id="cascada-txt" style="padding:0" aria-live="polite"></p>
+            <p class="nota">Three levels are needed in each host: the host address (in the IP header), the protocol address (in the IP header: 6 = TCP, 17 = UDP) and the port number (in the UDP/TCP segment header). That is why 443/TCP and 443/UDP can coexist.</p>
+          </div>
+        </div>
+      </div>
+
+      <details class="tarjeta sup">
+        <summary>Model assumptions</summary>
+        <ul>
+          <li>Each header field takes 16 bits (2 B): the header is 8 B. Length = header + data, in bytes: 8 ≤ L ≤ 65 535. Maximum payload: 65 535 − 8 = 65 527 B; over IPv4 (20-byte header), 65 507 B.</li>
+          <li>The IPv4 header is drawn without options (20 B); it is covered in Topic 4. Only the source IP, destination IP and Protocol fields matter here.</li>
+          <li>The checksum value is not computed here: it is computed over the pseudo-header plus the whole segment, with the field set to 0. You will do it in the lab; the one's complement sum is in “UDP checksum step by step”.</li>
+          <li>A datagram that does not fit in the network MTU is fragmented by IP (Topic 4); UDP still sends a single datagram.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+// Motor del checksum UDP (RFC 768, RFC 1071; Kurose y Ross §3.3.2) y de los tamaños del datagrama UDP.
+// Suma en complemento a 1 de palabras de 16 bits: se suman de dos en dos; el acarreo que sale por la
+// izquierda (el bit 17) da la vuelta y se suma por la derecha; al final se invierten todos los bits.
+// Lo usan dos visualizaciones: udp-checksum (la suma paso a paso) y udp-datagram (tamaños, campos y
+// pseudocabecera; esta no calcula el checksum con pseudocabecera, que es trabajo del laboratorio).
+const MotorUDP = (() => {
+  'use strict';
+  const M16 = 0xffff;
+
+  // ------------------------------------------------------------ formato
+  const hex16 = w => (w & M16).toString(16).toUpperCase().padStart(4, '0');
+  const bin16 = w => (w & M16).toString(2).padStart(16, '0');
+  const bin17 = w => (w & 0x1ffff).toString(2).padStart(17, '0');
+  const bit = (w, j) => (w >> j) & 1;
+
+  // Lee una palabra escrita en hexadecimal (1 a 4 cifras, con o sin 0x) o en binario (16 cifras, o con 0b).
+  // Cuatro cifras como «1010» se leen en hexadecimal; el binario necesita las 16 cifras o el prefijo 0b.
+  function leerPalabra(txt) {
+    const t = String(txt ?? '').trim().replace(/[\s_]/g, '');
+    if (/^[01]{16}$/.test(t)) return parseInt(t, 2);
+    if (/^0b[01]{1,16}$/i.test(t)) return parseInt(t.slice(2), 2);
+    if (/^(0x)?[0-9a-f]{1,4}$/i.test(t)) return parseInt(t.replace(/^0x/i, ''), 16);
+    return null;
+  }
+
+  // ------------------------------------------------------------ suma en complemento a 1
+  // Suma de dos palabras columna a columna (bit 0 = el de la derecha). Devuelve cada columna con sus bits,
+  // el acarreo que entra y el que sale; el resultado de 17 bits; el acarreo final (bit 17) y su vuelta.
+  function sumar2(a, b) {
+    a &= M16; b &= M16;
+    const columnas = [];
+    let c = 0;
+    for (let j = 0; j < 16; j++) {
+      const x = bit(a, j), y = bit(b, j), s = x + y + c;
+      columnas.push({ j, a: x, b: y, cin: c, bit: s & 1, cout: s >> 1 });
+      c = s >> 1;
+    }
+    const bruto = a + b;                       // hasta 17 bits
+    const acarreo = bruto >> 16;               // el bit 17
+    const r = { a, b, columnas, bruto, acarreo, resultado: bruto & M16, vuelta: null };
+    if (acarreo) {
+      // (bruto & FFFF) ≤ FFFE, así que al sumar el 1 no sale otro acarreo por la izquierda
+      const base = bruto & M16;
+      r.vuelta = { base, columnas: sumar2(base, 1).columnas, resultado: base + 1 };
+      r.resultado = base + 1;
+    }
+    return r;
+  }
+
+  // Suma en complemento a 1 de una lista de palabras, con la traza: una suma parcial por cada palabra a partir
+  // de la segunda (pasos[k] suma la palabra k+1 a lo acumulado).
+  function sumaC1(palabras) {
+    const ps = palabras.map(w => w & M16);
+    if (!ps.length) return { suma: 0, pasos: [] };
+    let acc = ps[0];
+    const pasos = [];
+    for (let i = 1; i < ps.length; i++) {
+      const p = sumar2(acc, ps[i]);
+      p.i = i;
+      pasos.push(p);
+      acc = p.resultado;
+    }
+    return { suma: acc, pasos };
+  }
+
+  const complemento = w => ~w & M16;
+  const checksum = palabras => complemento(sumaC1(palabras).suma);
+
+  // Receptor, forma de Kurose: suma todas las palabras, el checksum incluido; sin error sale FFFF.
+  function verifica(palabrasConChecksum) {
+    const suma = sumaC1(palabrasConChecksum).suma;
+    return { suma, ok: suma === M16 };
+  }
+  // Receptor, forma de la s.31: pone el campo a 0, recalcula y compara con el checksum recibido.
+  function verificaRecalculo(datos, recibido) {
+    const calculado = checksum([...datos, 0]);
+    return { calculado, recibido: recibido & M16, ok: calculado === (recibido & M16) };
+  }
+
+  // Bytes → palabras de 16 bits (el primer byte es el de más peso). Con un número impar de bytes se añade un
+  // byte de relleno a 0 al final, que solo existe para el cálculo: no se transmite.
+  function palabrasDeBytes(bytes) {
+    const b = Array.from(bytes, x => x & 0xff);
+    const relleno = b.length % 2 === 1;
+    if (relleno) b.push(0);
+    const palabras = [];
+    for (let i = 0; i < b.length; i += 2) palabras.push((b[i] << 8) | b[i + 1]);
+    return { palabras, relleno };
+  }
+  const bytesDePalabras = palabras => palabras.flatMap(w => [(w >> 8) & 0xff, w & 0xff]);
+
+  // ------------------------------------------------------------ ejercicios aleatorios
+  // Valores que no salen nunca en los ejercicios: los de la actividad A4 (s.32–33, se hace en papel) y los de
+  // la captura y los bancos del laboratorio GP31.
+  const RESERVADOS = new Set([0x8A3C, 0x6F1E, 0xB247, 0xE112, 0x780D, 0xB669, 0xBA78]);
+  function rngSemilla(semilla) {          // mulberry32
+    let a = semilla >>> 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // n palabras al azar con al menos un acarreo que da la vuelta (así se ve el bit 17) y sin valores reservados.
+  function aleatorio(rng, n = 3) {
+    rng = rng || Math.random;
+    for (let intento = 0; intento < 1000; intento++) {
+      const ps = Array.from({ length: n }, () => Math.floor(rng() * 0x10000));
+      const s = sumaC1(ps);
+      if (!s.pasos.some(p => p.acarreo)) continue;
+      if (ps.some(w => RESERVADOS.has(w)) || RESERVADOS.has(s.suma) || RESERVADOS.has(complemento(s.suma))) continue;
+      if (new Set(ps).size < n || ps.some(w => w === 0)) continue;
+      return ps;
+    }
+    return [0x4E21, 0xC3B7, 0x9A05].slice(0, n);
+  }
+
+  // Dos bits que se compensan: en la misma columna, un 0 → 1 en una palabra y un 1 → 0 en otra (+2^j y −2^j).
+  // La suma no cambia, así que el receptor no detecta el error. Devuelve [[i, j], [k, j]] o null.
+  function bitsQueSeCompensan(palabras, bloqueados) {
+    bloqueados = bloqueados || (() => false);
+    for (let j = 0; j < 16; j++)
+      for (let i = 0; i < palabras.length; i++)
+        for (let k = 0; k < palabras.length; k++)
+          if (i !== k && bit(palabras[i], j) === 0 && bit(palabras[k], j) === 1 && !bloqueados(i, j) && !bloqueados(k, j))
+            return i < k ? [[i, j], [k, j]] : [[k, j], [i, j]];
+    return null;
+  }
+
+  // ------------------------------------------------------------ tamaños y campos del datagrama UDP (V3)
+  const TAM = { cabUDP: 8, maxLongitud: 65535, maxCarga: 65535 - 8, cabIPv4: 20, maxCargaIPv4: 65535 - 20 - 8, pseudo: 12, protoUDP: 17, protoTCP: 6 };
+  const entero = x => Number.isInteger(x);
+  // Longitud UDP = cabecera (8 B) + datos; null si la carga no cabe en el campo de 16 bits.
+  const longitudUDP = carga => (entero(carga) && carga >= 0 && carga <= TAM.maxCarga ? carga + TAM.cabUDP : null);
+  const cargaDeLongitud = L => (entero(L) && L >= TAM.cabUDP && L <= TAM.maxLongitud ? L - TAM.cabUDP : null);
+  // ¿Cabe en un único datagrama IPv4 (cabecera de 20 B, Longitud total ≤ 65 535)?
+  const cabeEnIPv4 = carga => entero(carga) && carga >= 0 && carga + TAM.cabUDP + TAM.cabIPv4 <= TAM.maxLongitud;
+  // Campos de la cabecera UDP en filas de 32 bits: fila, bit inicial y número de bits.
+  const CAMPOS_UDP = [
+    { id: 'po', fila: 0, desde: 0, bits: 16 }, { id: 'pd', fila: 0, desde: 16, bits: 16 },
+    { id: 'lon', fila: 1, desde: 0, bits: 16 }, { id: 'cs', fila: 1, desde: 16, bits: 16 }
+  ];
+  function ipBytes(ip) {
+    const m = String(ip).trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return null;
+    const b = m.slice(1).map(Number);
+    return b.every(x => x <= 255) ? b : null;
+  }
+  // Pseudocabecera IPv4 (12 B): IP origen (4), IP destino (4), 0x00 (1), Protocolo (1), Longitud UDP (2).
+  // No se transmite: cada extremo la reconstruye con los datos de la cabecera IP y la Longitud UDP.
+  function pseudocabecera(ipO, ipD, longitud, protocolo = TAM.protoUDP) {
+    const o = ipBytes(ipO), d = ipBytes(ipD);
+    if (!o || !d || !entero(longitud) || longitud < 0 || longitud > M16) return null;
+    const bytes = [...o, ...d, 0, protocolo & 0xff, (longitud >> 8) & 0xff, longitud & 0xff];
+    return {
+      bytes,
+      campos: [
+        { id: 'ipo', bytes: bytes.slice(0, 4) }, { id: 'ipd', bytes: bytes.slice(4, 8) },
+        { id: 'cero', bytes: [0] }, { id: 'proto', bytes: [protocolo & 0xff] }, { id: 'lon', bytes: bytes.slice(10, 12) }
+      ]
+    };
+  }
+  // Los 8 B de la cabecera UDP (el checksum, el que se indique; 0 = no calculado en IPv4).
+  const cabeceraUDP = (po, pd, longitud, cs = 0) => [po >> 8, po & 0xff, pd >> 8, pd & 0xff, longitud >> 8, longitud & 0xff, cs >> 8, cs & 0xff].map(x => x & 0xff);
+
+  return {
+    hex16, bin16, bin17, bit, leerPalabra, sumar2, sumaC1, complemento, checksum, verifica, verificaRecalculo,
+    palabrasDeBytes, bytesDePalabras, RESERVADOS, rngSemilla, aleatorio, bitsQueSeCompensan,
+    TAM, longitudUDP, cargaDeLongitud, cabeEnIPv4, CAMPOS_UDP, ipBytes, pseudocabecera, cabeceraUDP
+  };
+})();
+if (typeof module !== 'undefined') module.exports = MotorUDP;
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const M = MotorUDP;
+  const CLAVE = 'udpDatagram.v1';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduceMov = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const estrecho = matchMedia('(max-width: 600px)');
+  // Ejemplo: A → C con los puertos del deck y direcciones de documentación (RFC 5737)
+  const EJ = { ipO: '203.0.113.7', ipD: '198.51.100.20', po: 9157, pd: 6428 };
+  const PUERTOS = { 6: [80, 443, 25], 17: [53, 443, 6428] };
+
+  // ------------------------------------------------------------ estado
+  function base() { return { carga: 3000, campo: 'lon', pseudo: 0, proto: 17, puerto: 443, practica: null, vista: { idioma: 'es', tema: 'auto' } }; }
+  function normalizar(o) {
+    if (!o || typeof o !== 'object') return null;
+    const b = base();
+    const carga = Number.isInteger(o.carga) && o.carga >= 0 && o.carga <= M.TAM.maxCarga ? o.carga : b.carga;
+    const proto = o.proto === 6 ? 6 : 17;
+    const puerto = PUERTOS[proto].includes(o.puerto) ? o.puerto : PUERTOS[proto][1];
+    return { carga, campo: ['po', 'pd', 'lon', 'cs', 'datos'].includes(o.campo) ? o.campo : b.campo, pseudo: Math.min(5, Math.max(0, Number(o.pseudo) || 0)), proto, puerto, practica: null, vista: { ...b.vista, ...(o.vista || {}) } };
+  }
+  function cargarLocal() { try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; } }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  let estado = cargarLocal() || base();
+  estado.vista.idioma = 'en';  // idioma fijo en cada copia
+  let animando = null;
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const fmt = n => Number(n).toLocaleString(L('es-ES', 'en-GB')).replace(/[.,]/g, ' ').replace(/ /g, ' ');
+  const fmtN = n => (n >= 10000 ? fmt(n) : String(n));
+  const hx2 = b => b.toString(16).toUpperCase().padStart(2, '0');
+  const lon = () => M.longitudUDP(estado.carga);
+
+  // ------------------------------------------------------------ explicaciones (redacción de la s.28)
+  function explicacion(id) {
+    const Lg = lon();
+    const T = {
+      po: [L('Puerto origen (16 bits)', 'Source port (16 bits)'), L(`Puerto del proceso emisor; es el puerto al que se contesta. Opcional (0 si no se usa).`, `Port of the sending process; it is the port the reply goes to. Optional (0 if not used).`), L(`Aquí: <code>${EJ.po}</code>, el puerto del proceso de A.`, `Here: <code>${EJ.po}</code>, the port of the process in A.`)],
+      pd: [L('Puerto destino (16 bits)', 'Destination port (16 bits)'), L('Puerto del proceso receptor; con él se demultiplexa.', 'Port of the receiving process; it is used to demultiplex.'), L(`Aquí: <code>${EJ.pd}</code>, el puerto del proceso de C.`, `Here: <code>${EJ.pd}</code>, the port of the process in C.`)],
+      lon: [L('Longitud (16 bits)', 'Length (16 bits)'), L('Tamaño en bytes del segmento completo (cabecera + datos).', 'Size in bytes of the whole segment (header + data).'), L(`Aquí: 8 + ${fmtN(estado.carga)} = <code>${fmtN(Lg)}</code>. Va de 8 (sin datos) a 65 535.`, `Here: 8 + ${fmtN(estado.carga)} = <code>${fmtN(Lg)}</code>. It ranges from 8 (no data) to 65 535.`)],
+      cs: [L('Checksum (suma de comprobación, 16 bits)', 'Checksum (16 bits)'), L('Detección de errores extremo a extremo. Se calcula sobre el segmento completo más una pseudocabecera con datos de IP. Suma en complemento a 1 de palabras de 16 bits: el acarreo que sale por la izquierda se vuelve a sumar por la derecha; al final se invierten todos los bits.', 'End-to-end error detection. It is computed over the whole segment plus a pseudo-header with data from IP. One\'s complement sum of 16-bit words: the carry that leaves on the left is added again on the right; at the end every bit is inverted.'), L('Opcional en IPv4 (0 = no calculado); obligatorio en IPv6. Pulsa «Construir pseudocabecera».', 'Optional in IPv4 (0 = not computed); mandatory in IPv6. Press “Build pseudo-header”.')],
+      datos: [L('Datos (mensaje de la aplicación)', 'Data (application message)'), L(`${fmtN(estado.carga)} B. UDP no segmenta: un mensaje = un datagrama.`, `${fmtN(estado.carga)} B. UDP does not segment: one message = one datagram.`), L('Si no cabe en la red, lo fragmenta IP (Tema 4).', 'If it does not fit in the network, IP fragments it (Topic 4).')]
+    };
+    const [t, a, b] = T[id];
+    return `<h4>${esc(t)}</h4><p>${a}</p><p class="nota">${b}</p>`;
+  }
+
+  // ------------------------------------------------------------ datagrama en filas de 32 bits
+  function pintarDatagrama() {
+    const Lg = lon(), c = estado.carga;
+    const pr = id => `aria-pressed="${estado.campo === id}"`;
+    let h = `<span></span>`;
+    for (let b = 0; b < 32; b++) h += `<span class="regla">${b % 8 === 0 || b === 31 ? b : ''}</span>`;
+    const campo = (id, span, n, v, cls = 'cab') => `<button type="button" class="campo ${cls}" style="grid-column: span ${span}" data-campo="${id}" ${pr(id)}><span class="n">${esc(n)}</span>${v !== '' ? `<span class="v">${esc(v)}</span>` : ''}</button>`;
+    const lat = t => `<span class="lat">${t}</span>`;
+    h += lat(L('B 0–3', 'B 0–3')) + campo('po', 16, L('Puerto origen', 'Source port'), EJ.po) + campo('pd', 16, L('Puerto destino', 'Destination port'), EJ.pd);
+    h += lat(L('B 4–7', 'B 4–7')) + campo('lon', 16, L('Longitud', 'Length'), fmtN(Lg)) + campo('cs', 16, 'Checksum', L('se calcula', 'computed'));
+    const filas = Math.ceil(c / 4);
+    const resto = c % 4;
+    const datos = (i, span, txt) => campo('datos', span, txt, '', 'datos');
+    if (!c) h += lat('') + `<button type="button" class="campo vacio" style="grid-column: span 32" data-campo="datos" ${pr('datos')}><span class="n">${esc(L('sin datos: L = 8', 'no data: L = 8'))}</span></button>`;
+    else {
+      const mostrar = filas <= 4 ? filas : 3;
+      for (let i = 0; i < mostrar; i++) {
+        const ult = i === filas - 1 && resto;
+        h += lat(`B ${fmtN(8 + 4 * i)}–${fmtN(8 + 4 * i + (ult ? resto : 4) - 1)}`) + datos(i, ult ? resto * 8 : 32, i === 0 ? L(`Datos (${fmtN(c)} B)`, `Data (${fmtN(c)} B)`) : '');
+      }
+      if (filas > 4) {
+        h += lat('⋮') + `<button type="button" class="campo puntos" style="grid-column: span 32" data-campo="datos" ${pr('datos')}><span>${esc(L(`⋮ ${fmtN(filas - 4)} filas más ⋮`, `⋮ ${fmtN(filas - 4)} more rows ⋮`))}</span></button>`;
+        const ult = resto;
+        h += lat(`B ${fmtN(8 + 4 * (filas - 1))}–${fmtN(Lg - 1)}`) + datos(filas - 1, ult ? resto * 8 : 32, '');
+      }
+    }
+    $('#dg').innerHTML = h;
+    $('#expl').innerHTML = explicacion(estado.campo);
+  }
+  const elegirCampo = id => { if (id && id !== estado.campo) { estado.campo = id; $('#expl').innerHTML = explicacion(id); document.querySelectorAll('#dg .campo').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.campo === id))); guardarLocal(); } };
+  $('#dg').addEventListener('mouseover', e => { const b = e.target.closest('[data-campo]'); if (b) elegirCampo(b.dataset.campo); });
+  $('#dg').addEventListener('focusin', e => { const b = e.target.closest('[data-campo]'); if (b) elegirCampo(b.dataset.campo); });
+  $('#dg').addEventListener('click', e => { const b = e.target.closest('[data-campo]'); if (b) elegirCampo(b.dataset.campo); });
+
+  // ------------------------------------------------------------ tamaños
+  const MARCAS = [0, 31, 3000, 65507, 65508, 65527];
+  function pintarTamanos() {
+    const c = estado.carga, Lg = lon(), cabe = M.cabeEnIPv4(c);
+    $('#carga-r').value = c; if (document.activeElement !== $('#carga-n')) $('#carga-n').value = c;
+    $('#saltos').innerHTML = MARCAS.map(v => `<button type="button" class="btn mini" data-salto="${v}" aria-pressed="${v === c}">${fmtN(v)}</button>`).join('');
+    const lec = [[L('Datos', 'Data'), fmtN(c) + ' B'], [L('Cabecera UDP', 'UDP header'), '8 B'], [L('Longitud UDP = 8 + datos', 'UDP Length = 8 + data'), fmtN(Lg) + ' B', true], [L('Datagrama IPv4 = 20 + L', 'IPv4 datagram = 20 + L'), fmtN(Lg + 20) + ' B']];
+    $('#lecturas').innerHTML = lec.map(([k, v, f]) => `<div class="lectura${f ? ' fuerte' : ''}"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
+    const pct = v => (v / 65535 * 100).toFixed(3) + '%';
+    $('#escala').innerHTML = `<div class="barra"></div><div class="lleno" style="width:${pct(Lg)}"></div>` +
+      `<div class="marca" style="left:${pct(8)}"></div><span class="et arr" style="left:0">L = 8 (${L('mín.', 'min')})</span>` +
+      `<div class="marca" style="left:${pct(65515)};background:var(--aviso)"></div><span class="et abj" style="right:2.4em">${L('IPv4: datos ≤ 65 507', 'IPv4: data ≤ 65 507')}</span>` +
+      `<div class="marca" style="left:calc(${pct(65535)} - 2px)"></div><span class="et arr" style="right:0">L = 65 535 · ${L('datos ≤ 65 527', 'data ≤ 65 527')}</span>`;
+    const e = $('#estado');
+    e.className = 'estado ' + (cabe ? 'ok' : 'ko');
+    e.innerHTML = c === 0 ? L('Sin datos: el datagrama es solo la cabecera, L = 8. Es el mínimo.', 'No data: the datagram is just the header, L = 8. That is the minimum.')
+      : cabe ? L(`Cabe en un datagrama IPv4: 20 + ${fmtN(Lg)} = ${fmtN(Lg + 20)} ≤ 65 535.${c === 65507 ? ' Es el máximo sobre IPv4.' : ''}`, `It fits in one IPv4 datagram: 20 + ${fmtN(Lg)} = ${fmtN(Lg + 20)} ≤ 65 535.${c === 65507 ? ' That is the maximum over IPv4.' : ''}`)
+        : L(`El campo Longitud lo admite (${fmtN(Lg)} ≤ 65 535), pero <b>no cabe en un datagrama IPv4</b>: 20 + ${fmtN(Lg)} = ${fmtN(Lg + 20)} &gt; 65 535. Sobre IPv4 el máximo de datos es 65 507 B.${c === 65527 ? ' 65 527 B es el máximo que permite el campo Longitud.' : ''}`, `The Length field allows it (${fmtN(Lg)} ≤ 65 535), but <b>it does not fit in an IPv4 datagram</b>: 20 + ${fmtN(Lg)} = ${fmtN(Lg + 20)} &gt; 65 535. Over IPv4 the maximum data is 65 507 B.${c === 65527 ? ' 65 527 B is the maximum the Length field allows.' : ''}`);
+  }
+  function ponerCarga(v) {
+    v = Math.round(Number(v));
+    if (!Number.isFinite(v)) return;
+    estado.carga = Math.min(M.TAM.maxCarga, Math.max(0, v));
+    pintarDatagrama(); pintarTamanos(); actualizarPseudo(); guardarLocal();
+  }
+  $('#carga-r').addEventListener('input', e => ponerCarga(e.target.value));
+  $('#carga-n').addEventListener('input', e => { if (e.target.value !== '') ponerCarga(e.target.value); });
+  $('#carga-n').addEventListener('change', e => { e.target.value = estado.carga; });
+  $('#saltos').addEventListener('click', e => { const b = e.target.closest('[data-salto]'); if (b) ponerCarga(b.dataset.salto); });
+
+  // ------------------------------------------------------------ pseudocabecera (SVG persistente; los pasos cambian clases y transformaciones)
+  const NPASOS = 6;
+  let geo = null;
+  function construirSVG() {
+    const comp = estrecho.matches;
+    const BW = comp ? 10 : 21, X0 = comp ? 6 : 150, RH = comp ? 30 : 38, FS = comp ? 10 : 13;
+    const W = X0 + 32 * BW + (comp ? 6 : 20);
+    const yI = comp ? 40 : 34, yP = yI + 6 * RH + (comp ? 70 : 56), yU = yP + 3 * RH + (comp ? 56 : 46);
+    const H = yU + 3 * RH + 16;
+    const x = b => X0 + b * BW;
+    const ph = M.pseudocabecera(EJ.ipO, EJ.ipD, lon());
+    geo = { W, H };
+    const caja = (b, n, y, txt, opc = {}) => {
+      const w = n * BW;
+      return `<rect x="${x(b)}" y="${y}" width="${w}" height="${RH}" fill="${opc.fill || 'var(--panel)'}" stroke="${opc.stroke || 'var(--fg)'}" stroke-width="${opc.sw || 1.2}"${opc.dash ? ' stroke-dasharray="4 3"' : ''}/>` +
+        `<text x="${x(b) + w / 2}" y="${y + RH / 2 + (opc.sub ? -2 : 4)}" text-anchor="middle" font-size="${opc.fs || FS}" fill="${opc.color || 'var(--fg)'}"${opc.bold ? ' font-weight="600"' : ''}>${esc(txt)}</text>` +
+        (opc.sub ? `<text x="${x(b) + w / 2}" y="${y + RH / 2 + 11}" text-anchor="middle" font-size="${FS - 1}" fill="${opc.color || 'var(--fg)'}" font-family="IBM Plex Mono, ui-monospace, monospace">${esc(opc.sub)}</text>` : '');
+    };
+    const C = comp
+      ? { ver: 'V', ihl: 'IHL', tos: 'ToS', tot: L('Long. total', 'Total length'), id: 'Id', fl: 'Fl', frag: L('Pos. frag.', 'Frag. off.'), ttl: 'TTL', proto: L('Protocolo', 'Protocol'), csip: L('Checksum cab.', 'Header cks.'), ipo: L('IP origen', 'Source IP'), ipd: L('IP destino', 'Destination IP'), opc: L('Opciones + relleno', 'Options + padding') }
+      : { ver: L('Versión', 'Version'), ihl: L('Tam. cab.', 'IHL'), tos: L('Tipo de servicio', 'Type of service'), tot: L('Longitud total del datagrama IP', 'IP datagram total length'), id: L('Identificador', 'Identification'), fl: 'Flags', frag: L('Posición de fragmento', 'Fragment offset'), ttl: L('Tiempo de vida', 'Time to live'), proto: L('Protocolo capa superior', 'Upper-layer protocol'), csip: L('Suma de comprobación de cabecera', 'Header checksum'), ipo: L('Dirección IP de origen', 'Source IP address'), ipd: L('Dirección IP de destino', 'Destination IP address'), opc: L('Opciones + relleno', 'Options + padding') };
+    const T4 = { fill: 'var(--tema4)', stroke: 'var(--muted)', color: 'var(--muted)' };
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Construcción de la pseudocabecera a partir de la cabecera IPv4 y de la cabecera UDP', 'Building the pseudo-header from the IPv4 header and the UDP header'))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="${FS}">`;
+    o += `<defs><pattern id="t4" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="7" fill="var(--line)" opacity=".45"/></pattern><marker id="fl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="var(--rojo)"/></marker></defs>`;
+    o += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    // regla de bits
+    [0, 4, 8, 16, 19, 31].forEach(b => { o += `<text x="${x(b) + 2}" y="${yI - 6}" font-size="${FS - 2}" fill="var(--muted)" font-family="IBM Plex Mono, ui-monospace, monospace">${b}</text>`; });
+    // cabecera IPv4, sombreada como «Tema 4»
+    const r = k => yI + k * RH;
+    o += `<g id="ps-ip">`;
+    o += caja(0, 4, r(0), C.ver, T4) + caja(4, 4, r(0), C.ihl, T4) + caja(8, 8, r(0), C.tos, T4) + caja(16, 16, r(0), C.tot, T4);
+    o += caja(0, 16, r(1), C.id, T4) + caja(16, 3, r(1), C.fl, T4) + caja(19, 13, r(1), C.frag, T4);
+    o += caja(0, 8, r(2), C.ttl, T4) + `<g id="ps-o-proto">${caja(8, 8, r(2), C.proto, { ...T4, sub: '17' })}</g>` + caja(16, 16, r(2), C.csip, T4);
+    o += `<g id="ps-o-ipo">${caja(0, 32, r(3), C.ipo, { ...T4, sub: EJ.ipO })}</g>`;
+    o += `<g id="ps-o-ipd">${caja(0, 32, r(4), C.ipd, { ...T4, sub: EJ.ipD })}</g>`;
+    o += caja(0, 32, r(5), C.opc, { ...T4, dash: true });
+    o += `<rect x="${x(0)}" y="${r(0)}" width="${32 * BW}" height="${6 * RH}" fill="url(#t4)" pointer-events="none"/>`;
+    o += `</g>`;
+    if (!comp) o += `<text x="10" y="${r(0) + 18}" font-family="Archivo, sans-serif" font-weight="700" font-size="15" fill="var(--muted)">${esc(L('Cabecera IPv4', 'IPv4 header'))}</text><text x="10" y="${r(0) + 36}" font-size="12" fill="var(--muted)">${esc(L('(Tema 4)', '(Topic 4)'))}</text>`;
+    else o += `<text x="${x(0)}" y="${yI - 18}" font-family="Archivo, sans-serif" font-weight="700" font-size="11" fill="var(--muted)">${esc(L('Cabecera IPv4 (Tema 4)', 'IPv4 header (Topic 4)'))}</text>`;
+    // cabecera UDP
+    const u = k => yU + k * RH;
+    o += `<g id="ps-udp">`;
+    o += caja(0, 16, u(0), L('Puerto origen', 'Source port'), { sub: String(EJ.po), fill: 'var(--camino)' }) + caja(16, 16, u(0), L('Puerto destino', 'Destination port'), { sub: String(EJ.pd), fill: 'var(--camino)' });
+    o += `<g id="ps-o-lon">${caja(0, 16, u(1), L('Longitud', 'Length'), { sub: String(lon()), fill: 'var(--camino)' })}</g>` + caja(16, 16, u(1), 'Checksum', { sub: L('pseudocab. + segmento', 'pseudo-hdr + segment'), fill: 'var(--camino)', color: 'var(--html)' });
+    o += caja(0, 32, u(2), L(`Datos (${fmtN(estado.carga)} B)`, `Data (${fmtN(estado.carga)} B)`), { fill: 'var(--suave)', dash: true });
+    o += `</g>`;
+    if (!comp) o += `<text x="10" y="${u(0) + 18}" font-family="Archivo, sans-serif" font-weight="700" font-size="15" fill="var(--trama)">${esc(L('Segmento UDP', 'UDP segment'))}</text><text x="10" y="${u(0) + 36}" font-size="12" fill="var(--muted)">${esc(L('(se transmite)', '(transmitted)'))}</text>`;
+    else o += `<text x="${x(0)}" y="${u(0) - 6}" font-family="Archivo, sans-serif" font-weight="700" font-size="11" fill="var(--trama)">${esc(L('Segmento UDP (se transmite)', 'UDP segment (transmitted)'))}</text>`;
+    // pseudocabecera: huecos, piezas que bajan y rótulo
+    const p = k => yP + k * RH;
+    const PS = { fill: 'var(--panel)', stroke: 'var(--rojo)', sw: 2, color: 'var(--rojo)', bold: true };
+    o += `<g id="ps-marco" class="fade" opacity="0"><rect x="${x(0) - 6}" y="${p(0) - 6}" width="${32 * BW + 12}" height="${3 * RH + 12}" rx="4" fill="none" stroke="var(--rojo)" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+    for (let k = 0; k < 3; k++) o += `<rect x="${x(0)}" y="${p(k)}" width="${32 * BW}" height="${RH}" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>`;
+    o += comp ? `<text x="${x(0)}" y="${p(0) - 12}" font-family="Archivo, sans-serif" font-weight="700" font-size="11" fill="var(--rojo)">${esc(L('Pseudocabecera (12 B)', 'Pseudo-header (12 B)'))}</text>` : `<text x="10" y="${p(0) + 18}" font-family="Archivo, sans-serif" font-weight="700" font-size="15" fill="var(--rojo)">${esc(L('Pseudocabecera', 'Pseudo-header'))}</text><text x="10" y="${p(0) + 36}" font-size="12" fill="var(--rojo)">12 B</text>`;
+    o += `</g>`;
+    const hexs = bs => bs.map(hx2).join(' ');
+    const pieza = (id, b, n, k, txt, sub, desde) => {
+      const dx = desde ? desde[0] : 0, dy = desde ? desde[1] : 0;
+      return `<g id="${id}" class="mueve" opacity="0" data-dx="${dx}" data-dy="${dy}" style="transform: translate(${dx}px, ${dy}px)">${caja(b, n, p(k), txt, { ...PS, sub })}</g>`;
+    };
+    o += pieza('ps-ipo', 0, 32, 0, C.ipo + (comp ? '' : ' (4 B)'), `${EJ.ipO} = ${hexs(ph.bytes.slice(0, 4))}`, [0, r(3) - p(0)]);
+    o += pieza('ps-ipd', 0, 32, 1, C.ipd + (comp ? '' : ' (4 B)'), `${EJ.ipD} = ${hexs(ph.bytes.slice(4, 8))}`, [0, r(4) - p(1)]);
+    o += pieza('ps-cero', 0, 8, 2, '0x00', comp ? '' : '1 B', [0, 0]);
+    o += pieza('ps-proto', 8, 8, 2, comp ? '17' : L('Protocolo', 'Protocol'), comp ? '' : '17 = UDP', [0, r(2) - p(2)]);
+    o += `<g id="ps-lon" class="mueve" opacity="0" data-dx="${-16 * BW}" data-dy="${u(1) - p(2)}" style="transform: translate(${-16 * BW}px, ${u(1) - p(2)}px)">${caja(16, 16, p(2), L('Longitud UDP', 'UDP length'), { ...PS, sub: `${lon()} = ${hexs(ph.bytes.slice(10, 12))}` })}</g>`;
+    // rótulo final
+    o += `<g id="ps-rotulo" class="fade" opacity="0"><text x="${x(16)}" y="${p(3) + (comp ? 18 : 22)}" text-anchor="middle" font-size="${comp ? 10.5 : 14}" font-weight="600" fill="var(--rojo)">${esc(L('no se transmite; cada extremo la reconstruye', 'not transmitted; each end rebuilds it'))}</text></g>`;
+    o += '</svg>';
+    $('#lienzo').innerHTML = o;
+    aplicarPaso(true);
+  }
+  function aplicarPaso(sinTransicion) {
+    const k = estado.pseudo;
+    const svg = $('#lienzo svg'); if (!svg) return;
+    if (sinTransicion) svg.querySelectorAll('.mueve, .fade').forEach(el => { el.style.transition = 'none'; });
+    const ver = (id, on) => { const el = svg.querySelector('#' + id); if (!el) return; el.setAttribute('opacity', on ? '1' : '0'); if (el.classList.contains('mueve')) el.style.transform = on ? 'translate(0px, 0px)' : `translate(${el.dataset.dx}px, ${el.dataset.dy}px)`; };
+    // campos de IP en rojo desde el paso 1
+    ['ps-o-ipo', 'ps-o-ipd', 'ps-o-proto'].forEach(id => svg.querySelectorAll(`#${id} rect`).forEach(r => { r.setAttribute('stroke', k >= 1 ? 'var(--rojo)' : 'var(--muted)'); r.setAttribute('stroke-width', k >= 1 ? '2.5' : '1.2'); }));
+    ['ps-o-ipo', 'ps-o-ipd', 'ps-o-proto'].forEach(id => svg.querySelectorAll(`#${id} text`).forEach(t => { t.setAttribute('fill', k >= 1 ? 'var(--rojo)' : 'var(--muted)'); t.setAttribute('font-weight', k >= 1 ? '600' : '400'); }));
+    svg.querySelectorAll('#ps-o-lon rect').forEach(r => { r.setAttribute('stroke', k >= 4 ? 'var(--rojo)' : 'var(--fg)'); r.setAttribute('stroke-width', k >= 4 ? '2.5' : '1.2'); });
+    ver('ps-marco', k >= 2); ver('ps-ipo', k >= 2); ver('ps-ipd', k >= 2); ver('ps-cero', k >= 3); ver('ps-proto', k >= 3); ver('ps-lon', k >= 4); ver('ps-rotulo', k >= 5);
+    if (sinTransicion) { svg.getBoundingClientRect(); svg.querySelectorAll('.mueve, .fade').forEach(el => { el.style.transition = ''; }); }
+    $('#r-etq').textContent = L(`paso ${k + 1} / ${NPASOS}`, `step ${k + 1} / ${NPASOS}`);
+    $('#narra').innerHTML = narrarPseudo(k);
+  }
+  function narrarPseudo(k) {
+    const Lg = lon();
+    return [
+      L('Para calcular el checksum, UDP necesita datos de IP. Arriba, la cabecera IPv4 (la veréis en el Tema 4); abajo, el segmento UDP. Pulsa «Construir pseudocabecera», ▶ o →.', 'To compute the checksum, UDP needs data from IP. Above, the IPv4 header (you will see it in Topic 4); below, the UDP segment. Press “Build pseudo-header”, ▶ or →.'),
+      L('De la cabecera IP interesan tres campos, <b>en rojo</b>: IP origen, IP destino y Protocolo (17 = UDP; 6 = TCP).', 'Three fields of the IP header matter, <b>in red</b>: source IP, destination IP and Protocol (17 = UDP; 6 = TCP).'),
+      L(`<b>IP origen</b> e <b>IP destino</b> bajan a la pseudocabecera: 4 B cada una (${EJ.ipO} y ${EJ.ipD}).`, `<b>Source IP</b> and <b>destination IP</b> go down into the pseudo-header: 4 B each (${EJ.ipO} and ${EJ.ipD}).`),
+      L('Después, un byte a cero (<code>0x00</code>) y el <b>Protocolo</b>: 17 (1 B).', 'Then a zero byte (<code>0x00</code>) and the <b>Protocol</b>: 17 (1 B).'),
+      L(`La <b>Longitud UDP</b> (2 B) sale de la cabecera UDP: 8 + ${fmtN(estado.carga)} = ${fmtN(Lg)}. Las IP y el protocolo salen de la cabecera IP; la longitud, de la cabecera UDP.`, `The <b>UDP length</b> (2 B) comes from the UDP header: 8 + ${fmtN(estado.carga)} = ${fmtN(Lg)}. The IPs and the protocol come from the IP header; the length, from the UDP header.`),
+      L('Pseudocabecera: 12 B que se suman solo para calcular el checksum; <b>no se transmiten, cada extremo la reconstruye</b>. ¿Para qué? El checksum es extremo a extremo: con la pseudocabecera protege también a quién iba dirigido el datagrama (el checksum de la cabecera IP lo recalcula cada router).', 'Pseudo-header: 12 B that are summed only to compute the checksum; <b>they are not transmitted, each end rebuilds them</b>. What for? The checksum is end to end: with the pseudo-header it also protects whom the datagram was addressed to (the IP header checksum is recomputed by every router).')
+    ][k];
+  }
+  function actualizarPseudo() {
+    // la longitud cambia con la carga: se reconstruye el dibujo sin animar
+    construirSVG();
+  }
+  function irPaso(k) { estado.pseudo = Math.min(NPASOS - 1, Math.max(0, k)); aplicarPaso(false); guardarLocal(); }
+  function parar() { if (animando) { clearTimeout(animando); animando = null; } $('#r-play').textContent = '▶'; $('#r-play').setAttribute('aria-label', L('Reproducir', 'Play')); }
+  function tic() { if (estado.pseudo + 1 < NPASOS) { irPaso(estado.pseudo + 1); animando = estado.pseudo + 1 < NPASOS ? setTimeout(tic, 2200) : null; if (!animando) parar(); } else parar(); }
+  function reproducir(desde0) {
+    parar();
+    if (desde0 || estado.pseudo >= NPASOS - 1) { estado.pseudo = 0; aplicarPaso(false); }
+    if (reduceMov) { irPaso(estado.pseudo + 1); return; }
+    $('#r-play').textContent = '⏸'; $('#r-play').setAttribute('aria-label', L('Pausa', 'Pause'));
+    animando = setTimeout(tic, desde0 ? 900 : 50);
+  }
+  $('#b-construir').addEventListener('click', () => reproducir(true));
+  $('#r-play').addEventListener('click', () => { if (animando) parar(); else reproducir(false); });
+  $('#r-ini').addEventListener('click', () => { parar(); irPaso(0); });
+  $('#r-fin').addEventListener('click', () => { parar(); irPaso(NPASOS - 1); });
+  $('#r-sig').addEventListener('click', () => { parar(); irPaso(estado.pseudo + 1); });
+  $('#r-ant').addEventListener('click', () => { parar(); irPaso(estado.pseudo - 1); });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches && e.target.matches('input, select, textarea')) return;
+    if (e.key === ' ') { e.preventDefault(); $('#r-play').click(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); $('#r-sig').click(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#r-ant').click(); }
+  });
+  estrecho.addEventListener('change', () => { construirSVG(); pintarCascada(); });
+
+  // ------------------------------------------------------------ cascada IP → 6/17 → puerto (s.21)
+  function pintarCascada() {
+    const comp = estrecho.matches;
+    const W = comp ? 480 : 700, H = 300, FS = comp ? 18 : 15;
+    const yA = comp ? 52 : 46, yT = 150, yR = comp ? 250 : 254;
+    const xs = comp ? { 6: 120, 17: 360 } : { 6: 230, 17: 530 };
+    const SP = comp ? 78 : 98, BX = comp ? 35 : 42;
+    const app = (p, i) => xs[p] - SP + i * SP;
+    const pr = estado.proto, pu = estado.puerto;
+    const on = 'var(--rojo)', off = 'var(--line)';
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L(`Niveles de direccionamiento: IP, protocolo ${pr}, puerto ${pu}`, `Addressing levels: IP, protocol ${pr}, port ${pu}`))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="${FS}">`;
+    o += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    // bandas de capa
+    [[yA, L('Aplicación', 'Application')], [yT, L('Transporte', 'Transport')], [yR, L('Red', 'Network')]].forEach(([y, t]) => { o += `<rect x="0" y="${y - 30}" width="${W}" height="60" fill="var(--suave)" opacity=".55"/><text x="${comp ? 4 : 8}" y="${y - (comp ? 22 : 16)}" font-size="${comp ? 10 : 11}" fill="var(--muted)" font-family="Archivo, sans-serif" letter-spacing="1">${esc(t.toUpperCase())}</text>`; });
+    // líneas IP → TCP/UDP
+    [6, 17].forEach(p => {
+      const a = p === pr;
+      o += `<line x1="${W / 2}" y1="${yR - 16}" x2="${xs[p]}" y2="${yT + 16}" stroke="${a ? on : off}" stroke-width="${a ? 3.5 : 2}"/>`;
+      o += `<text x="${(W / 2 + xs[p]) / 2 + (p === 6 ? -16 : 16)}" y="${(yR + yT) / 2 + 4}" text-anchor="middle" font-weight="700" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="16" fill="${a ? on : 'var(--muted)'}">${p}</text>`;
+      PUERTOS[p].forEach((port, i) => {
+        const b = a && port === pu;
+        o += `<line x1="${xs[p]}" y1="${yT - 16}" x2="${app(p, i)}" y2="${yA + 16}" stroke="${b ? on : off}" stroke-width="${b ? 3.5 : 2}"/>`;
+        o += `<rect x="${app(p, i) - BX}" y="${yA - 16}" width="${2 * BX}" height="32" rx="4" fill="var(--panel)" stroke="${b ? on : 'var(--fg)'}" stroke-width="${b ? 3 : 1.2}"/>`;
+        o += `<text x="${app(p, i)}" y="${yA + 5}" text-anchor="middle" fill="${b ? on : 'var(--fg)'}"${b ? ' font-weight="600"' : ''}>${comp ? '' : L('Ap. ', 'App ')}${comp ? 'A' : ''}${i + 1}</text>`;
+        o += `<text x="${(xs[p] + app(p, i)) / 2 + (i === 0 ? -14 : i === 2 ? 14 : 22)}" y="${(yA + yT) / 2 + 4}" text-anchor="middle" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="13" fill="${b ? on : 'var(--muted)'}"${b ? ' font-weight="700"' : ''}>${port}</text>`;
+      });
+      o += `<rect x="${xs[p] - 46}" y="${yT - 16}" width="92" height="32" rx="4" fill="var(--panel)" stroke="${a ? on : 'var(--fg)'}" stroke-width="${a ? 3 : 1.2}"/><text x="${xs[p]}" y="${yT + 5}" text-anchor="middle" font-weight="600" fill="${a ? on : 'var(--fg)'}">${p === 6 ? 'TCP' : 'UDP'}</text>`;
+    });
+    o += `<rect x="${W / 2 - 95}" y="${yR - 16}" width="190" height="32" rx="4" fill="var(--panel)" stroke="${on}" stroke-width="3"/><text x="${W / 2}" y="${yR + 5}" text-anchor="middle" font-weight="600" fill="${on}">IP · 198.51.100.20</text>`;
+    if (!comp) o += `<text x="8" y="${(yR + yT) / 2 + 4}" font-size="13" fill="var(--muted)">${esc(L('dirección de protocolo', 'protocol address'))}</text>`;
+    if (!comp) o += `<text x="8" y="${(yA + yT) / 2 + 4}" font-size="13" fill="var(--muted)">${esc(L('número de puerto', 'port number'))}</text>`;
+    o += '</svg>';
+    $('#cascada').innerHTML = o;
+    document.querySelectorAll('#s-proto button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === pr)));
+    $('#s-puerto').innerHTML = PUERTOS[pr].map(p => `<button type="button" data-v="${p}" aria-pressed="${p === pu}">${p}</button>`).join('');
+    const i = PUERTOS[pr].indexOf(pu);
+    $('#cascada-txt').innerHTML = L(`Llega un datagrama a C: la <b>IP destino</b> (198.51.100.20) dice que es para este host; el campo <b>Protocolo = ${pr}</b> lo entrega a ${pr === 6 ? 'TCP' : 'UDP'}; el <b>puerto destino ${pu}</b> elige el proceso (Ap. ${i + 1}).${pu === 443 ? ` El 443 existe en TCP y en UDP a la vez (HTTP/3 usa 443/UDP): el protocolo forma parte de la dirección.` : ''}`, `A datagram reaches C: the <b>destination IP</b> (198.51.100.20) says it is for this host; the <b>Protocol = ${pr}</b> field hands it to ${pr === 6 ? 'TCP' : 'UDP'}; the <b>destination port ${pu}</b> chooses the process (App ${i + 1}).${pu === 443 ? ' Port 443 exists in TCP and in UDP at the same time (HTTP/3 uses 443/UDP): the protocol is part of the address.' : ''}`);
+  }
+  $('#s-proto').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const p = Number(b.dataset.v); if (p !== estado.proto) { estado.proto = p; if (!PUERTOS[p].includes(estado.puerto)) estado.puerto = PUERTOS[p][1]; } pintarCascada(); guardarLocal(); });
+  $('#s-puerto').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; estado.puerto = Number(b.dataset.v); pintarCascada(); guardarLocal(); });
+
+  // ------------------------------------------------------------ practicar
+  const rnd = n => Math.floor(Math.random() * n);
+  function nuevaPregunta() {
+    const tipo = ['datos', 'longitud', 'cabe'][rnd(3)];
+    let v;
+    if (tipo === 'datos') v = 8 + [rnd(60), rnd(1500), 65507 + 8 - rnd(40)][rnd(3)];        // valor del campo Longitud
+    else if (tipo === 'longitud') v = [1 + rnd(100), 100 + rnd(3000), 65400 + rnd(127)][rnd(3)];  // bytes de datos
+    else v = 65507 + [-rnd(30) - 1, 0, 1, rnd(20) + 2][rnd(4)];                                // bytes de datos
+    estado.practica = { tipo, v };
+    $('#fb').textContent = ''; $('#fb').className = 'fb';
+    pintarPred();
+    const i = $('#pred-in input, #pred-in select'); if (i) i.focus();
+  }
+  function solucion() {
+    const { tipo, v } = estado.practica;
+    return tipo === 'datos' ? v - 8 : tipo === 'longitud' ? v + 8 : (M.cabeEnIPv4(v) ? 'si' : 'no');
+  }
+  function pintarPred() {
+    const pr = estado.practica;
+    $('#t-pred').hidden = !pr;
+    if (!pr) return;
+    const q = pr.tipo === 'datos' ? L(`El campo Longitud de un datagrama UDP vale ${fmtN(pr.v)}. ¿Cuántos bytes de datos lleva?`, `The Length field of a UDP datagram is ${fmtN(pr.v)}. How many bytes of data does it carry?`)
+      : pr.tipo === 'longitud' ? L(`La aplicación entrega a UDP un mensaje de ${fmtN(pr.v)} B. ¿Qué vale el campo Longitud?`, `The application hands UDP a ${fmtN(pr.v)}-byte message. What is the value of the Length field?`)
+        : L(`¿Cabe en un único datagrama IPv4 un mensaje UDP de ${fmtN(pr.v)} B de datos?`, `Does a UDP message with ${fmtN(pr.v)} B of data fit in a single IPv4 datagram?`);
+    $('#pred-q').textContent = q;
+    $('#pred-in').innerHTML = pr.tipo === 'cabe'
+      ? `<select id="pred-v" aria-label="${esc(L('Respuesta', 'Answer'))}"><option value="">—</option><option value="si">${L('sí', 'yes')}</option><option value="no">no</option></select>`
+      : `<label class="et" for="pred-v">${esc(pr.tipo === 'datos' ? L('Bytes de datos', 'Data bytes') : L('Longitud', 'Length'))}</label><input type="number" id="pred-v" min="0" max="65535" step="1">`;
+  }
+  $('#b-ejercicio').addEventListener('click', nuevaPregunta);
+  $('#b-otra').addEventListener('click', nuevaPregunta);
+  $('#pred-in').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#b-comprobar').click(); } });
+  $('#b-comprobar').addEventListener('click', () => {
+    if (!estado.practica) return;
+    const el = $('#pred-v'), fb = $('#fb'), s = solucion(), pr = estado.practica;
+    if (!el || el.value === '') { fb.className = 'fb ko'; fb.textContent = L('Escribe una respuesta.', 'Write an answer.'); return; }
+    const r = pr.tipo === 'cabe' ? el.value : Number(el.value);
+    if (r === s) {
+      fb.className = 'fb ok';
+      fb.textContent = L('Correcto. ', 'Correct. ') + explicarSol();
+      ponerCarga(pr.tipo === 'datos' ? pr.v - 8 : pr.v);
+    } else {
+      fb.className = 'fb ko';
+      fb.textContent = pr.tipo === 'cabe' ? L('No. Suma las cabeceras: 20 (IPv4) + 8 (UDP) + datos ≤ 65 535.', 'No. Add up the headers: 20 (IPv4) + 8 (UDP) + data ≤ 65 535.') : L('No. La Longitud cuenta la cabecera UDP (8 B) más los datos.', 'No. The Length counts the UDP header (8 B) plus the data.');
+    }
+  });
+  function explicarSol() {
+    const { tipo, v } = estado.practica;
+    if (tipo === 'datos') return L(`${fmtN(v)} − 8 = ${fmtN(v - 8)} B de datos.`, `${fmtN(v)} − 8 = ${fmtN(v - 8)} B of data.`);
+    if (tipo === 'longitud') return L(`8 + ${fmtN(v)} = ${fmtN(v + 8)}.`, `8 + ${fmtN(v)} = ${fmtN(v + 8)}.`);
+    return L(`20 + 8 + ${fmtN(v)} = ${fmtN(v + 28)} ${v + 28 <= 65535 ? '≤' : '>'} 65 535: ${M.cabeEnIPv4(v) ? 'sí cabe' : 'no cabe'} (máximo 65 507 B de datos).`, `20 + 8 + ${fmtN(v)} = ${fmtN(v + 28)} ${v + 28 <= 65535 ? '≤' : '>'} 65 535: ${M.cabeEnIPv4(v) ? 'it fits' : 'it does not fit'} (maximum 65 507 B of data).`);
+  }
+  $('#b-solucion').addEventListener('click', () => { if (!estado.practica) return; const fb = $('#fb'); fb.className = 'fb'; fb.textContent = L('Solución: ', 'Solution: ') + explicarSol(); });
+
+  // ------------------------------------------------------------ vista
+  function marcarSeg(seg, v) { seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+  function aplicarTema() { const t = estado.vista.tema; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+  document.querySelectorAll('.seg[data-k]').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    estado.vista.tema = b.dataset.v; marcarSeg(seg, b.dataset.v); aplicarTema(); guardarLocal();
+  }));
+  function todo() { document.querySelectorAll('.seg[data-k]').forEach(seg => marcarSeg(seg, estado.vista.tema)); aplicarTema(); pintarDatagrama(); pintarTamanos(); construirSVG(); pintarCascada(); pintarPred(); }
+  $('#b-reset').addEventListener('click', () => { const i = estado.vista.idioma; estado = base(); estado.vista.idioma = i; parar(); todo(); guardarLocal(); });
+
+  // ------------------------------------------------------------ idioma
+  const ORIG = new WeakMap();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'The UDP datagram and its pseudo-header' : 'El datagrama UDP y su pseudocabecera';
+    if ($('#idioma')) marcarSeg($('#idioma'), estado.vista.idioma);
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 't', el.innerHTML); if (en) el.textContent = el.dataset.en; else el.innerHTML = es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+    $('#enlace-cs').setAttribute('href', en ? 'udp-checksum.en.html' : 'udp-checksum.es.html');
+  }
+  
+
+  aplicarIdioma();
+  todo();
+})();
+</script>
+
+</body>
+</html>

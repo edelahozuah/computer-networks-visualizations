@@ -1,0 +1,80 @@
+# Proposed catalog.yml entry (to be merged by the main session; needs topic 3 and collection `udp`).
+- id: udp-datagram
+  topic: 3
+  collection: udp
+  session: '3.1'
+  title:
+    es: El datagrama UDP y su pseudocabecera
+    en: The UDP datagram and its pseudo-header
+  description:
+    es: >-
+      La cabecera UDP en filas de 32 bits, con la explicación de cada campo. Cambia la carga útil y mira cómo
+      se actualiza la Longitud y dónde están los límites; construye la pseudocabecera a partir de la cabecera
+      IPv4 y sigue los tres niveles de direccionamiento: IP, protocolo 6/17 y puerto.
+    en: >-
+      The UDP header in 32-bit rows, with an explanation of each field. Change the payload and watch the
+      Length update and where the limits are; build the pseudo-header from the IPv4 header and follow the
+      three levels of addressing: IP, protocol 6/17 and port.
+  summary:
+    es: >-
+      Visualización del datagrama UDP (Kurose y Ross §3.3, RFC 768). El segmento se dibuja en filas de 32 bits:
+      una cabecera de 8 B con cuatro campos de 16 bits (puerto origen, puerto destino, longitud y checksum) y
+      los datos; al pasar el ratón o el foco por cada campo se muestra su significado. Un deslizador de carga
+      útil actualiza la Longitud (cabecera + datos, entre 8 y 65 535 B) y el tamaño del datagrama IPv4, y marca
+      los límites: 8 B sin datos, 65 527 B de datos como máximo del campo Longitud y 65 507 B sobre IPv4 por
+      los 20 B de su cabecera. Una animación construye la pseudocabecera de 12 B: de la cabecera IPv4 bajan
+      la IP origen, la IP destino y el protocolo 17, se añaden un byte a cero y la longitud UDP, y se marca que
+      no se transmite porque cada extremo la reconstruye; protege también a quién iba dirigido el datagrama.
+      El cálculo del checksum se deja para el laboratorio. Una cascada interactiva muestra los tres niveles de
+      direccionamiento de un host: la dirección IP, el campo Protocolo (6 = TCP, 17 = UDP) y el número de
+      puerto, por lo que 443/TCP y 443/UDP pueden convivir. Incluye preguntas de práctica sobre tamaños.
+    en: >-
+      A visualization of the UDP datagram (Kurose and Ross §3.3, RFC 768). The segment is drawn in 32-bit rows:
+      an 8-byte header with four 16-bit fields (source port, destination port, length and checksum) and the
+      data; hovering over or focusing each field shows what it means. A payload slider updates the Length
+      (header + data, between 8 and 65 535 B) and the size of the IPv4 datagram, and marks the limits: 8 B with
+      no data, 65 527 B of data as the maximum of the Length field and 65 507 B over IPv4 because of its 20-byte
+      header. An animation builds the 12-byte pseudo-header: the source IP, the destination IP and protocol 17
+      come down from the IPv4 header, a zero byte and the UDP length are added, and it is marked as not
+      transmitted because each end rebuilds it; it also protects whom the datagram was addressed to. Computing
+      the checksum is left to the lab. An interactive cascade shows the three levels of addressing in a host:
+      the IP address, the Protocol field (6 = TCP, 17 = UDP) and the port number, which is why 443/TCP and
+      443/UDP can coexist. It includes practice questions on sizes.
+  concepts:
+    es:
+    - datagrama UDP
+    - cabecera UDP
+    - puerto origen
+    - puerto destino
+    - campo Longitud
+    - checksum UDP
+    - pseudocabecera
+    - carga útil máxima
+    - número de protocolo
+    - niveles de direccionamiento
+    en:
+    - UDP datagram
+    - UDP header
+    - source port
+    - destination port
+    - Length field
+    - UDP checksum
+    - pseudo-header
+    - maximum payload
+    - protocol number
+    - addressing levels
+  formulas:
+    es:
+    - Longitud UDP = 8 + datos (8 ≤ L ≤ 65 535)
+    - datos máx. = 65 535 − 8 = 65 527 B; sobre IPv4, 65 535 − 20 − 8 = 65 507 B
+    - pseudocabecera = IP origen (4) + IP destino (4) + 0x00 (1) + Protocolo 17 (1) + Longitud UDP (2) = 12 B
+    en:
+    - UDP Length = 8 + data (8 ≤ L ≤ 65 535)
+    - max. data = 65 535 − 8 = 65 527 B; over IPv4, 65 535 − 20 − 8 = 65 507 B
+    - pseudo-header = source IP (4) + destination IP (4) + 0x00 (1) + Protocol 17 (1) + UDP length (2) = 12 B
+  files:
+    es: 03-transport-layer/udp-datagram.es.html
+    en: 03-transport-layer/udp-datagram.en.html
+  thumbnail: thumbnails/udp-datagram.jpg
+  source: src/udp-datagram
+  added: '2026-10-17'
