@@ -13,6 +13,19 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
   diagram with Cookie/Set-Cookie/Referer, cookie store and what each server knows, for several
   sites visited several times (expiry, session cookies, third-party tracking), with exercises.
   Source in `src/http-cookies` (engine tested by `test_motor.js`).
+- Topic 3, transport layer (`03-transport-layer`).
+- Which socket? UDP and TCP demultiplexing (`transport-demultiplexing`, session 3.1): socket table
+  of a server receiving segments from several clients, UDP by (IP_D, PD) and TCP by the 4-tuple
+  with welcome and connection sockets, replies with swapped ports, ephemeral ports, deck scenarios,
+  prediction mode and exercises. Source in `src/transport-demultiplexing` (engine tested by
+  `test_motor.js`).
+- UDP checksum step by step (`udp-checksum`, session 3.1): one's complement sum of 16-bit words
+  column by column with the carry wrapping around, both receiver checks, and bit errors in the channel
+  (single-bit errors detected, compensating pairs not), with exercises. Source in `src/udp-checksum`
+  (engine tested by `test_motor.js`).
+- The UDP datagram and its pseudo-header (`udp-datagram`, session 3.1): header fields, Length and
+  maximum sizes (65 527 B, 65 507 B over IPv4), the 12-byte pseudo-header built from the IPv4 header,
+  and the IP → protocol → port cascade, with exercises. Source in `src/udp-datagram`.
 
 ### Removed
 - Speaker notes and presenter window of the DNS step by step source
