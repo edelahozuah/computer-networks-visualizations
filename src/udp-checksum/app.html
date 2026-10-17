@@ -92,17 +92,17 @@ h3.mod { font-family: var(--display); font-weight: 700; font-size: 0.98rem; marg
 .fb { font-size: 0.86rem; margin: 0; }
 .fb.ok { color: var(--bien); }
 .fb.ko { color: var(--aviso); }
-table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 .tabla { overflow-x: auto; padding: 0 0 6px; }
 th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
-th { font-weight: 500; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; border-top: 0; }
+th { font-weight: 500; color: var(--muted); font-size: 0.875rem; border-top: 0; }
 td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 td.v { color: var(--aviso); font-weight: 600; }
 tr.actual td { background: var(--camino); }
 details.sup { padding: 0; }
 details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
 details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
-.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 14px 12px; font-size: 0.8rem; color: var(--muted); }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 14px 12px; font-size: 0.875rem; color: var(--muted); }
 .leyenda i { display: inline-block; width: 18px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
 #toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.vis { opacity: 1; }
@@ -130,8 +130,8 @@ label.chk input { margin-top: 3px; }
 .bs > :nth-child(4n):not(:last-child) { margin-right: 6px; }
 button.bit { font: inherit; font-family: var(--mono); font-size: 1rem; font-weight: 500; padding: 3px 0; min-width: 0; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 3px; cursor: pointer; }
 button.bit.uno { background: var(--suave); }
-button.bit:hover:not(:disabled) { border-color: var(--fg); }
-button.bit:disabled { cursor: default; }
+button.bit:hover:not([aria-disabled="true"]) { border-color: var(--fg); }
+button.bit[aria-disabled="true"] { cursor: default; }
 button.bit.cambiado { outline: 2px dashed var(--aviso); outline-offset: -2px; color: var(--aviso); font-weight: 700; }
 button.bit.relleno { color: var(--muted); background: repeating-linear-gradient(135deg, transparent 0 4px, var(--suave) 4px 7px); border-style: dashed; }
 button.bit.cs { color: var(--html); }
@@ -140,9 +140,12 @@ button.bit.cs { color: var(--html); }
   .bfila { grid-template-columns: minmax(0, 1fr) 4.6em; row-gap: 0; }
   .bfila .et { grid-column: 1 / -1; font-size: 0.78rem; }
   .bfila.cab .et { display: none; }
-  button.bit { font-size: 0.8rem; padding: 2px 0; }
-  .bs > :nth-child(4n):not(:last-child) { margin-right: 3px; }
-  .bfila .hx { font-size: 0.8rem; }
+  .bs { grid-template-columns: repeat(8, minmax(0, 1fr)); row-gap: 3px; }
+  .bs > :nth-child(4n):not(:last-child) { margin-right: 0; }
+  .bs > :nth-child(8n + 4) { margin-right: 6px; }
+  button.bit { font-size: 1rem; padding: 4px 0; }
+  .bfila .hx { font-size: 1rem; align-self: start; padding-top: 4px; }
+  .bfila .hx small { display: block; }
 }
 .pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .pred input { max-width: 160px; font-size: 1.05rem; }
@@ -181,9 +184,9 @@ svg .nuevo { animation: aparece .35s ease-out; }
 
       <section>
         <h2 data-en="Channel with errors">Canal con errores</h2>
-        <p class="nota" data-en="On the receiver tabs, click a bit of a received word to flip it. Or:">En las pestañas del receptor, haz clic en un bit de una palabra recibida para voltearlo. O bien:</p>
+        <p class="nota" data-en="On the receiver tabs, click a bit of a received word to change it. Or:">En las pestañas del receptor, haz clic en un bit de una palabra recibida para cambiarlo. O bien:</p>
         <div class="fila">
-          <button type="button" class="btn" id="c-uno" data-en="Flip a random bit">Voltear un bit al azar</button>
+          <button type="button" class="btn" id="c-uno" data-en="Change a random bit">Cambiar un bit al azar</button>
           <button type="button" class="btn" id="c-dos" data-en="Two bits that cancel out in the same column">Dos bits que se compensan en la misma columna</button>
           <button type="button" class="btn" id="c-limpio" data-en="Error-free channel">Canal sin errores</button>
         </div>
@@ -218,7 +221,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
           <span class="t" id="r-etq"></span>
         </div>
         <p class="narra" id="narra" aria-live="polite"></p>
-        <div class="lienzo" id="lienzo"></div>
+        <div class="lienzo" id="lienzo" role="tabpanel"></div>
         <div class="veredicto" id="veredicto" hidden></div>
         <div class="leyenda" id="leyenda"></div>
       </div>
@@ -252,7 +255,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
       <details class="tarjeta sup">
         <summary data-en="Model assumptions">Supuestos del modelo</summary>
         <ul>
-          <li data-en="The words are summed two at a time in one's complement: the carry that leaves on the left (the 17th bit) is not lost; it wraps around and is added to the rightmost bit. Then every bit is inverted: that is the checksum carried in the header (Kurose and Ross §3.3.2; RFC 768 and RFC 1071).">Las palabras se suman de dos en dos en complemento a 1: el acarreo que sale por la izquierda (el bit 17) no se pierde; da la vuelta y se suma al bit de menor peso. Después se invierten todos los bits: ese es el checksum que viaja en la cabecera (Kurose y Ross §3.3.2; RFC 768 y RFC 1071).</li>
+          <li data-en="The words are summed two at a time in one's complement: the carry that leaves on the left (the 17th bit) is not lost; it wraps around and is added to the rightmost bit (end-around carry). Then every bit is inverted: that is the checksum carried in the header (Kurose and Ross §3.3.2; RFC 768 and RFC 1071).">Las palabras se suman de dos en dos en complemento a 1: el acarreo que sale por la izquierda (el bit 17) no se pierde; da la vuelta y se suma al bit de menor peso (acarreo circular). Después se invierten todos los bits: ese es el checksum que viaja en la cabecera (Kurose y Ross §3.3.2; RFC 768 y RFC 1071).</li>
           <li data-en="Here the words are summed without the pseudo-header, as in the book example. The real UDP checksum is computed over the pseudo-header (source IP, destination IP, 0, protocol 17, UDP length) plus the whole segment, with the checksum field set to 0: you will do that in the lab.">Aquí se suman las palabras sin pseudocabecera, como en el ejemplo del libro. El checksum UDP real se calcula sobre la pseudocabecera (IP origen, IP destino, 0, protocolo 17, longitud UDP) más el segmento completo, con el campo checksum a 0: eso lo haréis en el laboratorio.</li>
           <li data-en="With an odd number of bytes a 00 padding byte is added at the end to complete the last word. It takes part in the sum but is not transmitted: the receiver adds it again.">Con un número impar de bytes se añade al final un byte 00 de relleno para completar la última palabra. Entra en la suma, pero no se transmite: el receptor lo vuelve a añadir.</li>
           <li data-en="The receiver can check in two equivalent ways: sum every word including the received checksum (1111111111111111 = FFFF if no error is detected), or keep the received checksum, set the field to 0, recompute and compare.">El receptor puede comprobarlo de dos formas equivalentes: sumar todas las palabras con el checksum recibido incluido (<code>1111111111111111</code> = <code>FFFF</code> si no se detecta error), o guardar el checksum recibido, poner el campo a 0, recalcular y comparar.</li>
@@ -330,8 +333,8 @@ svg .nuevo { animation: aparece .35s ease-out; }
   }
   function derivar() {
     const datos = efectivas(), n = datos.length;
-    const cs = M.checksum(datos);
-    const enviadas = [...datos, cs];
+    const cs = M.checksum(datos), csTx = cs || 0xffff;      // 0000 viaja como FFFF (0 = sin checksum)
+    const enviadas = [...datos, csTx];
     const flipSet = new Set(estado.flips.map(([i, j]) => i + ':' + j));
     const recibidas = enviadas.map((w, i) => { let v = w; for (let j = 0; j < 16; j++) if (flipSet.has(i + ':' + j)) v ^= 1 << j; return v; });
     const tipo = enPractica() ? 'emisor' : estado.pestana;
@@ -343,7 +346,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
     const traza = M.sumaC1(palabras);
     const pasos = construirPasos(traza, tipo);
     const ver = tipo === 'suma' ? M.verifica(recibidas) : tipo === 'recalc' ? M.verificaRecalculo(recibidas.slice(0, n), recibidas[n]) : null;
-    return { datos, n, cs, enviadas, recibidas, flipSet, tipo, palabras, nombres, idx, traza, pasos, ver, cambiados: estado.flips.length };
+    return { datos, n, cs, csTx, enviadas, recibidas, flipSet, tipo, palabras, nombres, idx, traza, pasos, ver, cambiados: estado.flips.length };
   }
   const esRelleno = (fila, j) => estado.impar && fila === m.n - 1 && j < 8;
   const esFlip = (fila, j) => m.tipo !== 'emisor' && m.idx[fila] !== null && m.idx[fila] !== undefined && m.flipSet.has(m.idx[fila] + ':' + j);
@@ -367,7 +370,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
     estado.palabras[i] = estado.impar && i === estado.palabras.length - 1 ? v & 0xff00 : v;
     cambiaPalabras(); pintar();
   });
-  $('#palabras').addEventListener('change', e => { if (e.target.dataset.w !== undefined && !e.target.getAttribute('aria-invalid')) rellenarPalabras(); });
+  $('#palabras').addEventListener('change', e => { const el = e.target; if (el.dataset.w !== undefined && !el.getAttribute('aria-invalid')) el.value = hx(estado.palabras[Number(el.dataset.w)]); });
   $('#palabras').addEventListener('click', e => {
     const b = e.target.closest('[data-del]'); if (!b || b.disabled) return;
     estado.palabras.splice(Number(b.dataset.del), 1);
@@ -396,13 +399,13 @@ svg .nuevo { animation: aparece .35s ease-out; }
     let i, j;
     do { i = Math.floor(Math.random() * (n + 1)); j = Math.floor(Math.random() * 16); } while (estado.impar && i === n - 1 && j < 8);
     estado.flips = [[i, j]]; estado.compensa = false; irReceptor(); parar(); paso = null; pintar();
-    toast(L(`Cambiado el bit ${j} ${i === n ? 'del checksum' : 'de la palabra ' + (i + 1)}`, `Flipped bit ${j} of ${i === n ? 'the checksum' : 'word ' + (i + 1)}`));
+    toast(L(`Cambiado el bit ${j} ${i === n ? 'del checksum' : 'de la palabra ' + (i + 1)}`, `Changed bit ${j} of ${i === n ? 'the checksum' : 'word ' + (i + 1)}`));
   });
   $('#c-dos').addEventListener('click', () => {
     if (enPractica()) return;
     const ds = efectivas();
     const par = M.bitsQueSeCompensan(ds, (i, j) => estado.impar && i === ds.length - 1 && j < 8);
-    if (!par) { toast(L('Con estas palabras no hay dos bits distintos en la misma columna', 'These words have no two different bits in the same column')); return; }
+    if (!par) { estado.flips = []; estado.compensa = false; parar(); paso = null; pintar(); toast(L('Con estas palabras no hay dos bits distintos en la misma columna: canal sin errores', 'These words have no two different bits in the same column: error-free channel')); return; }
     estado.flips = par; estado.compensa = true; irReceptor(); parar(); paso = null; pintar();
   });
   $('#c-limpio').addEventListener('click', () => { estado.flips = []; estado.compensa = false; parar(); paso = null; pintar(); });
@@ -418,31 +421,48 @@ svg .nuevo { animation: aparece .35s ease-out; }
         const j = 15 - c, v = M.bit(w, j);
         const rel = opc.rel && esRelleno(fi, j), cam = opc.flip && opc.flip(j);
         const cls = ['bit', v ? 'uno' : '', rel ? 'relleno' : '', cam ? 'cambiado' : '', opc.csf ? 'cs' : ''].filter(Boolean).join(' ');
-        const etq = `${et}, bit ${j}: ${v}${rel ? L(' (relleno)', ' (padding)') : ''}${cam ? L(' (cambiado en el canal)', ' (flipped in the channel)') : ''}`;
-        s += `<button type="button" class="${cls}" data-f="${fi}" data-j="${j}" aria-label="${esc(etq)}"${opc.click && !rel ? '' : ' disabled'}>${opc.oculto ? '?' : v}</button>`;
+        const etq = `${et}, bit ${j}: ${opc.oculto ? '?' : v}${rel ? L(' (relleno)', ' (padding)') : ''}${cam ? L(' (cambiado en el canal)', ' (changed in the channel)') : ''}`;
+        const roving = fi === foco.f && j === foco.j ? 0 : -1;
+        s += `<button type="button" class="${cls}" data-f="${fi}" data-j="${j}" tabindex="${roving}" aria-label="${esc(etq)}"${opc.click && !rel ? '' : ' aria-disabled="true"'}>${opc.oculto ? '?' : v}</button>`;
       }
       return s + `</div><span class="hx">${opc.oculto ? '????' : hx(w)}${opc.extra || ''}</span></div>`;
     };
     if (m.tipo === 'emisor') {
-      $('#bits-tit').textContent = L('Palabras que envía el emisor (clic en un bit para cambiarlo)', 'Words the sender transmits (click a bit to change it)');
+      $('#bits-tit').textContent = oc ? L('Palabras del ejercicio', 'Words of the exercise') : L('Palabras que envía el emisor (clic en un bit para cambiarlo)', 'Words the sender transmits (click a bit to change it)');
       m.datos.forEach((w, i) => { h += fila(m.nombres[i], w, i, { rel: true, click: !oc }); });
-      h += fila(L('checksum', 'checksum'), m.cs, -1, { csf: true, oculto: oc, click: false });
+      h += fila(m.cs || oc ? 'checksum' : 'checksum (0000 → FFFF)', m.csTx, -1, { csf: true, oculto: oc, click: false });
       $('#bits-nota').innerHTML = oc ? L('El checksum se descubre al comprobar la respuesta.', 'The checksum is revealed when the answer is checked.') : L('El checksum va en la cabecera UDP. Pasa a las pestañas del receptor para enviar el segmento por un canal que puede cambiar bits.', 'The checksum travels in the UDP header. Go to the receiver tabs to send the segment through a channel that may flip bits.');
     } else {
-      $('#bits-tit').textContent = L('Palabras que llegan al receptor (clic en un bit para voltearlo en el canal)', 'Words that reach the receiver (click a bit to flip it in the channel)');
+      $('#bits-tit').textContent = L('Palabras que llegan al receptor (clic en un bit para cambiarlo en el canal)', 'Words that reach the receiver (click a bit to change it in the channel)');
       m.recibidas.forEach((w, i) => {
         const et = i === m.n ? L('checksum recibido', 'received checksum') : L(`palabra ${i + 1}`, `word ${i + 1}`);
         const extra = w !== m.enviadas[i] ? ` <small>(${L('enviada', 'sent')} ${hx(m.enviadas[i])})</small>` : '';
         h += fila(et, w, i, { rel: i < m.n, csf: i === m.n, click: true, flip: j => m.flipSet.has(i + ':' + j), extra });
       });
       const k = m.cambiados;
-      $('#bits-nota').innerHTML = (k ? L(`El canal ha cambiado ${k} ${k === 1 ? 'bit' : 'bits'} (recuadro discontinuo).`, `The channel has flipped ${k} ${k === 1 ? 'bit' : 'bits'} (dashed box).`) : L('Canal sin errores: llega lo mismo que se envió.', 'Error-free channel: what arrives is what was sent.')) + (estado.impar ? L(' El byte de relleno no viaja: el receptor lo vuelve a añadir.', ' The padding byte does not travel: the receiver adds it again.') : '');
+      $('#bits-nota').innerHTML = (k ? L(`El canal ha cambiado ${k} ${k === 1 ? 'bit' : 'bits'} (recuadro discontinuo).`, `The channel has changed ${k} ${k === 1 ? 'bit' : 'bits'} (dashed box).`) : L('Canal sin errores: llega lo mismo que se envió.', 'Error-free channel: what arrives is what was sent.')) + (estado.impar ? L(' El byte de relleno no viaja: el receptor lo vuelve a añadir.', ' The padding byte does not travel: the receiver adds it again.') : '');
     }
     $('#bits').innerHTML = h;
+    if (!document.querySelector('#bits button.bit[tabindex="0"]')) { const b = $('#bits button.bit'); if (b) { b.tabIndex = 0; foco = { f: Number(b.dataset.f), j: Number(b.dataset.j) }; } }
   }
+  // un solo punto de tabulación en la cuadrícula; las flechas mueven el foco
+  let foco = { f: 0, j: 15 };
+  $('#bits').addEventListener('keydown', e => {
+    const b = e.target.closest('button.bit'); if (!b) return;
+    const dirs = { ArrowLeft: [0, 1], ArrowRight: [0, -1], ArrowUp: [-1, 0], ArrowDown: [1, 0], Home: [0, 99], End: [0, -99] };
+    if (!(e.key in dirs)) return;
+    e.preventDefault(); e.stopPropagation();
+    const filas = [...new Set([...document.querySelectorAll('#bits button.bit')].map(x => Number(x.dataset.f)))];
+    const [df, dj] = dirs[e.key];
+    const fi = filas[Math.min(filas.length - 1, Math.max(0, filas.indexOf(Number(b.dataset.f)) + df))];
+    const j = Math.min(15, Math.max(0, Number(b.dataset.j) + dj));
+    const nb = document.querySelector(`#bits button.bit[data-f="${fi}"][data-j="${j}"]`); if (!nb) return;
+    b.tabIndex = -1; nb.tabIndex = 0; nb.focus(); foco = { f: fi, j };
+  });
   $('#bits').addEventListener('click', e => {
-    const b = e.target.closest('button.bit'); if (!b || b.disabled) return;
+    const b = e.target.closest('button.bit'); if (!b || b.getAttribute('aria-disabled') === 'true') return;
     const fi = Number(b.dataset.f), j = Number(b.dataset.j);
+    foco = { f: fi, j };
     if (m.tipo === 'emisor') {
       if (fi < 0) return;
       estado.palabras[fi] ^= 1 << j; cambiaPalabras(); rellenarPalabras();
@@ -462,13 +482,13 @@ svg .nuevo { animation: aparece .35s ease-out; }
     const xb = j => X0 + (16 - j) * CW + (j <= 15 ? G + Math.floor((15 - j) / 4) * G : 0);   // borde izquierdo del bit j (16 = bit 17)
     const xc = j => xb(j) + CW / 2;
     const XR = xb(0) + CW + 16;
-    const W = XR + (comp ? 58 : 150), H = 356;
+    const W = XR + (comp ? 80 : 150), H = 356;
     const nuevo = paso !== null && paso !== ultimoPaso;
     let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Suma en complemento a 1 columna a columna', "One's complement sum column by column"))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="14">`;
     o += `<defs><marker id="fv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="var(--aviso)"/></marker><pattern id="trama" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--suave)"/></pattern></defs>`;
     o += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
     const etq = (y, t, color = 'var(--muted)') => comp ? '' : `<text x="10" y="${y}" fill="${color}" font-size="14">${esc(t)}</text>`;
-    const hexR = (y, t, color = 'var(--fg)') => `<text x="${XR}" y="${y}" fill="${color}" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${comp ? 14 : 16}">${esc(t)}</text>`;
+    const hexR = (y, t, color = 'var(--fg)') => `<text x="${XR}" y="${y}" fill="${color}" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${comp ? 20 : 16}">${esc(t)}</text>`;
     const signo = (y, t) => `<text x="${xb(16) + 6}" y="${y}" fill="var(--muted)" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${FS}" text-anchor="middle">${t}</text>`;
     const raya = y => `<line x1="${xb(15) - 4}" x2="${xb(0) + CW + 4}" y1="${y}" y2="${y}" stroke="var(--fg)" stroke-width="1.5"/>`;
     // una fila de bits: valor, número de bits, hasta qué columna se ve, opciones
@@ -572,8 +592,9 @@ svg .nuevo { animation: aparece .35s ease-out; }
         if (m.tipo === 'recalc' && s.t === 'compara') {
           const rec = m.recibidas[m.n];
           o += etq(yX, comp ? L('recibido', 'received') : L('checksum recibido', 'received checksum'), 'var(--html)');
-          o += fila(yX, rec, { color: 'var(--html)', flip: j => m.flipSet.has(m.n + ':' + j), mal: j => M.bit(rec, j) !== M.bit(cs, j) });
+          o += fila(yX, rec, { color: 'var(--html)', flip: j => m.flipSet.has(m.n + ':' + j), mal: j => M.bit(rec, j) !== M.bit(cs || 0xffff, j) });
           o += hexR(yX, (m.ver.ok ? '= ' : '≠ ') + hx(rec), m.ver.ok ? 'var(--bien)' : 'var(--aviso)');
+          if (!cs) o += hexR(yK - 22, '0000 → FFFF', 'var(--html)');
         }
       } else {
         o += etq(yS, L('suma recibida', 'received sum'), 'var(--trama)') + fila(yS, suma, { color: 'var(--trama)', mal: j => !M.bit(suma, j) }) + hexR(yS, hx(suma) + (suma === 0xffff ? ' ✓' : ' ✗'), suma === 0xffff ? 'var(--bien)' : 'var(--aviso)');
@@ -597,7 +618,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
     if (s.t === 'col') {
       const p = T.pasos[s.k], c = p.columnas[s.j];
       const que = s.k === 0 ? `${nombre(0)} + ${nombre(1)}` : L(`suma parcial + ${nombre(s.k + 1)}`, `partial sum + ${nombre(s.k + 1)}`);
-      const lleva = c.cout ? (s.j === 15 ? L(' y el acarreo sale por la izquierda: es el <b>bit 17</b>', ' and the carry leaves on the left: it is the <b>17th bit</b>') : L(`, me llevo 1 a la columna ${s.j + 1}`, `, carry 1 to column ${s.j + 1}`)) : '';
+      const lleva = c.cout ? (s.j === 15 ? L(' y el acarreo sale por la izquierda: es el <b>bit 17</b> (columna 16)', ' and the carry leaves on the left: it is the <b>17th bit</b> (column 16)') : L(`, me llevo 1 a la columna ${s.j + 1}`, `, carry 1 to column ${s.j + 1}`)) : '';
       const final = s.j === 15 && !c.cout ? L('. No sale acarreo por la izquierda.', '. No carry leaves on the left.') : '';
       return L(`Suma ${s.k + 1} de ${N} (${que}), columna ${s.j}${s.j === 0 ? ' (la de la derecha)' : ''}: ${c.a} + ${c.b}${c.cin ? ' + acarreo 1' : ''} = ${binS(c.a + c.b + c.cin)} → se escribe <b>${c.bit}</b>${lleva}${final}.`.replace('..', '.'), `Sum ${s.k + 1} of ${N} (${que}), column ${s.j}${s.j === 0 ? ' (the rightmost)' : ''}: ${c.a} + ${c.b}${c.cin ? ' + carry 1' : ''} = ${binS(c.a + c.b + c.cin)} → write <b>${c.bit}</b>${lleva}${final}.`.replace('..', '.'));
     }
@@ -611,15 +632,15 @@ svg .nuevo { animation: aparece .35s ease-out; }
     }
     const suma = T.suma, cs = M.complemento(suma);
     if (s.t === 'comp') {
-      if (m.tipo === 'emisor') return L(`Al final se <b>invierten todos los bits</b> (complemento a 1): suma <code>${M.bin16(suma)}</code> (${hx(suma)}) → checksum <code>${M.bin16(cs)}</code> (<b>${hx(cs)}</b>). Es el valor que viaja en la cabecera UDP.`, `At the end <b>every bit is inverted</b> (one's complement): sum <code>${M.bin16(suma)}</code> (${hx(suma)}) → checksum <code>${M.bin16(cs)}</code> (<b>${hx(cs)}</b>). That is the value carried in the UDP header.`);
-      return L(`Se invierte la suma: checksum calculado <code>${hx(cs)}</code>. Ahora se compara con el recibido.`, `The sum is inverted: computed checksum <code>${hx(cs)}</code>. Now it is compared with the received one.`);
+      if (m.tipo === 'emisor') return L(`Al final se <b>invierten todos los bits</b> (complemento a 1): suma <code>${M.bin16(suma)}</code> (${hx(suma)}) → checksum <code>${M.bin16(cs)}</code> (<b>${hx(cs)}</b>).${cs ? ' Es el valor que viaja en la cabecera UDP.' : ' 0000 → se transmite FFFF (0 = sin checksum).'}`, `At the end <b>every bit is inverted</b> (one's complement): sum <code>${M.bin16(suma)}</code> (${hx(suma)}) → checksum <code>${M.bin16(cs)}</code> (<b>${hx(cs)}</b>).${cs ? ' That is the value carried in the UDP header.' : ' 0000 → FFFF is transmitted (0 = no checksum).'}`);
+      return L(`Se invierte la suma: checksum calculado <code>${hx(cs)}</code>${cs ? '' : ' (0000 → FFFF, como se transmite)'}. Ahora se compara con el recibido.`, `The sum is inverted: computed checksum <code>${hx(cs)}</code>${cs ? '' : ' (0000 → FFFF, as transmitted)'}. Now it is compared with the received one.`);
     }
     // compara
     const v = m.ver, ok = v.ok;
     const accion = L(' UDP descarta el segmento o lo pasa a la aplicación con una advertencia; el emisor no se entera.', ' UDP discards the segment or passes it to the application with a warning; the sender is not told.');
-    const pasa = m.cambiados && ok ? L(` Pero el canal ha cambiado ${m.cambiados} bits: se compensan y el error pasa sin detectar.`, ` But the channel flipped ${m.cambiados} bits: they cancel out and the error goes undetected.`) : '';
+    const pasa = m.cambiados && ok ? L(` Pero el canal ha cambiado ${m.cambiados} bits: se compensan y el error pasa sin detectar.`, ` But the channel changed ${m.cambiados} bits: they cancel out and the error goes undetected.`) : '';
     if (m.tipo === 'suma') return ok ? L(`La suma de todas las palabras, el checksum incluido, da <code>${hx(v.suma)}</code> = FFFF → <b>no se detecta error</b>.${pasa}`, `The sum of every word, the checksum included, is <code>${hx(v.suma)}</code> = FFFF → <b>no error is detected</b>.${pasa}`) : L(`La suma da <code>${hx(v.suma)}</code> ≠ FFFF → <b>error detectado</b>.${accion}`, `The sum is <code>${hx(v.suma)}</code> ≠ FFFF → <b>error detected</b>.${accion}`);
-    return ok ? L(`Calculado <code>${hx(v.calculado)}</code> = recibido <code>${hx(v.recibido)}</code> → <b>no se detecta error</b>.${pasa}`, `Computed <code>${hx(v.calculado)}</code> = received <code>${hx(v.recibido)}</code> → <b>no error is detected</b>.${pasa}`) : L(`Calculado <code>${hx(v.calculado)}</code> ≠ recibido <code>${hx(v.recibido)}</code> → <b>segmento erróneo</b>.${accion}`, `Computed <code>${hx(v.calculado)}</code> ≠ received <code>${hx(v.recibido)}</code> → <b>corrupted segment</b>.${accion}`);
+    return ok ? L(`Calculado <code>${hx(v.transmitido)}</code> = recibido <code>${hx(v.recibido)}</code> → <b>no se detecta error</b>.${pasa}`, `Computed <code>${hx(v.transmitido)}</code> = received <code>${hx(v.recibido)}</code> → <b>no error is detected</b>.${pasa}`) : L(`Calculado <code>${hx(v.transmitido)}</code> ≠ recibido <code>${hx(v.recibido)}</code> → <b>segmento erróneo</b>.${accion}`, `Computed <code>${hx(v.transmitido)}</code> ≠ received <code>${hx(v.recibido)}</code> → <b>corrupted segment</b>.${accion}`);
   }
 
   // ------------------------------------------------------------ veredicto y tabla
@@ -629,13 +650,13 @@ svg .nuevo { animation: aparece .35s ease-out; }
     el.hidden = false;
     if (m.tipo === 'emisor') {
       el.className = 'veredicto cs';
-      el.innerHTML = L(`Checksum = <code>${M.bin16(m.cs)}</code> = <b>${hx(m.cs)}</b>: suma <code>${hx(m.traza.suma)}</code> invertida.`, `Checksum = <code>${M.bin16(m.cs)}</code> = <b>${hx(m.cs)}</b>: the sum <code>${hx(m.traza.suma)}</code> inverted.`);
+      el.innerHTML = L(`Checksum = <code>${M.bin16(m.cs)}</code> = <b>${hx(m.cs)}</b>: suma <code>${hx(m.traza.suma)}</code> invertida.${m.cs ? '' : ' 0000 → se transmite <b>FFFF</b> (0 = sin checksum).'}`, `Checksum = <code>${M.bin16(m.cs)}</code> = <b>${hx(m.cs)}</b>: the sum <code>${hx(m.traza.suma)}</code> inverted.${m.cs ? '' : ' 0000 → <b>FFFF</b> is transmitted (0 = no checksum).'}`);
       return;
     }
     const ok = m.ver.ok, err = m.cambiados > 0;
     el.className = 'veredicto ' + (ok && !err ? 'ok' : 'ko');
     let h = ok ? L('<b class="si">✓ No se detecta error.</b>', '<b class="si">✓ No error detected.</b>') : L('<b class="no">✗ Error detectado.</b>', '<b class="no">✗ Error detected.</b>');
-    if (ok && err) h += L(` Pero el segmento sí llega con ${m.cambiados} ${m.cambiados === 1 ? 'bit cambiado' : 'bits cambiados'}: ${estado.compensa || m.cambiados === 2 ? 'un 0 → 1 y un 1 → 0 en la misma columna suman lo mismo' : 'los cambios se compensan en la suma'}.<span class="crc">Por eso la capa de enlace añade un CRC, más potente (Tema 5).</span>`, ` But the segment does arrive with ${m.cambiados} ${m.cambiados === 1 ? 'flipped bit' : 'flipped bits'}: ${estado.compensa || m.cambiados === 2 ? 'a 0 → 1 and a 1 → 0 in the same column add up to the same' : 'the changes cancel out in the sum'}.<span class="crc">That is why the link layer adds a CRC, which is more powerful (Topic 5).</span>`);
+    if (ok && err) h += L(` Pero el segmento sí llega con ${m.cambiados} ${m.cambiados === 1 ? 'bit cambiado' : 'bits cambiados'}: ${estado.compensa || m.cambiados === 2 ? 'un 0 → 1 y un 1 → 0 en la misma columna suman lo mismo' : 'los cambios se compensan en la suma'}.<span class="crc">Por eso la capa de enlace añade un CRC, más potente (Tema 5).</span>`, ` But the segment does arrive with ${m.cambiados} ${m.cambiados === 1 ? 'changed bit' : 'changed bits'}: ${estado.compensa || m.cambiados === 2 ? 'a 0 → 1 and a 1 → 0 in the same column add up to the same' : 'the changes cancel out in the sum'}.<span class="crc">That is why the link layer adds a CRC, which is more powerful (Topic 5).</span>`);
     else if (!ok) h += L(` UDP descarta el segmento o lo pasa a la aplicación con una advertencia; el emisor no se entera: UDP no avisa ni retransmite.${m.cambiados === 1 ? ' Un error de un bit se detecta siempre.' : ''}`, ` UDP discards the segment or passes it to the application with a warning; the sender is not told: UDP neither warns nor retransmits.${m.cambiados === 1 ? ' A one-bit error is always detected.' : ''}`);
     else h += L(' El canal no ha cambiado nada.', ' The channel did not change anything.');
     el.innerHTML = h;
@@ -652,7 +673,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
     if (final) {
       const suma = T.suma;
       if (m.tipo === 'suma') h += `<tr><td>${L('Comprobación', 'Check')}</td><td class="n" colspan="5">${hx(suma)} ${suma === 0xffff ? '= FFFF ✓' : '≠ FFFF ✗'}</td></tr>`;
-      else h += `<tr><td>${m.tipo === 'emisor' ? 'Checksum' : L('Checksum calculado', 'Computed checksum')}</td><td class="n" colspan="5">~${hx(suma)} = ${hx(M.complemento(suma))}${m.tipo === 'recalc' ? (m.ver.ok ? ' = ' : ' ≠ ') + L('recibido ', 'received ') + hx(m.ver.recibido) : ''}</td></tr>`;
+      else h += `<tr><td>${m.tipo === 'emisor' ? 'Checksum' : L('Checksum calculado', 'Computed checksum')}</td><td class="n" colspan="5">~${hx(suma)} = ${hx(M.complemento(suma))}${m.tipo === 'recalc' ? (M.complemento(suma) ? '' : ' → FFFF') + (m.ver.ok ? ' = ' : ' ≠ ') + L('recibido ', 'received ') + hx(m.ver.recibido) : (M.complemento(suma) ? '' : L(' → se transmite FFFF', ' → FFFF is transmitted'))}</td></tr>`;
     }
     $('#tabla').innerHTML = h + '</tbody></table>';
   }
@@ -669,19 +690,21 @@ svg .nuevo { animation: aparece .35s ease-out; }
 
     const tabs = [['emisor', L('Emisor: suma y complemento', 'Sender: sum and complement')], ['suma', L('Receptor: suma con el checksum', 'Receiver: sum with the checksum')], ['recalc', L('Receptor: campo a 0, recalcular y comparar', 'Receiver: field to 0, recompute and compare')]];
     $('#pestanas').hidden = oc;
-    $('#pestanas').innerHTML = tabs.map(([v, t]) => `<button type="button" role="tab" aria-selected="${m.tipo === v}" data-tab="${v}">${esc(t)}</button>`).join('');
+    $('#pestanas').innerHTML = tabs.map(([v, t]) => `<button type="button" role="tab" id="tab-${v}" aria-controls="lienzo" aria-selected="${m.tipo === v}" tabindex="${m.tipo === v ? 0 : -1}" data-tab="${v}">${esc(t)}</button>`).join('');
     $('#reproductor').hidden = oc;
     $('#r-etq').textContent = L(`paso ${idx + 1} / ${m.pasos.length}`, `step ${idx + 1} / ${m.pasos.length}`) + (s.t === 'col' ? L(` · suma ${s.k + 1}, columna ${s.j}`, ` · sum ${s.k + 1}, column ${s.j}`) : '');
     $('#narra').innerHTML = narrar(s);
     $('#lienzo').innerHTML = dibujar(s, oc);
+    $('#lienzo').setAttribute('aria-labelledby', 'tab-' + m.tipo);
     ultimoPaso = paso;
     pintarVeredicto(final);
     pintarBits();
     $('#t-tabla').hidden = oc;
     if (!oc) pintarTabla(s, final);
-    $('#leyenda').innerHTML = `<span><b style="color:var(--sel);font-family:var(--mono)">1</b> ${L('acarreo a la columna siguiente', 'carry into the next column')}</span><span><b style="color:var(--aviso);font-family:var(--mono)">1</b> ${L('bit 17 que da la vuelta', '17th bit that wraps around')}</span><span><b style="color:var(--html);font-family:var(--mono)">~</b> ${L('checksum = suma invertida', 'checksum = inverted sum')}</span>${estado.impar ? `<span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 5px);border:1px dashed var(--muted)"></i>${L('relleno 00: no se transmite', '00 padding: not transmitted')}</span>` : ''}${m.tipo !== 'emisor' ? `<span><i style="border:2px dashed var(--aviso)"></i>${L('bit cambiado en el canal', 'bit flipped in the channel')}</span>` : ''}`;
+    $('#leyenda').innerHTML = `<span><b style="color:var(--sel);font-family:var(--mono)">1</b> ${L('acarreo a la columna siguiente', 'carry into the next column')}</span><span><b style="color:var(--aviso);font-family:var(--mono)">1</b> ${L('bit 17 (columna 16) que da la vuelta', '17th bit (column 16) that wraps around')}</span><span><b style="color:var(--html);font-family:var(--mono)">~</b> ${L('checksum = suma invertida', 'checksum = inverted sum')}</span>${estado.impar ? `<span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 5px);border:1px dashed var(--muted)"></i>${L('relleno 00: no se transmite', '00 padding: not transmitted')}</span>` : ''}${m.tipo !== 'emisor' ? `<span><i style="border:2px dashed var(--aviso)"></i>${L('bit cambiado en el canal', 'bit changed in the channel')}</span>` : ''}${m.tipo === 'recalc' ? `<span><i style="border:2px solid var(--aviso)"></i>${L('bit distinto del calculado', 'bit that differs from the computed one')}</span>` : ''}`;
     $('#t-pred').hidden = !estado.practica;
     if (estado.practica) pintarPred();
+    ['#c-uno', '#c-dos', '#c-limpio'].forEach(q => { $(q).disabled = oc; });
   }
   $('#pestanas').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; estado.pestana = b.dataset.tab; parar(); paso = 0; pintar(); });
   $('#pestanas').addEventListener('keydown', e => {
@@ -714,7 +737,9 @@ svg .nuevo { animation: aparece .35s ease-out; }
     if (avanzar()) animando = setTimeout(tic, retardo()); else parar();
   });
   document.addEventListener('keydown', e => {
-    if (e.target.matches('input, select, textarea, button.bit, [role="tab"]') || enPractica()) return;
+    if (enPractica() || e.defaultPrevented) return;
+    const el = e.target.closest ? e.target.closest('button, a, summary, [role="tab"], [role="button"], input, select, textarea') : null;
+    if (el && !el.closest('#reproductor')) return;   // los botones del reproductor sí usan la tecla
     if (e.key === ' ') { e.preventDefault(); $('#r-play').click(); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); parar(); avanzar(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#r-ant').click(); }
@@ -728,7 +753,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
     $('#pred-nota').textContent = pr.resuelto ? L('Resuelto. Recorre la suma con ▶ o pide otro ejercicio.', 'Solved. Step through the sum with ▶ or ask for another exercise.') : L(`Palabras: ${m.datos.map(hx).join(', ')}. ¿Qué checksum pone el emisor?`, `Words: ${m.datos.map(hx).join(', ')}. Which checksum does the sender put?`);
     const pi = $('#pista');
     pi.hidden = !pr.pista;
-    pi.textContent = L(`Pista: la suma sin complementar es ${M.bin16(suma)} = ${hx(suma)}.`, `Hint: the sum before complementing is ${M.bin16(suma)} = ${hx(suma)}.`);
+    pi.textContent = pr.pista ? L(`Pista: la suma sin complementar es ${M.bin16(suma)} = ${hx(suma)}.`, `Hint: the sum before complementing is ${M.bin16(suma)} = ${hx(suma)}.`) : '';
     ['#b-comprobar', '#b-pista', '#b-solucion'].forEach(s => { $(s).disabled = pr.resuelto; });
     $('#pred-cs').disabled = pr.resuelto;
   }
@@ -751,7 +776,7 @@ svg .nuevo { animation: aparece .35s ease-out; }
     const v = M.leerPalabra($('#pred-cs').value), fb = $('#fb');
     const suma = m.traza.suma, cs = m.cs;
     if (v === null) { fb.className = 'fb ko'; fb.textContent = L('Escribe el checksum en hexadecimal (4 cifras).', 'Type the checksum in hexadecimal (4 digits).'); return; }
-    if (v === cs) { resolver(L(`Correcto: ${hx(cs)} = ${M.bin16(cs)}. Recorre la suma con ▶.`, `Correct: ${hx(cs)} = ${M.bin16(cs)}. Step through the sum with ▶.`), true); toast(L('¡Bien!', 'Well done!')); return; }
+    if (v === cs || v === m.csTx) { resolver(L(`Correcto: ${hx(cs)} = ${M.bin16(cs)}. Recorre la suma con ▶.`, `Correct: ${hx(cs)} = ${M.bin16(cs)}. Step through the sum with ▶.`), true); toast(L('¡Bien!', 'Well done!')); return; }
     const sinVuelta = m.datos.reduce((a, w) => (a + w) & 0xffff, 0);
     fb.className = 'fb ko';
     if (v === suma) fb.textContent = L('Esa es la suma: falta invertir todos los bits.', 'That is the sum: you still have to invert every bit.');

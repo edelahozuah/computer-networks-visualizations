@@ -71,10 +71,14 @@ const MotorUDP = (() => {
     const suma = sumaC1(palabrasConChecksum).suma;
     return { suma, ok: suma === M16 };
   }
+  // Lo que viaja en el campo (RFC 768): en IPv4, 0 significa «sin checksum», así que un checksum calculado 0000
+  // se transmite como FFFF (que en complemento a 1 también es cero).
+  const checksumTransmitido = palabras => checksum(palabras) || M16;
   // Receptor, forma de la s.31: pone el campo a 0, recalcula y compara con el checksum recibido.
   function verificaRecalculo(datos, recibido) {
     const calculado = checksum([...datos, 0]);
-    return { calculado, recibido: recibido & M16, ok: calculado === (recibido & M16) };
+    const transmitido = calculado || M16;
+    return { calculado, transmitido, recibido: recibido & M16, ok: transmitido === (recibido & M16) };
   }
 
   // Bytes → palabras de 16 bits (el primer byte es el de más peso). Con un número impar de bytes se añade un
@@ -90,21 +94,17 @@ const MotorUDP = (() => {
   const bytesDePalabras = palabras => palabras.flatMap(w => [(w >> 8) & 0xff, w & 0xff]);
 
   // ------------------------------------------------------------ ejercicios aleatorios
-  // Valores que no salen nunca en los ejercicios: los de la actividad A4 (s.32–33, se hace en papel) y los de
-  // la captura y los bancos del laboratorio GP31.
-  const RESERVADOS = new Set([0x8A3C, 0x6F1E, 0xB247, 0xE112, 0x780D, 0xB669, 0xBA78]);
   function rngSemilla(semilla) {          // mulberry32
     let a = semilla >>> 0;
     return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   }
-  // n palabras al azar con al menos un acarreo que da la vuelta (así se ve el bit 17) y sin valores reservados.
+  // n palabras al azar, distintas y no nulas, con al menos un acarreo que da la vuelta (así se ve el bit 17).
   function aleatorio(rng, n = 3) {
     rng = rng || Math.random;
     for (let intento = 0; intento < 1000; intento++) {
       const ps = Array.from({ length: n }, () => Math.floor(rng() * 0x10000));
       const s = sumaC1(ps);
       if (!s.pasos.some(p => p.acarreo)) continue;
-      if (ps.some(w => RESERVADOS.has(w)) || RESERVADOS.has(s.suma) || RESERVADOS.has(complemento(s.suma))) continue;
       if (new Set(ps).size < n || ps.some(w => w === 0)) continue;
       return ps;
     }
@@ -160,8 +160,8 @@ const MotorUDP = (() => {
   const cabeceraUDP = (po, pd, longitud, cs = 0) => [po >> 8, po & 0xff, pd >> 8, pd & 0xff, longitud >> 8, longitud & 0xff, cs >> 8, cs & 0xff].map(x => x & 0xff);
 
   return {
-    hex16, bin16, bin17, bit, leerPalabra, sumar2, sumaC1, complemento, checksum, verifica, verificaRecalculo,
-    palabrasDeBytes, bytesDePalabras, RESERVADOS, rngSemilla, aleatorio, bitsQueSeCompensan,
+    hex16, bin16, bin17, bit, leerPalabra, sumar2, sumaC1, complemento, checksum, checksumTransmitido, verifica, verificaRecalculo,
+    palabrasDeBytes, bytesDePalabras, rngSemilla, aleatorio, bitsQueSeCompensan,
     TAM, longitudUDP, cargaDeLongitud, cabeEnIPv4, CAMPOS_UDP, ipBytes, pseudocabecera, cabeceraUDP
   };
 })();

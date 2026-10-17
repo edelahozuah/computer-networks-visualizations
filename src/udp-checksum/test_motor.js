@@ -32,6 +32,12 @@ ok(par && par[0][1] === par[1][1], 'par en la misma columna');
 const Kf = K.slice(); par.forEach(([i, j]) => { Kf[i] ^= 1 << j; });
 ok(M.sumaC1(Kf).suma === M.sumaC1(K).suma && M.verifica([...Kf, M.checksum(K)]).ok, 'el par se compensa');
 
+// Checksum calculado 0000: se transmite FFFF (0 = sin checksum en IPv4) y el receptor lo acepta de las dos formas
+const Z = [0xF00F, 0x0FF0];
+ok(M.checksum(Z) === 0 && M.checksumTransmitido(Z) === 0xFFFF, 'checksum 0000 → FFFF');
+ok(M.verifica([...Z, 0xFFFF]).ok && M.verificaRecalculo(Z, 0xFFFF).ok && !M.verificaRecalculo(Z, 0).ok, 'receptor con FFFF');
+ok(M.checksumTransmitido(K) === 0xB53D, 'transmitido = calculado si no es 0');
+
 // Relleno de un número impar de bytes
 let pb = M.palabrasDeBytes([0x12, 0x34, 0x56]);
 ok(pb.relleno && pb.palabras.length === 2 && pb.palabras[1] === 0x5600, 'relleno con byte 0');
@@ -81,7 +87,7 @@ for (let caso = 0; caso < 10000; caso++) {
     const v = p.columnas.reduce((a, c) => a | (c.bit << c.j), 0) | (p.columnas[15].cout << 16);
     if (v !== p.bruto || p.acarreo !== p.columnas[15].cout || (p.vuelta && p.vuelta.columnas.at(-1).cout)) { ok(false, 'traza ' + ws.map(M.hex16)); break; }
   }
-  const cs = M.checksum(ws);
+  const cs = M.checksumTransmitido(ws);
   if (!M.verifica([...ws, cs]).ok) { ok(false, 'receptor FFFF ' + ws.map(M.hex16)); break; }
   if (!M.verificaRecalculo(ws, cs).ok) { ok(false, 'recalcular ' + ws.map(M.hex16)); break; }
   // error de un bit en cualquier palabra (checksum incluido): siempre se detecta
@@ -102,12 +108,22 @@ for (const ws of [K, A4]) {
   rec.forEach((w, i) => { for (let j = 0; j < 16; j++) { const e = rec.slice(); e[i] ^= 1 << j; if (!M.verifica(e).ok) det++; } });
   ok(det === rec.length * 16, 'un bit exhaustivo ' + det);
 }
-// ejercicios aleatorios: con acarreo que da la vuelta y sin valores reservados
+// ejercicios aleatorios: con acarreo que da la vuelta, palabras distintas y no nulas
 const r2 = M.rngSemilla(7);
 for (let t = 0; t < 500; t++) {
   const ws = M.aleatorio(r2, 3), sm = M.sumaC1(ws);
-  if (!sm.pasos.some(p => p.acarreo) || ws.some(w => M.RESERVADOS.has(w)) || M.RESERVADOS.has(M.checksum(ws))) { ok(false, 'aleatorio reservado ' + ws.map(M.hex16)); break; }
+  if (!sm.pasos.some(p => p.acarreo) || new Set(ws).size < 3 || ws.includes(0)) { ok(false, 'aleatorio ' + ws.map(M.hex16)); break; }
 }
+
+// Ni las fuentes ni lo construido ni lo publicado contienen valores de GP31, B2 o A4
+const path = require('path');
+const { escanear } = require('./prohibidos.js');
+const D = __dirname, PUB = path.join(D, '../../03-transport-layer');
+// con --fuentes (antes de construir) solo se miran las fuentes; build.sh repite la prueba sobre lo publicado
+const soloFuentes = process.argv.includes('--fuentes');
+const malos = escanear([path.join(D, 'app.html'), path.join(D, 'motor.js'), ...(soloFuentes ? [] : [path.join(D, 'dist/app.html'), path.join(D, 'dist/index.html'),
+  path.join(PUB, 'udp-checksum.es.html'), path.join(PUB, 'udp-checksum.en.html')])]);
+ok(!malos.length, 'valores prohibidos: ' + malos.map(m => m.join(' → ')).join(', '));
 
 console.log(fallos ? `${fallos} de ${n} pruebas fallan` : `OK: ${n} pruebas (10 000 aleatorias contra una implementación independiente)`);
 process.exit(fallos ? 1 : 0);
