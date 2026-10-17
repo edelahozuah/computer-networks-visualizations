@@ -14,11 +14,9 @@ const MotorDemux = (() => {
 
   const PROTO = { tcp: 6, udp: 17 };
   const RANGOS = { iana: { min: 49152, max: 65535 }, linux: { min: 32768, max: 60999 } };
-  // Valores de la práctica GP31 y de su banco de preguntas: no se usan nunca en la visualización.
-  const PROHIBIDOS = {
-    puertos: [50123, 8888, 41000, 50200, 9999, 44458, 9000],
-    ips: ['192.168.1.10', '192.168.1.20', '192.168.1.30', '10.0.2.15', '172.31.254.2', '10.0.0.5']
-  };
+  // Puertos que el SO nunca reparte aquí como efímeros ni se muestran como semilla: los números redondos, los de
+  // cifras repetidas y dos bloques reservados para otros ejemplos del curso.
+  const reservado = p => p % 100 === 0 || /^(\d)\1+$/.test(String(p)) || (p >= 50100 && p < 50300) || (p >= 44400 && p < 44500);
   // Puertos del deck: no se reparten como efímeros en los ejercicios aleatorios, para no confundir.
   const DECK = [9157, 9156, 6428, 5775, 80, 443];
 
@@ -38,22 +36,22 @@ const MotorDemux = (() => {
   // distinto de los ya usados y de los prohibidos.
   function efimero(r, rango = 'iana', usados = []) {
     const R = RANGOS[rango] || RANGOS.iana;
-    const evitar = new Set([...usados, ...PROHIBIDOS.puertos, ...DECK]);
+    const evitar = new Set([...usados, ...DECK]);
     for (let i = 0; i < 1000; i++) {
       const p = R.min + Math.floor(r() * (R.max - R.min + 1));
-      if (!evitar.has(p)) return p;
+      if (!evitar.has(p) && !reservado(p)) return p;
     }
     throw new Error('sin puertos efímeros libres');
   }
 
   // ---------------------------------------------------------------- sockets
   // tabla: { ip, modelo ('uno-a-uno' | 'uno-a-varios' | 'eventos'), sockets: [socket], n (contador de ids),
-  //          nProc (siguiente nº de proceso), nHilo }
+  //          nProc (siguiente nº de proceso), hilos (proceso → nº de hilos) }
   // socket: { id, proto, tipo ('udp' | 'bienvenida' | 'conexion'), ip, puerto, ipR, puertoR, proceso, hilo, entregados }
   const copia = o => JSON.parse(JSON.stringify(o));
 
   function tablaInicial(servidor) {
-    const t = { ip: servidor.ip, modelo: servidor.modelo || 'uno-a-uno', sockets: [], n: 0, nProc: servidor.primerProceso || 4, nHilo: 1 };
+    const t = { ip: servidor.ip, modelo: servidor.modelo || 'uno-a-uno', sockets: [], n: 0, nProc: servidor.primerProceso || 4, hilos: {} };
     for (const e of servidor.escucha) {
       t.n++;
       t.sockets.push({ id: 's' + t.n, proto: e.proto, tipo: e.proto === 'udp' ? 'udp' : 'bienvenida', ip: servidor.ip, puerto: e.puerto, ipR: null, puertoR: null, proceso: e.proceso, hilo: null, entregados: 0 });
@@ -78,7 +76,7 @@ const MotorDemux = (() => {
     if (!w) return { tipo: 'rechazado', motivo: 'puerto' };
     let proceso, hilo = null;
     if (tabla.modelo === 'uno-a-uno') proceso = 'P' + tabla.nProc;
-    else { proceso = w.proceso; if (tabla.modelo === 'uno-a-varios') hilo = tabla.nHilo; }
+    else { proceso = w.proceso; if (tabla.modelo === 'uno-a-varios') hilo = (tabla.hilos[proceso] || 0) + 1; }
     const socket = { id: 's' + (tabla.n + 1), proto: 'tcp', tipo: 'conexion', ip: seg.ipD, puerto: seg.pd, ipR: seg.ipO, puertoR: seg.po, proceso, hilo, entregados: 0 };
     return { tipo: 'nuevo', bienvenida: w, socket };
   }
@@ -91,7 +89,7 @@ const MotorDemux = (() => {
     if (r.tipo === 'socket') { r.socket.entregados++; destino = r.socket.id; }
     else if (r.tipo === 'nuevo') {
       t.n++; r.socket.entregados = 1; t.sockets.push(r.socket); destino = r.socket.id;
-      if (t.modelo === 'uno-a-uno') t.nProc++; else if (t.modelo === 'uno-a-varios') t.nHilo++;
+      if (t.modelo === 'uno-a-uno') t.nProc++; else if (t.modelo === 'uno-a-varios') t.hilos[r.socket.proceso] = r.socket.hilo;
     }
     return { tabla: t, resultado: copia(r), destino };
   }
@@ -215,7 +213,11 @@ const MotorDemux = (() => {
       const o = k > 0 && (r() < 0.3 || !libres.length) ? el(origenes.filter(o => !libres.includes(o))) : el(libres.length ? libres : origenes);
       let pd = el(puertos);
       if (rechazos === 0 && k > 0 && r() < 0.12) { pd = el(SIN); rechazos++; }
-      segmentos.push(seg(proto, o.ip, o.po, 'C', pd));
+      // un mismo (IP, PO) no se usa hacia dos puertos destino: cada conexión o flujo nuevo lleva su efímero
+      let po = o.po;
+      const previo = segmentos.find(s => s.ipO === o.ip && s.po === po);
+      if (previo && previo.pd !== pd) { po = efimero(r, rango, usados); usados.push(po); origenes.push({ ip: o.ip, po }); }
+      segmentos.push(seg(proto, o.ip, po, 'C', pd));
     }
     return {
       id: 'practica', semilla: Number(semilla) >>> 0, proto, rango,
@@ -239,6 +241,6 @@ const MotorDemux = (() => {
     return e;
   }
 
-  return { PROTO, RANGOS, PROHIBIDOS, DECK, ESCENARIOS, rng, efimero, tablaInicial, demux, aplicar, responder, contar, simular, conProto, esMixto, generar, nuevoCliente };
+  return { PROTO, RANGOS, DECK, reservado, ESCENARIOS, rng, efimero, tablaInicial, demux, aplicar, responder, contar, simular, conProto, esMixto, generar, nuevoCliente };
 })();
 if (typeof module !== 'undefined') module.exports = MotorDemux;

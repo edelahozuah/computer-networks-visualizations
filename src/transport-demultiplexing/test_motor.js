@@ -2,6 +2,8 @@
 const M = require('./motor.js');
 let fallos = 0, n = 0;
 const ok = (c, m) => { n++; if (!c) { fallos++; console.error('FALLO: ' + m); } };
+// Valores de GP31 (práctica y banco de preguntas): no pueden salir nunca en la visualización.
+const PROHIBIDOS = { puertos: [50123, 8888, 41000, 50200, 9999, 44458, 9000], ips: ['192.168.1.10', '192.168.1.20', '192.168.1.30', '10.0.2.15', '172.31.254.2', '10.0.0.5'] };
 const t4 = s => `${s.ipO}|${s.po}|${s.ipD}|${s.pd}`;
 
 // --- s.14, UDP: A:9157 y B:5775 al 6428 de C → un único socket
@@ -56,7 +58,7 @@ ok(JSON.stringify(M.responder(q)) === JSON.stringify(p), 'responder es involutiv
 for (const rango of ['iana', 'linux']) {
   const R = M.RANGOS[rango], g = M.rng(7);
   let dentro = true, prohib = false;
-  for (let i = 0; i < 20000; i++) { const e = M.efimero(g, rango); if (e < R.min || e > R.max) dentro = false; if (M.PROHIBIDOS.puertos.includes(e) || M.DECK.includes(e)) prohib = true; }
+  for (let i = 0; i < 20000; i++) { const e = M.efimero(g, rango); if (e < R.min || e > R.max) dentro = false; if (PROHIBIDOS.puertos.includes(e) || M.DECK.includes(e)) prohib = true; }
   ok(dentro, `efímeros ${rango} en [${R.min}, ${R.max}]`);
   ok(!prohib, `efímeros ${rango} sin prohibidos`);
 }
@@ -66,7 +68,7 @@ ok(M.RANGOS.iana.min === 49152 && M.RANGOS.iana.max === 65535 && M.RANGOS.linux.
 // --- generador con semilla: determinista; invariantes de la 2-tupla y la 4-tupla
 ok(JSON.stringify(M.generar(42)) === JSON.stringify(M.generar(42)), 'generar determinista');
 ok(JSON.stringify(M.generar(42)) !== JSON.stringify(M.generar(43)), 'semillas distintas, ejercicios distintos');
-const prohibidos = new RegExp('(' + [...M.PROHIBIDOS.ips.map(x => x.replace(/\./g, '\\.')), ...M.PROHIBIDOS.puertos.map(x => '\\b' + x + '\\b')].join('|') + ')');
+const prohibidos = new RegExp('(' + [...PROHIBIDOS.ips.map(x => x.replace(/\./g, '\\.')), ...PROHIBIDOS.puertos.map(x => '\\b' + x + '\\b')].join('|') + ')');
 let malos = 0, rechazosVistos = 0, nuevosVistos = 0, reusoVistos = 0, mismoPO = 0;
 for (let s = 1; s <= 3000; s++) {
   for (const proto of ['udp', 'tcp']) {
@@ -105,6 +107,11 @@ for (let s = 1; s <= 3000; s++) {
 ok(malos === 0, `invariantes en 6000 ejercicios aleatorios (${malos} fallos)`);
 ok(rechazosVistos > 0 && nuevosVistos > 0 && reusoVistos > 0 && mismoPO > 0, `variedad: rechazados ${rechazosVistos}, nuevos ${nuevosVistos}, reutilizados ${reusoVistos}, mismo PO en dos IP ${mismoPO}`);
 
+ok(PROHIBIDOS.puertos.every(M.reservado), 'los puertos de GP31 están reservados (efímeros y semillas)');
+{ let mal = 0; for (let s = 1; s <= 3000; s++) { const e = M.generar(s); const d = {}; for (const x of e.segmentos) { const k = x.ipO + '|' + x.po; if (k in d && d[k] !== x.pd) mal++; d[k] = x.pd; } } ok(mal === 0, 'un (IP, PO) no va a dos PD distintos'); }
+{ const t = M.tablaInicial({ ip: 'C', modelo: 'uno-a-varios', escucha: [{ proto: 'tcp', puerto: 80, proceso: 'P4' }, { proto: 'tcp', puerto: 443, proceso: 'P5' }] });
+  let a = M.aplicar(t, { proto: 'tcp', ipO: 'A', po: 51001, ipD: 'C', pd: 80 }).tabla; a = M.aplicar(a, { proto: 'tcp', ipO: 'A', po: 51002, ipD: 'C', pd: 443 }).tabla; a = M.aplicar(a, { proto: 'tcp', ipO: 'B', po: 51003, ipD: 'C', pd: 80 }).tabla;
+  ok(a.sockets.filter(s => s.tipo === 'conexion').map(s => s.proceso + ':' + s.hilo).join(',') === 'P4:1,P5:1,P4:2', 'hilos numerados por proceso'); }
 // --- presets sin valores prohibidos
 ok(!prohibidos.test(JSON.stringify(M.ESCENARIOS)), 'escenarios del deck sin valores de GP31');
 
