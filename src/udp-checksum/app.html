@@ -1,0 +1,804 @@
+<title>Checksum UDP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Mismo banco de trabajo que HTTP cookies: panel a la izquierda; suma, palabras y tabla a la derecha; una columna en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --html: #7a4fb5;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --camino: #fff1d6;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } .zona { order: -1; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+.campo { display: flex; gap: 4px; flex: 1; min-width: 0; }
+input[type="text"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.9rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="text"] { width: 100%; }
+input[aria-invalid="true"] { border-color: var(--aviso); outline: 1px solid var(--aviso); }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover:not(:disabled) { border-color: var(--fg); }
+button.btn:disabled { opacity: .45; cursor: default; }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+button.btn.mini { padding: 2px 7px; font-size: 0.8rem; line-height: 1.3; }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.nota code, .narra code, td code, .veredicto code { font-family: var(--mono); font-size: 0.92em; background: var(--suave); padding: 0 4px; border-radius: 3px; }
+.error { font-size: 0.84rem; color: var(--aviso); margin: 0; }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+.pestanas { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+.pestanas button { font: inherit; font-size: 0.86rem; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.pestanas button[aria-selected="true"] { background: var(--trama); color: var(--lienzo); border-color: var(--trama); font-weight: 600; }
+.reproductor { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; flex-wrap: wrap; }
+.reproductor .t { font-family: var(--mono); font-size: 0.84rem; color: var(--sel); font-variant-numeric: tabular-nums; flex: 1; }
+.reproductor button.btn { padding: 4px 10px; min-width: 36px; }
+.narra { padding: 10px 14px 12px; font-size: 0.98rem; margin: 0; min-height: 3.9em; }
+.narra b { color: var(--trama); }
+.lienzo { overflow-x: auto; padding: 6px 8px 4px; }
+.lienzo svg { display: block; margin: 0 auto; width: 100%; height: auto; max-width: 980px; }
+h3.mod { font-family: var(--display); font-weight: 700; font-size: 0.98rem; margin: 0; padding: 12px 14px 6px; }
+.fb { font-size: 0.86rem; margin: 0; }
+.fb.ok { color: var(--bien); }
+.fb.ko { color: var(--aviso); }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+.tabla { overflow-x: auto; padding: 0 0 6px; }
+th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; border-top: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.v { color: var(--aviso); font-weight: 600; }
+tr.actual td { background: var(--camino); }
+details.sup { padding: 0; }
+details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 14px 12px; font-size: 0.8rem; color: var(--muted); }
+.leyenda i { display: inline-block; width: 18px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.vis { opacity: 1; }
+/* Propio del checksum */
+.palabras { display: flex; flex-direction: column; gap: 6px; }
+.palabras .fila > label.et { min-width: 74px; }
+.palabras .fila { flex-wrap: nowrap; }
+.palabras input[type="text"] { width: auto; flex: 1; max-width: 190px; }
+label.chk { display: inline-flex; align-items: flex-start; gap: 7px; font-size: 0.86rem; cursor: pointer; }
+label.chk input { margin-top: 3px; }
+.veredicto { margin: 0 14px 12px; padding: 9px 12px; border-radius: 4px; border: 1px solid var(--line); border-left-width: 5px; font-size: 0.95rem; }
+.veredicto.ok { border-left-color: var(--bien); }
+.veredicto.ko { border-left-color: var(--aviso); }
+.veredicto.cs { border-left-color: var(--html); }
+.veredicto b.si { color: var(--bien); }
+.veredicto b.no { color: var(--aviso); }
+.veredicto .crc { display: block; margin-top: 4px; font-weight: 600; }
+.bits { padding: 0 14px 6px; display: flex; flex-direction: column; gap: 4px; }
+.bfila { display: grid; grid-template-columns: 10.5em minmax(0, 560px) 11em; gap: 8px; align-items: center; justify-content: start; }
+.bfila .et { font-size: 0.84rem; color: var(--muted); }
+.bfila .hx { font-family: var(--mono); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.bfila .hx small { color: var(--aviso); font-size: 0.78rem; }
+.bfila.cab .bs span { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); text-align: center; }
+.bs { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); column-gap: 2px; max-width: 560px; }
+.bs > :nth-child(4n):not(:last-child) { margin-right: 6px; }
+button.bit { font: inherit; font-family: var(--mono); font-size: 1rem; font-weight: 500; padding: 3px 0; min-width: 0; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 3px; cursor: pointer; }
+button.bit.uno { background: var(--suave); }
+button.bit:hover:not(:disabled) { border-color: var(--fg); }
+button.bit:disabled { cursor: default; }
+button.bit.cambiado { outline: 2px dashed var(--aviso); outline-offset: -2px; color: var(--aviso); font-weight: 700; }
+button.bit.relleno { color: var(--muted); background: repeating-linear-gradient(135deg, transparent 0 4px, var(--suave) 4px 7px); border-style: dashed; }
+button.bit.cs { color: var(--html); }
+.bfila.csf .et { color: var(--html); }
+@media (max-width: 560px) {
+  .bfila { grid-template-columns: minmax(0, 1fr) 4.6em; row-gap: 0; }
+  .bfila .et { grid-column: 1 / -1; font-size: 0.78rem; }
+  .bfila.cab .et { display: none; }
+  button.bit { font-size: 0.8rem; padding: 2px 0; }
+  .bs > :nth-child(4n):not(:last-child) { margin-right: 3px; }
+  .bfila .hx { font-size: 0.8rem; }
+}
+.pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pred input { max-width: 160px; font-size: 1.05rem; }
+.pista { font-family: var(--mono); font-size: 0.9rem; margin: 0; }
+svg .nuevo { animation: aparece .35s ease-out; }
+@keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } svg .nuevo { animation: none; } }
+</style>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1 data-en-html="UDP checksum &lt;span&gt;step by step&lt;/span&gt;">Checksum UDP <span>paso a paso</span></h1>
+    <div class="cab-der"><p class="sub" data-en="One's complement sum of 16-bit words: the carry that leaves on the left wraps around and is added on the right; at the end every bit is inverted. Then the receiver checks it, also through a channel that flips bits.">Suma en complemento a 1 de palabras de 16 bits: el acarreo que sale por la izquierda vuelve a sumarse por la derecha; al final se invierten todos los bits. Después lo comprueba el receptor, también con un canal que cambia bits.</p>
+    <!--@@IDIOMA@@--><div class="seg idioma" id="idioma" role="group" aria-label="Idioma / Language"><button type="button" data-v="es" lang="es">ES</button><button type="button" data-v="en" lang="en">EN</button></div><!--@@/IDIOMA@@--></div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL -->
+    <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2 data-en="Words of the segment">Palabras del segmento</h2>
+        <p class="nota" data-en="From 2 to 6 words of 16 bits, in hexadecimal (B53D) or binary (16 digits). A bit can also be changed by clicking it on the right.">De 2 a 6 palabras de 16 bits, en hexadecimal (<code>B53D</code>) o binario (16 cifras). Un bit también se cambia con un clic a la derecha.</p>
+        <div class="palabras" id="palabras"></div>
+        <div class="fila"><button type="button" class="btn mini" id="b-add" data-en="+ Word">+ Palabra</button></div>
+        <p class="error" id="err-pal" role="alert" hidden></p>
+        <label class="chk"><input type="checkbox" id="c-impar"> <span data-en="Odd number of bytes: the last word carries a single byte and is padded with a 00 byte that is not transmitted">Número impar de bytes: la última palabra lleva un solo byte y se rellena con un byte 00 que no se transmite</span></label>
+      </section>
+
+      <section>
+        <h2 data-en="Scenarios">Escenarios</h2>
+        <div class="fila">
+          <button type="button" class="btn" id="p-kurose" data-en="Kurose §3.3.2">Kurose §3.3.2</button>
+          <button type="button" class="btn" id="p-aleatorio" data-en="Random">Aleatorio</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-en="Channel with errors">Canal con errores</h2>
+        <p class="nota" data-en="On the receiver tabs, click a bit of a received word to flip it. Or:">En las pestañas del receptor, haz clic en un bit de una palabra recibida para voltearlo. O bien:</p>
+        <div class="fila">
+          <button type="button" class="btn" id="c-uno" data-en="Flip a random bit">Voltear un bit al azar</button>
+          <button type="button" class="btn" id="c-dos" data-en="Two bits that cancel out in the same column">Dos bits que se compensan en la misma columna</button>
+          <button type="button" class="btn" id="c-limpio" data-en="Error-free channel">Canal sin errores</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-en="Practice">Practicar</h2>
+        <p class="nota" data-en="A new segment with the answers hidden: work out the checksum in hexadecimal and press Check. The hint shows the sum before complementing.">Un segmento nuevo con las respuestas ocultas: calcula el checksum en hexadecimal y pulsa «Comprobar». La pista muestra la suma sin complementar.</p>
+        <div class="fila"><button type="button" class="btn prim" id="b-ejercicio" data-en="New exercise">Nuevo ejercicio</button></div>
+      </section>
+
+      <section>
+        <h2 data-en="View">Vista</h2>
+        <div class="fila"><label class="et" data-en="Step">Paso</label>
+          <div class="seg" data-k="vista.grano"><button type="button" data-v="col" data-en="Column">Columna</button><button type="button" data-v="pal" data-en="Word">Palabra</button></div></div>
+        <div class="fila"><label class="et" data-en="Theme">Tema</label>
+          <div class="seg" data-k="vista.tema"><button type="button" data-v="auto" data-en="Auto">Auto</button><button type="button" data-v="light" data-en="Light">Claro</button><button type="button" data-v="dark" data-en="Dark">Oscuro</button></div></div>
+        <div class="fila"><button data-en="Reset" type="button" class="btn peligro" id="b-reset">Restablecer</button></div>
+      </section>
+    </form>
+
+    <!-- ZONA -->
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="pestanas" id="pestanas" role="tablist" aria-label="Vista" data-en-aria="View"></div>
+        <div class="reproductor" id="reproductor">
+          <button type="button" class="btn" id="r-ini" aria-label="Al principio" data-en-aria="To the start">⏮</button>
+          <button type="button" class="btn" id="r-ant" aria-label="Paso anterior" data-en-aria="Previous step">◀</button>
+          <button type="button" class="btn prim" id="r-play" aria-label="Reproducir" data-en-aria="Play">▶</button>
+          <button type="button" class="btn" id="r-sig" aria-label="Paso siguiente" data-en-aria="Next step">▶︎|</button>
+          <button type="button" class="btn" id="r-fin" aria-label="Al final" data-en-aria="To the end">⏭</button>
+          <span class="t" id="r-etq"></span>
+        </div>
+        <p class="narra" id="narra" aria-live="polite"></p>
+        <div class="lienzo" id="lienzo"></div>
+        <div class="veredicto" id="veredicto" hidden></div>
+        <div class="leyenda" id="leyenda"></div>
+      </div>
+
+      <div class="tarjeta" id="t-pred" hidden>
+        <div class="pred">
+          <h2 data-en="Your answer">Tu respuesta</h2>
+          <p class="nota" id="pred-nota"></p>
+          <div class="fila"><label class="et" for="pred-cs" data-en="Checksum (hex)">Checksum (hex)</label><input type="text" id="pred-cs" inputmode="text" maxlength="19" placeholder="0000" spellcheck="false"></div>
+          <p class="fb" id="fb" aria-live="polite"></p>
+          <p class="pista" id="pista" hidden></p>
+          <div class="fila">
+            <button type="button" class="btn prim" id="b-comprobar" data-en="Check">Comprobar</button>
+            <button type="button" class="btn" id="b-pista" data-en="Hint">Pista</button>
+            <button type="button" class="btn" id="b-solucion" data-en="Show solution">Ver solución</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h3 class="mod" id="bits-tit"></h3>
+        <div class="bits" id="bits"></div>
+        <p class="nota" id="bits-nota" style="padding:0 14px 12px"></p>
+      </div>
+
+      <div class="tarjeta" id="t-tabla">
+        <h3 class="mod" data-en="Partial sums (hexadecimal)">Sumas parciales (hexadecimal)</h3>
+        <div class="tabla" id="tabla"></div>
+      </div>
+
+      <details class="tarjeta sup">
+        <summary data-en="Model assumptions">Supuestos del modelo</summary>
+        <ul>
+          <li data-en="The words are summed two at a time in one's complement: the carry that leaves on the left (the 17th bit) is not lost; it wraps around and is added to the rightmost bit. Then every bit is inverted: that is the checksum carried in the header (Kurose and Ross §3.3.2; RFC 768 and RFC 1071).">Las palabras se suman de dos en dos en complemento a 1: el acarreo que sale por la izquierda (el bit 17) no se pierde; da la vuelta y se suma al bit de menor peso. Después se invierten todos los bits: ese es el checksum que viaja en la cabecera (Kurose y Ross §3.3.2; RFC 768 y RFC 1071).</li>
+          <li data-en="Here the words are summed without the pseudo-header, as in the book example. The real UDP checksum is computed over the pseudo-header (source IP, destination IP, 0, protocol 17, UDP length) plus the whole segment, with the checksum field set to 0: you will do that in the lab.">Aquí se suman las palabras sin pseudocabecera, como en el ejemplo del libro. El checksum UDP real se calcula sobre la pseudocabecera (IP origen, IP destino, 0, protocolo 17, longitud UDP) más el segmento completo, con el campo checksum a 0: eso lo haréis en el laboratorio.</li>
+          <li data-en="With an odd number of bytes a 00 padding byte is added at the end to complete the last word. It takes part in the sum but is not transmitted: the receiver adds it again.">Con un número impar de bytes se añade al final un byte 00 de relleno para completar la última palabra. Entra en la suma, pero no se transmite: el receptor lo vuelve a añadir.</li>
+          <li data-en="The receiver can check in two equivalent ways: sum every word including the received checksum (1111111111111111 = FFFF if no error is detected), or keep the received checksum, set the field to 0, recompute and compare.">El receptor puede comprobarlo de dos formas equivalentes: sumar todas las palabras con el checksum recibido incluido (<code>1111111111111111</code> = <code>FFFF</code> si no se detecta error), o guardar el checksum recibido, poner el campo a 0, recalcular y comparar.</li>
+          <li data-en="It detects any one-bit error, but not every multi-bit error: a 0 → 1 in one word and a 1 → 0 in the same column of another word cancel out. That is why the link layer adds a CRC, which is more powerful (Topic 5).">Detecta cualquier error de un bit, pero no todos los de varios bits: un 0 → 1 en una palabra y un 1 → 0 en la misma columna de otra se compensan. Por eso la capa de enlace añade un CRC, más potente (Tema 5).</li>
+          <li data-en="In IPv4 the field is optional: 0 means “not computed” (if the computed checksum is 0000 it is sent as FFFF). In IPv6 it is mandatory. When it detects an error, UDP discards the segment or passes it to the application with a warning; the sender is not told.">En IPv4 el campo es opcional: 0 significa «no calculado» (si el checksum calculado es <code>0000</code>, se envía <code>FFFF</code>). En IPv6 es obligatorio. Cuando detecta un error, UDP descarta el segmento o lo pasa a la aplicación con una advertencia; el emisor no se entera.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+/*@@MOTOR@@*/
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const M = MotorUDP;
+  const CLAVE = 'udpChecksum.v1';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduceMov = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const estrecho = matchMedia('(max-width: 600px)');
+  const KUROSE = [0x6660, 0x5555, 0x8F0C];      // s.29: 0110011001100000, 0101010101010101, 1000111100001100
+
+  // ------------------------------------------------------------ estado
+  function base() {
+    return { palabras: KUROSE.slice(), impar: false, pestana: 'emisor', flips: [], compensa: false, practica: null, vista: { idioma: 'es', tema: 'auto', grano: 'col' } };
+  }
+  function normalizar(o) {
+    if (!o || typeof o !== 'object' || !Array.isArray(o.palabras)) return null;
+    const b = base();
+    const palabras = o.palabras.map(Number).filter(w => Number.isInteger(w) && w >= 0 && w <= 0xffff).slice(0, 6);
+    if (palabras.length < 2) return null;
+    const n = palabras.length;
+    const flips = Array.isArray(o.flips) ? o.flips.filter(f => Array.isArray(f) && Number.isInteger(f[0]) && Number.isInteger(f[1]) && f[0] >= 0 && f[0] <= n && f[1] >= 0 && f[1] < 16) : [];
+    const practica = o.practica && typeof o.practica === 'object' ? { pista: !!o.practica.pista, resuelto: !!o.practica.resuelto } : null;
+    return { palabras, impar: !!o.impar, pestana: ['emisor', 'suma', 'recalc'].includes(o.pestana) ? o.pestana : 'emisor', flips, compensa: !!o.compensa, practica, vista: { ...b.vista, ...(o.vista || {}) } };
+  }
+  function cargarLocal() { try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; } }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  let estado = cargarLocal() || base();
+  /*@@IDIOMA-FIJO@@*/
+  let paso = 0;            // índice en m.pasos; null = el final
+  let animando = null;
+  let m = null;            // modelo derivado
+  let ultimoPaso = -1;     // para animar solo lo nuevo
+
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const leer = k => k.split('.').reduce((o, p) => o[p], estado);
+  const escribir = (k, v) => { const p = k.split('.'); p.slice(0, -1).reduce((o, q) => o[q], estado)[p.at(-1)] = v; };
+  const hx = w => M.hex16(w);
+  const hx17 = v => v.toString(16).toUpperCase().padStart(4, '0');
+  const enPractica = () => !!(estado.practica && !estado.practica.resuelto);
+
+  // ------------------------------------------------------------ modelo
+  function efectivas() {
+    const bytes = M.bytesDePalabras(estado.palabras);
+    if (estado.impar) bytes.pop();
+    return M.palabrasDeBytes(bytes).palabras;     // con relleno si el número de bytes es impar
+  }
+  function construirPasos(traza, tipo) {
+    const ps = [{ t: 'inicio' }];
+    traza.pasos.forEach((p, k) => {
+      if (estado.vista.grano === 'col') for (let j = 0; j < 16; j++) ps.push({ t: 'col', k, j });
+      else ps.push({ t: 'suma', k });
+      if (p.acarreo) ps.push({ t: 'vuelta', k });
+    });
+    if (tipo === 'emisor') ps.push({ t: 'comp' });
+    else if (tipo === 'suma') ps.push({ t: 'compara' });
+    else { ps.push({ t: 'comp' }); ps.push({ t: 'compara' }); }
+    return ps;
+  }
+  function derivar() {
+    const datos = efectivas(), n = datos.length;
+    const cs = M.checksum(datos);
+    const enviadas = [...datos, cs];
+    const flipSet = new Set(estado.flips.map(([i, j]) => i + ':' + j));
+    const recibidas = enviadas.map((w, i) => { let v = w; for (let j = 0; j < 16; j++) if (flipSet.has(i + ':' + j)) v ^= 1 << j; return v; });
+    const tipo = enPractica() ? 'emisor' : estado.pestana;
+    const nom = i => L(`palabra ${i + 1}`, `word ${i + 1}`);
+    let palabras, nombres, idx;
+    if (tipo === 'emisor') { palabras = datos; nombres = datos.map((_, i) => nom(i)); idx = datos.map(() => null); }
+    else if (tipo === 'suma') { palabras = recibidas; nombres = [...datos.map((_, i) => nom(i)), L('checksum recibido', 'received checksum')]; idx = enviadas.map((_, i) => i); }
+    else { palabras = [...recibidas.slice(0, n), 0]; nombres = [...datos.map((_, i) => nom(i)), L('campo checksum a 0', 'checksum field set to 0')]; idx = [...datos.map((_, i) => i), null]; }
+    const traza = M.sumaC1(palabras);
+    const pasos = construirPasos(traza, tipo);
+    const ver = tipo === 'suma' ? M.verifica(recibidas) : tipo === 'recalc' ? M.verificaRecalculo(recibidas.slice(0, n), recibidas[n]) : null;
+    return { datos, n, cs, enviadas, recibidas, flipSet, tipo, palabras, nombres, idx, traza, pasos, ver, cambiados: estado.flips.length };
+  }
+  const esRelleno = (fila, j) => estado.impar && fila === m.n - 1 && j < 8;
+  const esFlip = (fila, j) => m.tipo !== 'emisor' && m.idx[fila] !== null && m.idx[fila] !== undefined && m.flipSet.has(m.idx[fila] + ':' + j);
+
+  // ------------------------------------------------------------ panel de palabras
+  function rellenarPalabras() {
+    const n = estado.palabras.length;
+    $('#palabras').innerHTML = estado.palabras.map((w, i) => `<div class="fila"><label class="et" for="w-${i}">${L('palabra', 'word')} ${i + 1}</label><input type="text" id="w-${i}" data-w="${i}" value="${hx(w)}" spellcheck="false" maxlength="22"${enPractica() ? ' readonly' : ''}><button type="button" class="btn mini" data-del="${i}" aria-label="${L('Quitar palabra', 'Remove word')} ${i + 1}"${n <= 2 || enPractica() ? ' disabled' : ''}>×</button></div>`).join('');
+    $('#b-add').disabled = n >= 6 || enPractica();
+    $('#c-impar').checked = estado.impar;
+    $('#c-impar').disabled = enPractica();
+    $('#err-pal').hidden = true;
+  }
+  function cambiaPalabras() { estado.flips = []; estado.compensa = false; estado.practica = null; paso = 0; parar(); }
+  $('#palabras').addEventListener('input', e => {
+    const el = e.target; if (el.dataset.w === undefined) return;
+    const v = M.leerPalabra(el.value);
+    if (v === null) { el.setAttribute('aria-invalid', 'true'); const er = $('#err-pal'); er.hidden = false; er.textContent = L('Escribe 1 a 4 cifras hexadecimales (B53D) o 16 cifras binarias.', 'Type 1 to 4 hexadecimal digits (B53D) or 16 binary digits.'); return; }
+    el.removeAttribute('aria-invalid'); $('#err-pal').hidden = true;
+    const i = Number(el.dataset.w);
+    estado.palabras[i] = estado.impar && i === estado.palabras.length - 1 ? v & 0xff00 : v;
+    cambiaPalabras(); pintar();
+  });
+  $('#palabras').addEventListener('change', e => { if (e.target.dataset.w !== undefined && !e.target.getAttribute('aria-invalid')) rellenarPalabras(); });
+  $('#palabras').addEventListener('click', e => {
+    const b = e.target.closest('[data-del]'); if (!b || b.disabled) return;
+    estado.palabras.splice(Number(b.dataset.del), 1);
+    if (estado.impar) estado.palabras[estado.palabras.length - 1] &= 0xff00;
+    cambiaPalabras(); rellenarPalabras(); pintar();
+  });
+  $('#b-add').addEventListener('click', () => {
+    if (estado.palabras.length >= 6) return;
+    const w = M.aleatorio(null, 1 + estado.palabras.length).at(-1);
+    estado.palabras.push(estado.impar ? w & 0xff00 : w);
+    cambiaPalabras(); rellenarPalabras(); pintar();
+  });
+  $('#c-impar').addEventListener('change', e => {
+    estado.impar = e.target.checked;
+    if (estado.impar) estado.palabras[estado.palabras.length - 1] &= 0xff00;
+    cambiaPalabras(); rellenarPalabras(); pintar();
+  });
+  $('#p-kurose').addEventListener('click', () => { estado.palabras = KUROSE.slice(); estado.impar = false; estado.pestana = 'emisor'; cambiaPalabras(); rellenarPalabras(); pintar(); });
+  $('#p-aleatorio').addEventListener('click', () => { estado.palabras = M.aleatorio(null, 3 + Math.floor(Math.random() * 2)); estado.impar = false; estado.pestana = 'emisor'; cambiaPalabras(); rellenarPalabras(); pintar(); });
+
+  // ------------------------------------------------------------ canal
+  const irReceptor = () => { if (estado.pestana === 'emisor') estado.pestana = 'suma'; };
+  $('#c-uno').addEventListener('click', () => {
+    if (enPractica()) return;
+    const n = efectivas().length;
+    let i, j;
+    do { i = Math.floor(Math.random() * (n + 1)); j = Math.floor(Math.random() * 16); } while (estado.impar && i === n - 1 && j < 8);
+    estado.flips = [[i, j]]; estado.compensa = false; irReceptor(); parar(); paso = null; pintar();
+    toast(L(`Cambiado el bit ${j} ${i === n ? 'del checksum' : 'de la palabra ' + (i + 1)}`, `Flipped bit ${j} of ${i === n ? 'the checksum' : 'word ' + (i + 1)}`));
+  });
+  $('#c-dos').addEventListener('click', () => {
+    if (enPractica()) return;
+    const ds = efectivas();
+    const par = M.bitsQueSeCompensan(ds, (i, j) => estado.impar && i === ds.length - 1 && j < 8);
+    if (!par) { toast(L('Con estas palabras no hay dos bits distintos en la misma columna', 'These words have no two different bits in the same column')); return; }
+    estado.flips = par; estado.compensa = true; irReceptor(); parar(); paso = null; pintar();
+  });
+  $('#c-limpio').addEventListener('click', () => { estado.flips = []; estado.compensa = false; parar(); paso = null; pintar(); });
+
+  // ------------------------------------------------------------ cuadrícula de bits
+  function pintarBits() {
+    const oc = enPractica();
+    const cab = `<div class="bfila cab" aria-hidden="true"><span class="et">${L('bit', 'bit')}</span><div class="bs">${Array.from({ length: 16 }, (_, c) => `<span>${15 - c}</span>`).join('')}</div><span></span></div>`;
+    let h = cab;
+    const fila = (et, w, fi, opc) => {
+      let s = `<div class="bfila${opc.csf ? ' csf' : ''}"><span class="et">${esc(et)}</span><div class="bs" role="group" aria-label="${esc(et)}">`;
+      for (let c = 0; c < 16; c++) {
+        const j = 15 - c, v = M.bit(w, j);
+        const rel = opc.rel && esRelleno(fi, j), cam = opc.flip && opc.flip(j);
+        const cls = ['bit', v ? 'uno' : '', rel ? 'relleno' : '', cam ? 'cambiado' : '', opc.csf ? 'cs' : ''].filter(Boolean).join(' ');
+        const etq = `${et}, bit ${j}: ${v}${rel ? L(' (relleno)', ' (padding)') : ''}${cam ? L(' (cambiado en el canal)', ' (flipped in the channel)') : ''}`;
+        s += `<button type="button" class="${cls}" data-f="${fi}" data-j="${j}" aria-label="${esc(etq)}"${opc.click && !rel ? '' : ' disabled'}>${opc.oculto ? '?' : v}</button>`;
+      }
+      return s + `</div><span class="hx">${opc.oculto ? '????' : hx(w)}${opc.extra || ''}</span></div>`;
+    };
+    if (m.tipo === 'emisor') {
+      $('#bits-tit').textContent = L('Palabras que envía el emisor (clic en un bit para cambiarlo)', 'Words the sender transmits (click a bit to change it)');
+      m.datos.forEach((w, i) => { h += fila(m.nombres[i], w, i, { rel: true, click: !oc }); });
+      h += fila(L('checksum', 'checksum'), m.cs, -1, { csf: true, oculto: oc, click: false });
+      $('#bits-nota').innerHTML = oc ? L('El checksum se descubre al comprobar la respuesta.', 'The checksum is revealed when the answer is checked.') : L('El checksum va en la cabecera UDP. Pasa a las pestañas del receptor para enviar el segmento por un canal que puede cambiar bits.', 'The checksum travels in the UDP header. Go to the receiver tabs to send the segment through a channel that may flip bits.');
+    } else {
+      $('#bits-tit').textContent = L('Palabras que llegan al receptor (clic en un bit para voltearlo en el canal)', 'Words that reach the receiver (click a bit to flip it in the channel)');
+      m.recibidas.forEach((w, i) => {
+        const et = i === m.n ? L('checksum recibido', 'received checksum') : L(`palabra ${i + 1}`, `word ${i + 1}`);
+        const extra = w !== m.enviadas[i] ? ` <small>(${L('enviada', 'sent')} ${hx(m.enviadas[i])})</small>` : '';
+        h += fila(et, w, i, { rel: i < m.n, csf: i === m.n, click: true, flip: j => m.flipSet.has(i + ':' + j), extra });
+      });
+      const k = m.cambiados;
+      $('#bits-nota').innerHTML = (k ? L(`El canal ha cambiado ${k} ${k === 1 ? 'bit' : 'bits'} (recuadro discontinuo).`, `The channel has flipped ${k} ${k === 1 ? 'bit' : 'bits'} (dashed box).`) : L('Canal sin errores: llega lo mismo que se envió.', 'Error-free channel: what arrives is what was sent.')) + (estado.impar ? L(' El byte de relleno no viaja: el receptor lo vuelve a añadir.', ' The padding byte does not travel: the receiver adds it again.') : '');
+    }
+    $('#bits').innerHTML = h;
+  }
+  $('#bits').addEventListener('click', e => {
+    const b = e.target.closest('button.bit'); if (!b || b.disabled) return;
+    const fi = Number(b.dataset.f), j = Number(b.dataset.j);
+    if (m.tipo === 'emisor') {
+      if (fi < 0) return;
+      estado.palabras[fi] ^= 1 << j; cambiaPalabras(); rellenarPalabras();
+    } else {
+      const k = estado.flips.findIndex(([i, jj]) => i === fi && jj === j);
+      if (k >= 0) estado.flips.splice(k, 1); else estado.flips.push([fi, j]);
+      estado.compensa = false; parar(); paso = null;
+    }
+    pintar();
+    const nb = document.querySelector(`#bits button.bit[data-f="${fi}"][data-j="${j}"]`); if (nb) nb.focus();
+  });
+
+  // ------------------------------------------------------------ dibujo de la suma (SVG)
+  function dibujar(s, oculto) {
+    const comp = estrecho.matches;
+    const CW = comp ? 22 : 30, G = comp ? 5 : 8, X0 = comp ? 2 : 196, FS = comp ? 17 : 19;
+    const xb = j => X0 + (16 - j) * CW + (j <= 15 ? G + Math.floor((15 - j) / 4) * G : 0);   // borde izquierdo del bit j (16 = bit 17)
+    const xc = j => xb(j) + CW / 2;
+    const XR = xb(0) + CW + 16;
+    const W = XR + (comp ? 58 : 150), H = 356;
+    const nuevo = paso !== null && paso !== ultimoPaso;
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L('Suma en complemento a 1 columna a columna', "One's complement sum column by column"))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="14">`;
+    o += `<defs><marker id="fv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="var(--aviso)"/></marker><pattern id="trama" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--suave)"/></pattern></defs>`;
+    o += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    const etq = (y, t, color = 'var(--muted)') => comp ? '' : `<text x="10" y="${y}" fill="${color}" font-size="14">${esc(t)}</text>`;
+    const hexR = (y, t, color = 'var(--fg)') => `<text x="${XR}" y="${y}" fill="${color}" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${comp ? 14 : 16}">${esc(t)}</text>`;
+    const signo = (y, t) => `<text x="${xb(16) + 6}" y="${y}" fill="var(--muted)" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${FS}" text-anchor="middle">${t}</text>`;
+    const raya = y => `<line x1="${xb(15) - 4}" x2="${xb(0) + CW + 4}" y1="${y}" y2="${y}" stroke="var(--fg)" stroke-width="1.5"/>`;
+    // una fila de bits: valor, número de bits, hasta qué columna se ve, opciones
+    const fila = (y, v, opc = {}) => {
+      let t = '';
+      const hasta = opc.hasta ?? 15;
+      for (let j = 0; j <= hasta; j++) {
+        if (opc.rel && opc.rel(j)) t += `<rect x="${xb(j) + 2}" y="${y - 19}" width="${CW - 4}" height="25" fill="url(#trama)" stroke="var(--muted)" stroke-dasharray="3 2"/>`;
+        if (opc.flip && opc.flip(j)) t += `<rect x="${xb(j) + 1}" y="${y - 20}" width="${CW - 2}" height="27" fill="none" stroke="var(--aviso)" stroke-width="2" stroke-dasharray="4 2"/>`;
+        if (opc.mal && opc.mal(j)) t += `<rect x="${xb(j) + 1}" y="${y - 20}" width="${CW - 2}" height="27" fill="none" stroke="var(--aviso)" stroke-width="2"/>`;
+        const b = opc.oculto ? '?' : M.bit(v, j);
+        const col = opc.rel && opc.rel(j) ? 'var(--muted)' : opc.color || 'var(--fg)';
+        const cls = opc.nuevaCol === j && nuevo ? ' class="nuevo"' : '';
+        t += `<text${cls} x="${xc(j)}" y="${y}" text-anchor="middle" fill="${col}" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${FS}"${opc.negrita === j ? ' font-weight="700"' : ''}>${b}</text>`;
+      }
+      return t;
+    };
+    const P = m.palabras, T = m.traza, N = T.pasos.length;
+    const filaRel = fi => j => esRelleno(fi, j);
+    const filaFlip = fi => j => esFlip(fi, j);
+
+    if (oculto || s.t === 'inicio') {
+      // las palabras apiladas, como en la pizarra
+      const dy = 34;
+      let y = 40;
+      P.forEach((w, i) => {
+        o += etq(y, m.nombres[i], i === m.n ? 'var(--html)' : 'var(--muted)');
+        if (i) o += signo(y, '+');
+        o += fila(y, w, { rel: filaRel(i), flip: filaFlip(i), color: i === m.n && m.tipo === 'suma' ? 'var(--html)' : undefined });
+        o += hexR(y, hx(w));
+        y += dy;
+      });
+      o += raya(y - dy + 12);
+      if (oculto) {
+        y += 6;
+        o += etq(y, L('suma', 'sum')) + fila(y, 0, { oculto: true }) + hexR(y, '????');
+        y += dy;
+        o += etq(y, 'checksum', 'var(--html)') + fila(y, 0, { oculto: true, color: 'var(--html)' }) + hexR(y, '????', 'var(--html)');
+      } else {
+        o += `<text x="${xc(8)}" y="${y + 14}" text-anchor="middle" fill="var(--muted)" font-size="14">${esc(L('▶ para sumar de dos en dos', '▶ to sum two at a time'))}</text>`;
+      }
+      return o + '</svg>';
+    }
+
+    const fin = s.t === 'comp' || s.t === 'compara';
+    const k = fin ? N - 1 : s.k;
+    const p = T.pasos[k];
+    const hasta = s.t === 'col' ? s.j : 15;
+    const conVuelta = p.acarreo && (s.t === 'vuelta' || fin);
+    const yC = 30, yA = 66, yB = 102, yR = 142, y1 = 182, yV = 222, yS = 276, yK = 312, yX = 346;
+    // columna actual
+    if (s.t === 'col') o += `<rect x="${xb(s.j) - 1}" y="${yC - 18}" width="${CW + 2}" height="${yR - yC + 26}" rx="3" fill="var(--camino)" stroke="var(--sel)" stroke-width="1.5"/>`;
+    // acarreos (cifras pequeñas encima)
+    o += etq(yC, L('acarreos', 'carries'), 'var(--sel)');
+    for (let j = 1; j <= Math.min(hasta + 1, 15); j++) {
+      const c = p.columnas[j - 1].cout;
+      if (c && j - 1 <= hasta) o += `<text${s.t === 'col' && s.j === j - 1 && nuevo ? ' class="nuevo"' : ''} x="${xc(j)}" y="${yC}" text-anchor="middle" fill="var(--sel)" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="14" font-weight="600">1</text>`;
+    }
+    // sumandos
+    o += etq(yA, k === 0 ? m.nombres[0] : L(`suma parcial (1–${k + 1})`, `partial sum (1–${k + 1})`), k === 0 ? 'var(--muted)' : 'var(--trama)');
+    o += fila(yA, p.a, k === 0 ? { rel: filaRel(0), flip: filaFlip(0), negrita: s.t === 'col' ? s.j : -1 } : { color: 'var(--trama)', negrita: s.t === 'col' ? s.j : -1 });
+    o += hexR(yA, hx(p.a), k === 0 ? 'var(--fg)' : 'var(--trama)');
+    const esCs = k + 1 === m.n;
+    o += etq(yB, m.nombres[k + 1], esCs ? 'var(--html)' : 'var(--muted)');
+    o += signo(yB, '+');
+    o += fila(yB, p.b, { rel: filaRel(k + 1), flip: filaFlip(k + 1), color: esCs && m.tipo === 'suma' ? 'var(--html)' : undefined, negrita: s.t === 'col' ? s.j : -1 });
+    o += hexR(yB, hx(p.b));
+    o += raya(yB + 14);
+    // resultado de 17 bits
+    o += fila(yR, p.bruto, { hasta, nuevaCol: s.t === 'col' ? s.j : -1, negrita: s.t === 'col' ? s.j : -1 });
+    if (hasta === 15) {
+      if (p.acarreo) {
+        o += `<text${s.t === 'col' && nuevo ? ' class="nuevo"' : ''} x="${xc(16)}" y="${yR}" text-anchor="middle" fill="var(--aviso)" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${FS}" font-weight="700">1</text>`;
+        o += etq(yR, comp ? L('17 bits', '17 bits') : L('17 bits: acarreo', '17 bits: carry'), 'var(--aviso)');
+        o += hexR(yR, '= ' + hx17(p.bruto), 'var(--aviso)');
+      } else {
+        o += etq(yR, k === N - 1 ? L('suma', 'sum') : L(`suma parcial (1–${k + 2})`, `partial sum (1–${k + 2})`), 'var(--trama)');
+        o += hexR(yR, '= ' + hx(p.resultado), 'var(--trama)');
+      }
+    }
+    // la vuelta del bit 17
+    if (conVuelta) {
+      o += `<path d="M${xc(16)},${yR + 8} C${xc(16)},${y1 - 14} ${xc(16) + 10},${y1 - 12} ${xc(16) + 30},${y1 - 12} L${xc(0) - 34},${y1 - 12} Q${xc(0) - 20},${y1 - 12} ${xc(0) - 13},${y1 - 2}" fill="none" stroke="var(--aviso)" stroke-width="2" marker-end="url(#fv)"${s.t === 'vuelta' && nuevo ? ' class="nuevo"' : ''}/>`;
+      o += signo(y1 + 8, '+');
+      o += `<text x="${xc(0)}" y="${y1 + 8}" text-anchor="middle" fill="var(--aviso)" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="${FS}" font-weight="700">1</text>`;
+      o += etq(y1 + 8, comp ? L('vuelta', 'wraps') : L('el acarreo vuelve', 'the carry wraps around'), 'var(--aviso)');
+      o += hexR(y1 + 8, '+ 1', 'var(--aviso)');
+      o += raya(y1 + 20);
+      o += fila(yV + 6, p.resultado, { color: 'var(--trama)' });
+      o += etq(yV + 6, k === N - 1 ? L('suma', 'sum') : L(`suma parcial (1–${k + 2})`, `partial sum (1–${k + 2})`), 'var(--trama)');
+      o += hexR(yV + 6, '= ' + hx(p.resultado), 'var(--trama)');
+    }
+    // final: complemento o comparación
+    if (fin) {
+      const suma = T.suma, cs = M.complemento(suma);
+      o += `<line x1="10" x2="${W - 10}" y1="${yS - 28}" y2="${yS - 28}" stroke="var(--line)" stroke-dasharray="4 3"/>`;
+      if (m.tipo === 'emisor' || m.tipo === 'recalc') {
+        o += etq(yS, L('suma', 'sum'), 'var(--trama)') + fila(yS, suma, { color: 'var(--trama)' }) + hexR(yS, hx(suma), 'var(--trama)');
+        o += etq(yK, comp ? L('invertida', 'inverted') : m.tipo === 'emisor' ? L('checksum = suma invertida', 'checksum = inverted sum') : L('checksum calculado', 'computed checksum'), 'var(--html)');
+        o += signo(yK, '~') + fila(yK, cs, { color: 'var(--html)', negrita: -1 }) + hexR(yK, hx(cs), 'var(--html)');
+        if (m.tipo === 'recalc' && s.t === 'compara') {
+          const rec = m.recibidas[m.n];
+          o += etq(yX, comp ? L('recibido', 'received') : L('checksum recibido', 'received checksum'), 'var(--html)');
+          o += fila(yX, rec, { color: 'var(--html)', flip: j => m.flipSet.has(m.n + ':' + j), mal: j => M.bit(rec, j) !== M.bit(cs, j) });
+          o += hexR(yX, (m.ver.ok ? '= ' : '≠ ') + hx(rec), m.ver.ok ? 'var(--bien)' : 'var(--aviso)');
+        }
+      } else {
+        o += etq(yS, L('suma recibida', 'received sum'), 'var(--trama)') + fila(yS, suma, { color: 'var(--trama)', mal: j => !M.bit(suma, j) }) + hexR(yS, hx(suma) + (suma === 0xffff ? ' ✓' : ' ✗'), suma === 0xffff ? 'var(--bien)' : 'var(--aviso)');
+        o += etq(yK, comp ? L('¿todo 1?', 'all 1s?') : L('sin error: todo unos', 'no error: all ones'));
+        o += fila(yK, 0xffff, { color: 'var(--muted)' }) + hexR(yK, 'FFFF', 'var(--muted)');
+      }
+    }
+    return o + '</svg>';
+  }
+
+  // ------------------------------------------------------------ narración
+  const binS = v => ['0', '1', '10', '11'][v];
+  function narrar(s) {
+    if (enPractica()) return L(`Ejercicio: ${m.n} palabras de 16 bits. Calcula el checksum (suma en complemento a 1 y después invierte los bits), escríbelo en hexadecimal y pulsa «Comprobar».`, `Exercise: ${m.n} 16-bit words. Work out the checksum (one's complement sum, then invert the bits), type it in hexadecimal and press “Check”.`);
+    const T = m.traza, N = T.pasos.length, nombre = i => m.nombres[i];
+    if (s.t === 'inicio') {
+      if (m.tipo === 'emisor') return L(`<b>Emisor</b>: ${m.n} palabras de 16 bits${estado.impar ? ' (la última con un byte de relleno a 0, que no se transmite)' : ''}. Se suman de dos en dos en complemento a 1 y al final se invierten los bits. Usa ▶, la barra espaciadora o → para avanzar ${estado.vista.grano === 'col' ? 'columna a columna' : 'suma a suma'}.`, `<b>Sender</b>: ${m.n} 16-bit words${estado.impar ? ' (the last one with a 00 padding byte, which is not transmitted)' : ''}. They are summed two at a time in one's complement and at the end the bits are inverted. Use ▶, the space bar or → to advance ${estado.vista.grano === 'col' ? 'column by column' : 'one sum at a time'}.`);
+      if (m.tipo === 'suma') return L(`<b>Receptor</b> (forma de Kurose): suma todas las palabras recibidas, el checksum incluido. Si no se detecta error, sale <code>1111111111111111</code> (FFFF).`, `<b>Receiver</b> (Kurose's way): it sums every received word, the checksum included. If no error is detected the result is <code>1111111111111111</code> (FFFF).`);
+      return L(`<b>Receptor</b> (forma de la s.31): guarda el checksum recibido (<code>${hx(m.recibidas[m.n])}</code>), pone el campo a 0, recalcula y compara.`, `<b>Receiver</b> (slide 31): it keeps the received checksum (<code>${hx(m.recibidas[m.n])}</code>), sets the field to 0, recomputes and compares.`);
+    }
+    if (s.t === 'col') {
+      const p = T.pasos[s.k], c = p.columnas[s.j];
+      const que = s.k === 0 ? `${nombre(0)} + ${nombre(1)}` : L(`suma parcial + ${nombre(s.k + 1)}`, `partial sum + ${nombre(s.k + 1)}`);
+      const lleva = c.cout ? (s.j === 15 ? L(' y el acarreo sale por la izquierda: es el <b>bit 17</b>', ' and the carry leaves on the left: it is the <b>17th bit</b>') : L(`, me llevo 1 a la columna ${s.j + 1}`, `, carry 1 to column ${s.j + 1}`)) : '';
+      const final = s.j === 15 && !c.cout ? L('. No sale acarreo por la izquierda.', '. No carry leaves on the left.') : '';
+      return L(`Suma ${s.k + 1} de ${N} (${que}), columna ${s.j}${s.j === 0 ? ' (la de la derecha)' : ''}: ${c.a} + ${c.b}${c.cin ? ' + acarreo 1' : ''} = ${binS(c.a + c.b + c.cin)} → se escribe <b>${c.bit}</b>${lleva}${final}.`.replace('..', '.'), `Sum ${s.k + 1} of ${N} (${que}), column ${s.j}${s.j === 0 ? ' (the rightmost)' : ''}: ${c.a} + ${c.b}${c.cin ? ' + carry 1' : ''} = ${binS(c.a + c.b + c.cin)} → write <b>${c.bit}</b>${lleva}${final}.`.replace('..', '.'));
+    }
+    if (s.t === 'suma') {
+      const p = T.pasos[s.k];
+      return L(`Suma ${s.k + 1} de ${N}: <code>${hx(p.a)}</code> + <code>${hx(p.b)}</code> = <code>${hx17(p.bruto)}</code>${p.acarreo ? ': 17 bits, sale un acarreo por la izquierda.' : '. No sale acarreo por la izquierda.'}`, `Sum ${s.k + 1} of ${N}: <code>${hx(p.a)}</code> + <code>${hx(p.b)}</code> = <code>${hx17(p.bruto)}</code>${p.acarreo ? ': 17 bits, a carry leaves on the left.' : '. No carry leaves on the left.'}`);
+    }
+    if (s.t === 'vuelta') {
+      const p = T.pasos[s.k];
+      return L(`El bit 17 no se pierde: <b>da la vuelta</b> y se suma por la derecha. <code>${M.bin16(p.vuelta.base)}</code> + 1 = <code>${M.bin16(p.resultado)}</code> (${hx(p.resultado)}).`, `The 17th bit is not lost: it <b>wraps around</b> and is added on the right. <code>${M.bin16(p.vuelta.base)}</code> + 1 = <code>${M.bin16(p.resultado)}</code> (${hx(p.resultado)}).`);
+    }
+    const suma = T.suma, cs = M.complemento(suma);
+    if (s.t === 'comp') {
+      if (m.tipo === 'emisor') return L(`Al final se <b>invierten todos los bits</b> (complemento a 1): suma <code>${M.bin16(suma)}</code> (${hx(suma)}) → checksum <code>${M.bin16(cs)}</code> (<b>${hx(cs)}</b>). Es el valor que viaja en la cabecera UDP.`, `At the end <b>every bit is inverted</b> (one's complement): sum <code>${M.bin16(suma)}</code> (${hx(suma)}) → checksum <code>${M.bin16(cs)}</code> (<b>${hx(cs)}</b>). That is the value carried in the UDP header.`);
+      return L(`Se invierte la suma: checksum calculado <code>${hx(cs)}</code>. Ahora se compara con el recibido.`, `The sum is inverted: computed checksum <code>${hx(cs)}</code>. Now it is compared with the received one.`);
+    }
+    // compara
+    const v = m.ver, ok = v.ok;
+    const accion = L(' UDP descarta el segmento o lo pasa a la aplicación con una advertencia; el emisor no se entera.', ' UDP discards the segment or passes it to the application with a warning; the sender is not told.');
+    const pasa = m.cambiados && ok ? L(` Pero el canal ha cambiado ${m.cambiados} bits: se compensan y el error pasa sin detectar.`, ` But the channel flipped ${m.cambiados} bits: they cancel out and the error goes undetected.`) : '';
+    if (m.tipo === 'suma') return ok ? L(`La suma de todas las palabras, el checksum incluido, da <code>${hx(v.suma)}</code> = FFFF → <b>no se detecta error</b>.${pasa}`, `The sum of every word, the checksum included, is <code>${hx(v.suma)}</code> = FFFF → <b>no error is detected</b>.${pasa}`) : L(`La suma da <code>${hx(v.suma)}</code> ≠ FFFF → <b>error detectado</b>.${accion}`, `The sum is <code>${hx(v.suma)}</code> ≠ FFFF → <b>error detected</b>.${accion}`);
+    return ok ? L(`Calculado <code>${hx(v.calculado)}</code> = recibido <code>${hx(v.recibido)}</code> → <b>no se detecta error</b>.${pasa}`, `Computed <code>${hx(v.calculado)}</code> = received <code>${hx(v.recibido)}</code> → <b>no error is detected</b>.${pasa}`) : L(`Calculado <code>${hx(v.calculado)}</code> ≠ recibido <code>${hx(v.recibido)}</code> → <b>segmento erróneo</b>.${accion}`, `Computed <code>${hx(v.calculado)}</code> ≠ received <code>${hx(v.recibido)}</code> → <b>corrupted segment</b>.${accion}`);
+  }
+
+  // ------------------------------------------------------------ veredicto y tabla
+  function pintarVeredicto(final) {
+    const el = $('#veredicto');
+    if (enPractica() || !final) { el.hidden = true; return; }
+    el.hidden = false;
+    if (m.tipo === 'emisor') {
+      el.className = 'veredicto cs';
+      el.innerHTML = L(`Checksum = <code>${M.bin16(m.cs)}</code> = <b>${hx(m.cs)}</b>: suma <code>${hx(m.traza.suma)}</code> invertida.`, `Checksum = <code>${M.bin16(m.cs)}</code> = <b>${hx(m.cs)}</b>: the sum <code>${hx(m.traza.suma)}</code> inverted.`);
+      return;
+    }
+    const ok = m.ver.ok, err = m.cambiados > 0;
+    el.className = 'veredicto ' + (ok && !err ? 'ok' : 'ko');
+    let h = ok ? L('<b class="si">✓ No se detecta error.</b>', '<b class="si">✓ No error detected.</b>') : L('<b class="no">✗ Error detectado.</b>', '<b class="no">✗ Error detected.</b>');
+    if (ok && err) h += L(` Pero el segmento sí llega con ${m.cambiados} ${m.cambiados === 1 ? 'bit cambiado' : 'bits cambiados'}: ${estado.compensa || m.cambiados === 2 ? 'un 0 → 1 y un 1 → 0 en la misma columna suman lo mismo' : 'los cambios se compensan en la suma'}.<span class="crc">Por eso la capa de enlace añade un CRC, más potente (Tema 5).</span>`, ` But the segment does arrive with ${m.cambiados} ${m.cambiados === 1 ? 'flipped bit' : 'flipped bits'}: ${estado.compensa || m.cambiados === 2 ? 'a 0 → 1 and a 1 → 0 in the same column add up to the same' : 'the changes cancel out in the sum'}.<span class="crc">That is why the link layer adds a CRC, which is more powerful (Topic 5).</span>`);
+    else if (!ok) h += L(` UDP descarta el segmento o lo pasa a la aplicación con una advertencia; el emisor no se entera: UDP no avisa ni retransmite.${m.cambiados === 1 ? ' Un error de un bit se detecta siempre.' : ''}`, ` UDP discards the segment or passes it to the application with a warning; the sender is not told: UDP neither warns nor retransmits.${m.cambiados === 1 ? ' A one-bit error is always detected.' : ''}`);
+    else h += L(' El canal no ha cambiado nada.', ' The channel did not change anything.');
+    el.innerHTML = h;
+  }
+  function pintarTabla(s, final) {
+    const T = m.traza;
+    const kAct = final || s.t === 'comp' || s.t === 'compara' ? T.pasos.length : s.t === 'inicio' ? 0 : (s.t === 'col' && s.j < 15) ? s.k : s.k + 1;   // sumas ya terminadas
+    let h = `<table><thead><tr><th>${L('Suma', 'Sum')}</th><th>${L('Lo acumulado', 'Running total')}</th><th>+</th><th>${L('Resultado', 'Result')}</th><th>${L('Bit 17', '17th bit')}</th><th>${L('Tras la vuelta', 'After wrapping')}</th></tr></thead><tbody>`;
+    T.pasos.forEach((p, k) => {
+      const hecha = k < kAct, cur = !final && s.t !== 'inicio' && s.k === k;
+      const vuelta = p.acarreo ? (hecha && (s.t !== 'suma' && s.t !== 'col' || s.k !== k || final) ? hx(p.resultado) : '…') : '—';
+      h += `<tr${cur ? ' class="actual"' : ''}><td>${k + 1}: ${esc(k === 0 ? m.nombres[0] + ' + ' + m.nombres[1] : '… + ' + m.nombres[k + 1])}</td><td class="n">${hx(p.a)}</td><td class="n">${hx(p.b)}</td><td class="n">${hecha ? hx17(p.bruto) : '…'}</td><td class="n${hecha && p.acarreo ? ' v' : ''}">${hecha ? p.acarreo : '…'}</td><td class="n">${hecha ? vuelta : '…'}</td></tr>`;
+    });
+    if (final) {
+      const suma = T.suma;
+      if (m.tipo === 'suma') h += `<tr><td>${L('Comprobación', 'Check')}</td><td class="n" colspan="5">${hx(suma)} ${suma === 0xffff ? '= FFFF ✓' : '≠ FFFF ✗'}</td></tr>`;
+      else h += `<tr><td>${m.tipo === 'emisor' ? 'Checksum' : L('Checksum calculado', 'Computed checksum')}</td><td class="n" colspan="5">~${hx(suma)} = ${hx(M.complemento(suma))}${m.tipo === 'recalc' ? (m.ver.ok ? ' = ' : ' ≠ ') + L('recibido ', 'received ') + hx(m.ver.recibido) : ''}</td></tr>`;
+    }
+    $('#tabla').innerHTML = h + '</tbody></table>';
+  }
+
+  // ------------------------------------------------------------ pintar
+  function pintar() {
+    guardarLocal();
+    m = derivar();
+    const oc = enPractica();
+    if (paso !== null && paso >= m.pasos.length) paso = null;
+    const idx = paso === null ? m.pasos.length - 1 : paso;
+    const s = m.pasos[idx];
+    const final = idx === m.pasos.length - 1;
+
+    const tabs = [['emisor', L('Emisor: suma y complemento', 'Sender: sum and complement')], ['suma', L('Receptor: suma con el checksum', 'Receiver: sum with the checksum')], ['recalc', L('Receptor: campo a 0, recalcular y comparar', 'Receiver: field to 0, recompute and compare')]];
+    $('#pestanas').hidden = oc;
+    $('#pestanas').innerHTML = tabs.map(([v, t]) => `<button type="button" role="tab" aria-selected="${m.tipo === v}" data-tab="${v}">${esc(t)}</button>`).join('');
+    $('#reproductor').hidden = oc;
+    $('#r-etq').textContent = L(`paso ${idx + 1} / ${m.pasos.length}`, `step ${idx + 1} / ${m.pasos.length}`) + (s.t === 'col' ? L(` · suma ${s.k + 1}, columna ${s.j}`, ` · sum ${s.k + 1}, column ${s.j}`) : '');
+    $('#narra').innerHTML = narrar(s);
+    $('#lienzo').innerHTML = dibujar(s, oc);
+    ultimoPaso = paso;
+    pintarVeredicto(final);
+    pintarBits();
+    $('#t-tabla').hidden = oc;
+    if (!oc) pintarTabla(s, final);
+    $('#leyenda').innerHTML = `<span><b style="color:var(--sel);font-family:var(--mono)">1</b> ${L('acarreo a la columna siguiente', 'carry into the next column')}</span><span><b style="color:var(--aviso);font-family:var(--mono)">1</b> ${L('bit 17 que da la vuelta', '17th bit that wraps around')}</span><span><b style="color:var(--html);font-family:var(--mono)">~</b> ${L('checksum = suma invertida', 'checksum = inverted sum')}</span>${estado.impar ? `<span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 5px);border:1px dashed var(--muted)"></i>${L('relleno 00: no se transmite', '00 padding: not transmitted')}</span>` : ''}${m.tipo !== 'emisor' ? `<span><i style="border:2px dashed var(--aviso)"></i>${L('bit cambiado en el canal', 'bit flipped in the channel')}</span>` : ''}`;
+    $('#t-pred').hidden = !estado.practica;
+    if (estado.practica) pintarPred();
+  }
+  $('#pestanas').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; estado.pestana = b.dataset.tab; parar(); paso = 0; pintar(); });
+  $('#pestanas').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.stopPropagation(); e.preventDefault();
+    const ord = ['emisor', 'suma', 'recalc'];
+    estado.pestana = ord[(ord.indexOf(estado.pestana) + (e.key === 'ArrowRight' ? 1 : 2)) % 3]; parar(); paso = 0; pintar();
+    $(`#pestanas [data-tab="${estado.pestana}"]`).focus();
+  });
+
+  // ------------------------------------------------------------ reproductor
+  function parar() { if (animando) { clearTimeout(animando); animando = null; } $('#r-play').textContent = '▶'; $('#r-play').setAttribute('aria-label', L('Reproducir', 'Play')); }
+  function avanzar() {
+    if (!m) return false;
+    if (paso === null) return false;
+    if (paso + 1 < m.pasos.length) { paso++; pintar(); return paso + 1 < m.pasos.length; }
+    paso = null; pintar(); return false;
+  }
+  function retardo() { const s = paso === null ? null : m.pasos[paso]; return !s ? 1500 : s.t === 'col' ? 650 : 1700; }
+  function tic() { if (avanzar()) animando = setTimeout(tic, retardo()); else parar(); }
+  $('#r-ini').addEventListener('click', () => { parar(); paso = 0; pintar(); });
+  $('#r-fin').addEventListener('click', () => { parar(); paso = null; pintar(); });
+  $('#r-sig').addEventListener('click', () => { parar(); avanzar(); });
+  $('#r-ant').addEventListener('click', () => { parar(); paso = paso === null ? Math.max(0, m.pasos.length - 2) : Math.max(0, paso - 1); pintar(); });
+  $('#r-play').addEventListener('click', () => {
+    if (animando) { parar(); return; }
+    if (paso === null) paso = 0;
+    if (reduceMov) { avanzar(); return; }
+    $('#r-play').textContent = '⏸'; $('#r-play').setAttribute('aria-label', L('Pausa', 'Pause'));
+    if (avanzar()) animando = setTimeout(tic, retardo()); else parar();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea, button.bit, [role="tab"]') || enPractica()) return;
+    if (e.key === ' ') { e.preventDefault(); $('#r-play').click(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); parar(); avanzar(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#r-ant').click(); }
+    else if (e.key === 'Home') { $('#r-ini').click(); }
+    else if (e.key === 'End') { $('#r-fin').click(); }
+  });
+
+  // ------------------------------------------------------------ practicar
+  function pintarPred() {
+    const pr = estado.practica, suma = m.traza.suma;
+    $('#pred-nota').textContent = pr.resuelto ? L('Resuelto. Recorre la suma con ▶ o pide otro ejercicio.', 'Solved. Step through the sum with ▶ or ask for another exercise.') : L(`Palabras: ${m.datos.map(hx).join(', ')}. ¿Qué checksum pone el emisor?`, `Words: ${m.datos.map(hx).join(', ')}. Which checksum does the sender put?`);
+    const pi = $('#pista');
+    pi.hidden = !pr.pista;
+    pi.textContent = L(`Pista: la suma sin complementar es ${M.bin16(suma)} = ${hx(suma)}.`, `Hint: the sum before complementing is ${M.bin16(suma)} = ${hx(suma)}.`);
+    ['#b-comprobar', '#b-pista', '#b-solucion'].forEach(s => { $(s).disabled = pr.resuelto; });
+    $('#pred-cs').disabled = pr.resuelto;
+  }
+  function nuevoEjercicio() {
+    estado.palabras = M.aleatorio(null, 3 + Math.floor(Math.random() * 2));
+    estado.impar = false; estado.flips = []; estado.compensa = false; estado.pestana = 'emisor';
+    estado.practica = { pista: false, resuelto: false };
+    parar(); paso = 0;
+    $('#pred-cs').value = ''; $('#fb').textContent = ''; $('#fb').className = 'fb';
+    rellenarPalabras(); pintar(); $('#pred-cs').focus();
+  }
+  $('#b-ejercicio').addEventListener('click', nuevoEjercicio);
+  $('#b-pista').addEventListener('click', () => { if (estado.practica) { estado.practica.pista = true; pintar(); } });
+  function resolver(msg, ok) {
+    estado.practica.resuelto = true; paso = 0; rellenarPalabras(); pintar();
+    const fb = $('#fb'); fb.className = 'fb ' + (ok ? 'ok' : 'ko'); fb.textContent = msg;
+  }
+  $('#b-comprobar').addEventListener('click', () => {
+    if (!enPractica()) return;
+    const v = M.leerPalabra($('#pred-cs').value), fb = $('#fb');
+    const suma = m.traza.suma, cs = m.cs;
+    if (v === null) { fb.className = 'fb ko'; fb.textContent = L('Escribe el checksum en hexadecimal (4 cifras).', 'Type the checksum in hexadecimal (4 digits).'); return; }
+    if (v === cs) { resolver(L(`Correcto: ${hx(cs)} = ${M.bin16(cs)}. Recorre la suma con ▶.`, `Correct: ${hx(cs)} = ${M.bin16(cs)}. Step through the sum with ▶.`), true); toast(L('¡Bien!', 'Well done!')); return; }
+    const sinVuelta = m.datos.reduce((a, w) => (a + w) & 0xffff, 0);
+    fb.className = 'fb ko';
+    if (v === suma) fb.textContent = L('Esa es la suma: falta invertir todos los bits.', 'That is the sum: you still have to invert every bit.');
+    else if (v === M.complemento(sinVuelta) || v === sinVuelta) fb.textContent = L('Parece que has perdido el acarreo: el bit 17 da la vuelta y se suma por la derecha.', 'It looks like you lost the carry: the 17th bit wraps around and is added on the right.');
+    else fb.textContent = L('No es correcto. Suma de dos en dos, suma el acarreo por la derecha cada vez que salga uno y al final invierte los bits. Puedes pedir la pista.', 'Not correct. Sum two at a time, add the carry on the right each time one leaves, and invert the bits at the end. You can ask for the hint.');
+  });
+  $('#pred-cs').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#b-comprobar').click(); } });
+  $('#b-solucion').addEventListener('click', () => { if (enPractica()) resolver(L(`Solución: checksum ${hx(m.cs)} = ${M.bin16(m.cs)}.`, `Solution: checksum ${hx(m.cs)} = ${M.bin16(m.cs)}.`), false); });
+
+  // ------------------------------------------------------------ vista
+  function marcarSeg(seg, v) { seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+  function aplicarTema() { const t = estado.vista.tema; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+  document.querySelectorAll('.seg[data-k]').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const antes = leer(seg.dataset.k);
+    escribir(seg.dataset.k, b.dataset.v); marcarSeg(seg, b.dataset.v); aplicarTema();
+    if (seg.dataset.k === 'vista.grano' && antes !== b.dataset.v) { parar(); paso = 0; }
+    pintar();
+  }));
+  function rellenarVista() { document.querySelectorAll('.seg[data-k]').forEach(seg => marcarSeg(seg, leer(seg.dataset.k))); aplicarTema(); }
+  $('#b-reset').addEventListener('click', () => { const i = estado.vista.idioma; estado = base(); estado.vista.idioma = i; parar(); paso = 0; rellenarPalabras(); rellenarVista(); pintar(); });
+  estrecho.addEventListener('change', () => pintar());
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('vis'), 1800); }
+
+  // ------------------------------------------------------------ idioma
+  const ORIG = new WeakMap();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'UDP checksum step by step' : 'Checksum UDP paso a paso';
+    if ($('#idioma')) marcarSeg($('#idioma'), estado.vista.idioma);
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 't', el.innerHTML); if (en) el.textContent = el.dataset.en; else el.innerHTML = es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+    rellenarPalabras();
+  }
+  /*@@IDIOMA@@*/
+  $('#idioma').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    estado.vista.idioma = b.dataset.v;
+    aplicarIdioma(); pintar();
+  });
+  /*@@/IDIOMA@@*/
+
+  rellenarVista();
+  aplicarIdioma();
+  pintar();
+})();
+</script>
