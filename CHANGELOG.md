@@ -13,6 +13,12 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
   diagram with Cookie/Set-Cookie/Referer, cookie store and what each server knows, for several
   sites visited several times (expiry, session cookies, third-party tracking), with exercises.
   Source in `src/http-cookies` (engine tested by `test_motor.js`).
+- Topic 3, transport layer (`03-transport-layer`).
+- Which socket? UDP and TCP demultiplexing (`transport-demultiplexing`, session 3.1): socket table
+  of a server receiving segments from several clients, UDP by (IP_D, PD) and TCP by the 4-tuple
+  with welcome and connection sockets, replies with swapped ports, ephemeral ports, deck scenarios,
+  prediction mode and exercises. Source in `src/transport-demultiplexing` (engine tested by
+  `test_motor.js`).
 
 ### Removed
 - Speaker notes and presenter window of the DNS step by step source

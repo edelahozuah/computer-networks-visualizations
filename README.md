@@ -40,6 +40,7 @@ are in use on [edelahozuah.github.io](https://edelahozuah.github.io/docencia/ar1
 | 2 · HTTP | **Persistent HTTP: without and with pipelining**<br>HTTP persistente: sin y con canalización | Session 2.2 | [EN](02-application-layer/http/http-persistent.en.html) · [ES](02-application-layer/http/http-persistent.es.html) · [source](src/http-persistent/) |
 | 2 · HTTP | **Browser cache: cache or server?**<br>Caché del navegador: ¿caché o servidor? | Session 2.3 | [EN](02-application-layer/http/http-cache.en.html) · [ES](02-application-layer/http/http-cache.es.html) · [source](src/http-cache/) |
 | 2 · HTTP | **Cookies: state on top of HTTP**<br>Cookies: estado por encima de HTTP | Session 2.3 | [EN](02-application-layer/http/http-cookies.en.html) · [ES](02-application-layer/http/http-cookies.es.html) · [source](src/http-cookies/) |
+| 3 · Multiplexing and demultiplexing | **Which socket? UDP and TCP demultiplexing**<br>¿A qué socket va? Demultiplexación UDP y TCP | Session 3.1 | [EN](03-transport-layer/transport-demultiplexing.en.html) · [ES](03-transport-layer/transport-demultiplexing.es.html) · [source](src/transport-demultiplexing/) |
 <!-- catalog:end -->
 
 Each visualization has a thumbnail in `thumbnails/` and an entry in
@@ -77,7 +78,7 @@ scripts/                    check.py, build_index.py, thumbnails.sh
 
 ### Sources and builds
 
-Most visualizations are written directly as a single HTML file. Four of them
+Most visualizations are written directly as a single HTML file. Several of them
 are larger and are developed from modular sources in `src/`, each with a
 `build.sh` that runs its tests and assembles a complete document in `dist/`:
 
@@ -88,6 +89,7 @@ are larger and are developed from modular sources in `src/`, each with a
 | `src/http-cache/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `02-application-layer/http/http-cache.{es,en}.html` |
 | `src/http-cookies/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `02-application-layer/http/http-cookies.{es,en}.html` |
 | `src/dns-step-by-step/` | Spanish and English (`build_en.sh`); steps and scenes in `pasos.js`, tested by `test_pasos.js` | `02-application-layer/dns/dns-step-by-step.{es,en}.html` |
+| `src/transport-demultiplexing/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/transport-demultiplexing.{es,en}.html` |
 
 The published files of the first two are derived from those builds with the
 language fixed and the language switch removed; those of DNS step by step are
