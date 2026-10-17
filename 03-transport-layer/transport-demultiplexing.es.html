@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>¿A qué socket va? Demultiplexación UDP y TCP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Mismo banco de trabajo que HTTP cookies: panel de controles a la izquierda; escena, predicción y tabla a la derecha; una columna en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --ack: #17855a;
+  --html: #7a4fb5;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --camino: #fff1d6;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --ack: #4cc28d; --html: #b796ec; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 14px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.6rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 78ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg.idioma { flex: 0 0 auto; }
+.seg.idioma button { padding: 4px 10px; font-weight: 600; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 9px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila > label.et { min-width: 92px; color: var(--muted); font-size: 0.86rem; }
+input[type="number"], select {
+  font: inherit; font-family: var(--mono); font-size: 0.9rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="number"] { width: 90px; }
+select { cursor: pointer; }
+select.ancho { flex: 1; width: 100%; }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 5px 8px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+.seg button:disabled { cursor: not-allowed; opacity: .45; }
+button.btn { font: inherit; font-size: 0.88rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; }
+button.btn:hover:not(:disabled) { border-color: var(--fg); }
+button.btn:disabled { cursor: not-allowed; opacity: .45; }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+.presets { display: flex; flex-direction: column; gap: 5px; }
+.presets button.btn { text-align: left; }
+.presets button.btn[aria-pressed="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); font-weight: 600; }
+.presets button.btn[aria-pressed="true"]::before { content: "● "; }
+.nota { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.nota code, .narra code, td code, .nivel code { font-family: var(--mono); font-size: 0.92em; background: var(--suave); padding: 0 4px; border-radius: 3px; }
+label.chk { display: inline-flex; align-items: center; gap: 7px; font-size: 0.9rem; cursor: pointer; }
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); }
+.barra { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+.dato { display: flex; gap: 6px; align-items: baseline; }
+.dato b { font-weight: 500; color: var(--muted); }
+.dato span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dato.fuerte span { font-weight: 600; color: var(--fg); }
+.reproductor { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; flex-wrap: wrap; }
+.reproductor .t { font-family: var(--mono); font-size: 0.88rem; color: var(--sel); font-variant-numeric: tabular-nums; flex: 1; min-width: 120px; }
+.reproductor button.btn { padding: 4px 10px; min-width: 38px; }
+.narra { padding: 10px 14px 12px; font-size: 1rem; margin: 0; min-height: 3.9em; }
+.narra b { color: var(--trama); }
+.lienzo { padding: 6px 8px 4px; }
+.lienzo svg { display: block; margin: 0 auto; width: 100%; height: auto; max-width: 100%; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 14px 12px; font-size: 0.82rem; color: var(--muted); }
+.leyenda i { display: inline-block; width: 22px; height: 0; border-top: 3px solid; margin-right: 6px; vertical-align: 3px; }
+.leyenda i.disc { border-top-style: dashed; }
+h3.mod { font-family: var(--display); font-weight: 700; font-size: 1rem; margin: 0; padding: 12px 14px 0; }
+.pred { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+.pred .fila > label.et { min-width: 0; color: var(--fg); font-size: 0.92rem; }
+.fb { font-size: 0.92rem; margin: 0; }
+.fb.ok { color: var(--bien); }
+.fb.ko { color: var(--aviso); }
+.fb::before { font-weight: 700; }
+.fb.ok::before { content: "✓ "; }
+.fb.ko::before { content: "✗ "; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.tabla { overflow-x: auto; padding: 6px 0 6px; }
+th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 0.74rem; letter-spacing: 0.05em; text-transform: none; border-top: 0; font-family: var(--mono); }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.actual td { background: var(--camino); }
+tr.actual td:first-child::before { content: "▶ "; }
+tr.pend td { color: var(--muted); }
+td.r-nuevo { color: var(--html); font-weight: 500; }
+td.r-socket { color: var(--trama); font-weight: 500; }
+td.r-rechazado { color: var(--aviso); font-weight: 500; }
+.niveles { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.3fr); gap: 8px; align-items: stretch; padding: 10px 14px 14px; }
+.nivel { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font-size: 0.9rem; display: flex; flex-direction: column; gap: 3px; }
+.nivel .cap { font-family: var(--display); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.nivel .val { font-family: var(--mono); font-weight: 600; }
+.nivel.activo { border-color: var(--sel); border-width: 2px; padding: 7px 9px; }
+.niveles .flecha { align-self: center; color: var(--muted); font-size: 1.2rem; }
+@media (max-width: 700px) { .niveles { grid-template-columns: minmax(0, 1fr); } .niveles .flecha { justify-self: center; transform: rotate(90deg); } }
+details.sup { padding: 0; }
+details.sup summary { padding: 11px 14px; cursor: pointer; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+details.sup ul { margin: 0; padding: 0 14px 14px 34px; font-size: 0.9rem; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.88rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.vis { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1 data-en-html="Which socket? &lt;span&gt;UDP and TCP demultiplexing&lt;/span&gt;">¿A qué socket va? <span>Demultiplexación UDP y TCP</span></h1>
+    <div class="cab-der"><p class="sub" data-en="Clients A, B (and D) send segments to server C. C looks at the header to choose the socket: UDP only looks at the destination (IP_D, PD); TCP looks at the four values (IP_O, PO, IP_D, PD). Follow each segment into the socket table of C.">Los clientes A, B (y D) envían segmentos al servidor C. C mira la cabecera para elegir el socket: UDP solo mira el destino (IP_D, PD); TCP mira los cuatro valores (IP_O, PO, IP_D, PD). Sigue cada segmento hasta la tabla de sockets de C.</p>
+    </div>
+  </header>
+
+  <div class="rejilla">
+    <!-- PANEL -->
+    <form class="panel" id="panel" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2 data-en="Scenario">Escenario</h2>
+        <div class="presets" id="presets" role="group" aria-label="Escenarios" data-en-aria="Scenarios">
+          <button type="button" class="btn" data-preset="s14" data-en="UDP: two clients, one socket (s.14)">UDP: dos clientes, un socket (s.14)</button>
+          <button type="button" class="btn" data-preset="s19" data-en="TCP “one to one” (s.19)">TCP «uno a uno» (s.19)</button>
+          <button type="button" class="btn" data-preset="s20" data-en="TCP “one to many” (s.20)">TCP «uno a varios» (s.20)</button>
+          <button type="button" class="btn" data-preset="web" data-en="Web server today (s.17)">Servidor web hoy (s.17)</button>
+          <button type="button" class="btn" data-preset="s21" data-en="443/TCP and 443/UDP at once (s.21)">443/TCP y 443/UDP a la vez (s.21)</button>
+        </div>
+        <p class="nota" id="esc-nota"></p>
+      </section>
+
+      <section>
+        <h2 data-en="Transport protocol">Protocolo de transporte</h2>
+        <div class="seg" id="proto" role="group" aria-label="Protocolo" data-en-aria="Protocol"><button type="button" data-v="udp">UDP (17)</button><button type="button" data-v="tcp">TCP (6)</button></div>
+        <p class="nota" id="proto-nota"></p>
+      </section>
+
+      <section>
+        <h2 data-en="Clients and ephemeral ports">Clientes y puertos efímeros</h2>
+        <p class="nota" data-en="The client’s OS chooses the source port from the ephemeral range. The new client (D, or a new connection of A, B or D) sends to the first port C listens on.">El SO del cliente elige el puerto origen en el rango efímero. El nuevo cliente (D, o una conexión nueva de A, B o D) envía al primer puerto en el que escucha C.</p>
+        <div class="seg" id="rango" role="group" aria-label="Rango de puertos efímeros" data-en-aria="Ephemeral port range"><button type="button" data-v="iana">IANA 49152–65535</button><button type="button" data-v="linux">Linux 32768–60999</button></div>
+        <div class="fila"><button type="button" class="btn" id="b-cliente" data-en="+ New client">+ Nuevo cliente</button></div>
+      </section>
+
+      <section>
+        <h2 data-en="Mode">Modo</h2>
+        <label class="chk"><input type="checkbox" id="c-pred"> <span data-en="Prediction mode: choose the socket before each segment">Modo predicción: elige el socket antes de cada segmento</span></label>
+        <label class="chk"><input type="checkbox" id="c-niveles"> <span data-en="“3 levels” view: IP → Protocol 6/17 → port (s.21)">Vista «3 niveles»: IP → Protocolo 6/17 → puerto (s.21)</span></label>
+      </section>
+
+      <section>
+        <h2 data-en="Practice">Practicar</h2>
+        <p class="nota" data-en="A random scenario with 4 to 6 segments, in prediction mode. Watch out for the same source port on two hosts and for ports where nobody listens.">Un escenario aleatorio de 4 a 6 segmentos, en modo predicción. Atención al mismo puerto origen en dos hosts y a los puertos en los que nadie escucha.</p>
+        <div class="fila"><button type="button" class="btn prim" id="b-ejercicio" data-en="New exercise">Nuevo ejercicio</button></div>
+      </section>
+
+      <section>
+        <h2 data-en="View">Vista</h2>
+        <div class="fila"><label class="et" data-en="Theme">Tema</label>
+          <div class="seg" id="tema" role="group" aria-label="Tema" data-en-aria="Theme"><button type="button" data-v="auto" data-en="Auto">Auto</button><button type="button" data-v="light" data-en="Light">Claro</button><button type="button" data-v="dark" data-en="Dark">Oscuro</button></div></div>
+        <div class="fila"><button type="button" class="btn peligro" id="b-reset" data-en="Reset">Restablecer</button></div>
+      </section>
+    </form>
+
+    <!-- ZONA -->
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="barra" id="resumen"></div>
+        <div class="reproductor">
+          <button type="button" class="btn" id="r-ini" aria-label="Al principio" data-en-aria="To the start">⏮</button>
+          <button type="button" class="btn" id="r-ant" aria-label="Segmento anterior" data-en-aria="Previous segment">◀</button>
+          <button type="button" class="btn prim" id="r-play" aria-label="Reproducir" data-en-aria="Play">▶</button>
+          <button type="button" class="btn" id="r-sig" aria-label="Segmento siguiente" data-en-aria="Next segment">▶︎|</button>
+          <button type="button" class="btn" id="r-fin" aria-label="Al final" data-en-aria="To the end">⏭</button>
+          <span class="t" id="r-etq"></span>
+          <button type="button" class="btn" id="b-responder" data-en="⇄ Reply">⇄ Responder</button>
+        </div>
+        <p class="narra" id="narra" aria-live="polite"></p>
+      </div>
+
+      <div class="tarjeta">
+        <div class="lienzo" id="lienzo"></div>
+        <div class="leyenda" id="leyenda"></div>
+      </div>
+
+      <div class="tarjeta" id="t-pred" hidden>
+        <div class="pred">
+          <h2 data-en="Your prediction">Tu predicción</h2>
+          <div id="pred-cuerpo" style="display:flex;flex-direction:column;gap:8px"></div>
+          <p class="fb" id="fb" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div class="tarjeta" id="t-niveles" hidden>
+        <h3 class="mod" data-en="Three addressing levels in host C (s.21)">Tres niveles de direccionamiento en el host C (s.21)</h3>
+        <div class="niveles" id="niveles"></div>
+      </div>
+
+      <div class="tarjeta">
+        <h3 class="mod" data-en="Segments that reach C">Segmentos que llegan a C</h3>
+        <div class="tabla" id="tabla"></div>
+      </div>
+
+      <details class="tarjeta sup">
+        <summary data-en="Model assumptions">Supuestos del modelo</summary>
+        <ul>
+          <li data-en="Addresses are written with letters (A, B, C, D), as in the slides. IP_O: source IP address; IP_D: destination IP address; PO: source port; PD: destination port.">Las direcciones se escriben con letras (A, B, C, D), como en las diapositivas. IP_O: dirección IP origen; IP_D: dirección IP destino; PO: puerto origen; PD: puerto destino.</li>
+          <li data-en="UDP (connectionless): the socket is identified only by its destination (IP_D, PD). Segments with different origins and the same destination go to the same socket. The source port is used as the return address.">UDP (no orientado a conexión): el socket se identifica solo por su destino (IP_D, PD). Segmentos con orígenes distintos e igual destino van al mismo socket. El puerto origen sirve como dirección de retorno.</li>
+          <li data-en="TCP (connection-oriented): the server has a welcome socket on the port it listens on, and one connection socket per simultaneous connection, identified by the four values (IP_O, PO, IP_D, PD). Here a segment with a new 4-tuple reaches the welcome socket, which creates the connection socket; how the connection is established is seen in GG32.">TCP (orientado a conexión): el servidor tiene un socket de bienvenida en el puerto en el que escucha y un socket de conexión por cada conexión simultánea, identificado por los cuatro valores (IP_O, PO, IP_D, PD). Aquí un segmento con una 4-tupla nueva llega al socket de bienvenida, que crea el socket de conexión; cómo se establece la conexión se verá en GG32.</li>
+          <li data-en="Processes: “one to one” is one process per connection (P0 holds the welcome socket and creates P4, P5…); “one to many” is one process with one thread per connection; event-driven (nginx, Node.js) is one process with many sockets. The number of sockets does not depend on it; the number of processes does.">Procesos: «uno a uno» es un proceso por conexión (P0 tiene el socket de bienvenida y crea P4, P5…); «uno a varios» es un proceso con un hilo por conexión; por eventos (nginx, Node.js), un proceso con muchos sockets. El número de sockets no depende de ello; el de procesos, sí.</li>
+          <li data-en="The Protocol field of the IP header (6 = TCP, 17 = UDP) chooses the transport protocol before the port is looked at, so 443/TCP and 443/UDP are different sockets. A segment to a port where nobody listens with that protocol is discarded.">El campo Protocolo de la cabecera IP (6 = TCP, 17 = UDP) elige el protocolo de transporte antes de mirar el puerto, así que 443/TCP y 443/UDP son sockets distintos. Un segmento a un puerto en el que nadie escucha con ese protocolo se descarta.</li>
+          <li data-en="Ephemeral ports: the IANA range is 49152–65535; Linux uses 32768–60999 by default (net.ipv4.ip_local_port_range). Server ports are well known (80, 443…) or, as in the slides, fixed by the application (6428).">Puertos efímeros: el rango de la IANA es 49152–65535; Linux usa por defecto 32768–60999 (<code>net.ipv4.ip_local_port_range</code>). Los puertos del servidor son bien conocidos (80, 443…) o, como en las diapositivas, los fija la aplicación (6428).</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+// Motor de demultiplexación de la capa de transporte (GG31, AR1, s.12–21 del deck).
+// Modelo didáctico:
+//  - UDP: el socket se identifica SOLO por el destino (IP_D, PD). Todos los segmentos que llegan al mismo
+//    puerto de C entran por el mismo socket, vengan de donde vengan.
+//  - TCP: el socket de conexión se identifica por los cuatro valores (IP_O, PO, IP_D, PD). El servidor tiene
+//    un socket de bienvenida por puerto en escucha; un segmento con una 4-tupla que no tiene socket llega al de
+//    bienvenida, que crea un socket de conexión nuevo (el establecimiento de la conexión, SYN, es de GG32).
+//  - El protocolo (6 = TCP, 17 = UDP, campo Protocolo de la cabecera IP) forma parte de la dirección:
+//    443/TCP y 443/UDP son sockets distintos (s.21).
+//  - Si no hay socket para el destino, el segmento se rechaza (nadie escucha en ese puerto).
+// Las direcciones IP se nombran con letras (A, B, C, D), como en el deck.
+const MotorDemux = (() => {
+  'use strict';
+
+  const PROTO = { tcp: 6, udp: 17 };
+  const RANGOS = { iana: { min: 49152, max: 65535 }, linux: { min: 32768, max: 60999 } };
+  // Valores de la práctica GP31 y de su banco de preguntas: no se usan nunca en la visualización.
+  const PROHIBIDOS = {
+    puertos: [50123, 8888, 41000, 50200, 9999, 44458, 9000],
+    ips: ['192.168.1.10', '192.168.1.20', '192.168.1.30', '10.0.2.15', '172.31.254.2', '10.0.0.5']
+  };
+  // Puertos del deck: no se reparten como efímeros en los ejercicios aleatorios, para no confundir.
+  const DECK = [9157, 9156, 6428, 5775, 80, 443];
+
+  // ---------------------------------------------------------------- aleatorio con semilla (mulberry32)
+  function rng(semilla) {
+    let a = (Number(semilla) >>> 0) || 1;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Puerto efímero elegido por el SO en el rango dado ('iana' 49152–65535 o 'linux' 32768–60999),
+  // distinto de los ya usados y de los prohibidos.
+  function efimero(r, rango = 'iana', usados = []) {
+    const R = RANGOS[rango] || RANGOS.iana;
+    const evitar = new Set([...usados, ...PROHIBIDOS.puertos, ...DECK]);
+    for (let i = 0; i < 1000; i++) {
+      const p = R.min + Math.floor(r() * (R.max - R.min + 1));
+      if (!evitar.has(p)) return p;
+    }
+    throw new Error('sin puertos efímeros libres');
+  }
+
+  // ---------------------------------------------------------------- sockets
+  // tabla: { ip, modelo ('uno-a-uno' | 'uno-a-varios' | 'eventos'), sockets: [socket], n (contador de ids),
+  //          nProc (siguiente nº de proceso), nHilo }
+  // socket: { id, proto, tipo ('udp' | 'bienvenida' | 'conexion'), ip, puerto, ipR, puertoR, proceso, hilo, entregados }
+  const copia = o => JSON.parse(JSON.stringify(o));
+
+  function tablaInicial(servidor) {
+    const t = { ip: servidor.ip, modelo: servidor.modelo || 'uno-a-uno', sockets: [], n: 0, nProc: servidor.primerProceso || 4, nHilo: 1 };
+    for (const e of servidor.escucha) {
+      t.n++;
+      t.sockets.push({ id: 's' + t.n, proto: e.proto, tipo: e.proto === 'udp' ? 'udp' : 'bienvenida', ip: servidor.ip, puerto: e.puerto, ipR: null, puertoR: null, proceso: e.proceso, hilo: null, entregados: 0 });
+    }
+    return t;
+  }
+
+  // ¿A qué socket va el segmento? Devuelve
+  //   { tipo: 'socket', socket }                       → hay un socket que encaja
+  //   { tipo: 'nuevo', bienvenida, socket }            → TCP: el socket de bienvenida crea uno de conexión
+  //   { tipo: 'rechazado', motivo ('ip' | 'puerto') }  → no es para este host o nadie escucha en ese puerto
+  // proto: el del segmento salvo que se indique otro.
+  function demux(tabla, seg, proto = seg.proto) {
+    if (seg.ipD !== tabla.ip) return { tipo: 'rechazado', motivo: 'ip' };
+    if (proto === 'udp') {
+      const s = tabla.sockets.find(x => x.proto === 'udp' && x.ip === seg.ipD && x.puerto === seg.pd);
+      return s ? { tipo: 'socket', socket: s } : { tipo: 'rechazado', motivo: 'puerto' };
+    }
+    const c = tabla.sockets.find(x => x.proto === 'tcp' && x.tipo === 'conexion' && x.ip === seg.ipD && x.puerto === seg.pd && x.ipR === seg.ipO && x.puertoR === seg.po);
+    if (c) return { tipo: 'socket', socket: c };
+    const w = tabla.sockets.find(x => x.proto === 'tcp' && x.tipo === 'bienvenida' && x.ip === seg.ipD && x.puerto === seg.pd);
+    if (!w) return { tipo: 'rechazado', motivo: 'puerto' };
+    let proceso, hilo = null;
+    if (tabla.modelo === 'uno-a-uno') proceso = 'P' + tabla.nProc;
+    else { proceso = w.proceso; if (tabla.modelo === 'uno-a-varios') hilo = tabla.nHilo; }
+    const socket = { id: 's' + (tabla.n + 1), proto: 'tcp', tipo: 'conexion', ip: seg.ipD, puerto: seg.pd, ipR: seg.ipO, puertoR: seg.po, proceso, hilo, entregados: 0 };
+    return { tipo: 'nuevo', bienvenida: w, socket };
+  }
+
+  // Aplica la llegada del segmento: devuelve { tabla (nueva), resultado, destino (id del socket que recibe los datos o null) }
+  function aplicar(tabla, seg) {
+    const t = copia(tabla);
+    const r = demux(t, seg);
+    let destino = null;
+    if (r.tipo === 'socket') { r.socket.entregados++; destino = r.socket.id; }
+    else if (r.tipo === 'nuevo') {
+      t.n++; r.socket.entregados = 1; t.sockets.push(r.socket); destino = r.socket.id;
+      if (t.modelo === 'uno-a-uno') t.nProc++; else if (t.modelo === 'uno-a-varios') t.nHilo++;
+    }
+    return { tabla: t, resultado: copia(r), destino };
+  }
+
+  // La respuesta sale del socket del servidor con IPs y puertos intercambiados.
+  const responder = seg => ({ ...seg, ipO: seg.ipD, po: seg.pd, ipD: seg.ipO, pd: seg.po });
+
+  const contar = tabla => {
+    const c = { total: tabla.sockets.length, udp: 0, bienvenida: 0, conexion: 0, procesos: new Set(tabla.sockets.map(s => s.proceso)).size };
+    for (const s of tabla.sockets) c[s.tipo]++;
+    return c;
+  };
+
+  // Recorre el escenario: { pasos: [{ seg, resultado, destino, antes, despues }], final, cuenta }
+  function simular(esc) {
+    let t = tablaInicial(esc.servidor);
+    const pasos = [];
+    for (const seg of esc.segmentos) {
+      const a = aplicar(t, seg);
+      pasos.push({ seg, resultado: a.resultado, destino: a.destino, antes: t, despues: a.tabla });
+      t = a.tabla;
+    }
+    return { pasos, inicial: tablaInicial(esc.servidor), final: t, cuenta: contar(t) };
+  }
+
+  // El mismo escenario con todo en un protocolo (interruptor UDP / TCP). No se aplica a los mixtos.
+  function conProto(esc, proto) {
+    const e = copia(esc);
+    e.servidor.escucha = e.servidor.escucha.map(x => ({ ...x, proto }));
+    const vistos = new Set();
+    e.servidor.escucha = e.servidor.escucha.filter(x => { const k = x.puerto; if (vistos.has(k)) return false; vistos.add(k); return true; });
+    e.segmentos = e.segmentos.map(s => ({ ...s, proto }));
+    e.proto = proto;
+    return e;
+  }
+  const esMixto = esc => new Set(esc.servidor.escucha.map(x => x.proto)).size > 1 || new Set(esc.segmentos.map(s => s.proto)).size > 1;
+
+  // ---------------------------------------------------------------- escenarios del deck
+  const seg = (proto, ipO, po, ipD, pd, extra = {}) => ({ proto, ipO, po, ipD, pd, ...extra });
+  const ESCENARIOS = {
+    s14: {
+      id: 's14', slide: 14, proto: 'udp',
+      titulo: { es: 'UDP: dos clientes, un socket (s.14)', en: 'UDP: two clients, one socket (s.14)' },
+      nota: { es: 'A (proceso P2) y B (P1) envían al puerto 6428 de C. C tiene un solo proceso, P3, con un socket UDP.', en: 'A (process P2) and B (P1) send to port 6428 of C. C has a single process, P3, with one UDP socket.' },
+      clientes: [{ ip: 'A' }, { ip: 'B' }],
+      servidor: { ip: 'C', modelo: 'uno-a-uno', escucha: [{ proto: 'udp', puerto: 6428, proceso: 'P3' }] },
+      segmentos: [seg('udp', 'A', 9157, 'C', 6428, { proc: 'P2' }), seg('udp', 'B', 5775, 'C', 6428, { proc: 'P1' })]
+    },
+    s19: {
+      id: 's19', slide: 19, proto: 'tcp',
+      titulo: { es: 'TCP «uno a uno» (s.19)', en: 'TCP “one to one” (s.19)' },
+      nota: { es: 'A:9157, B:9157 y B:5775 se conectan al puerto 80 de C. Un proceso por conexión (P4, P5, P6). Las dos primeras tienen el mismo PO, pero distinta IP_O. El último segmento repite la 4-tupla de A (HTTP persistente).', en: 'A:9157, B:9157 and B:5775 connect to port 80 of C. One process per connection (P4, P5, P6). The first two have the same source port but a different source IP. The last segment repeats A’s 4-tuple (persistent HTTP).' },
+      clientes: [{ ip: 'A' }, { ip: 'B' }],
+      servidor: { ip: 'C', modelo: 'uno-a-uno', primerProceso: 4, escucha: [{ proto: 'tcp', puerto: 80, proceso: 'P0' }] },
+      segmentos: [seg('tcp', 'A', 9157, 'C', 80, { proc: 'P1' }), seg('tcp', 'B', 9157, 'C', 80, { proc: 'P2' }), seg('tcp', 'B', 5775, 'C', 80, { proc: 'P3' }), seg('tcp', 'A', 9157, 'C', 80, { proc: 'P1' })]
+    },
+    s20: {
+      id: 's20', slide: 20, proto: 'tcp',
+      titulo: { es: 'TCP «uno a varios» (s.20)', en: 'TCP “one to many” (s.20)' },
+      nota: { es: 'Las conexiones de la s.20 (A:9157, B:9156, B:5775 al puerto 80 de C), pero un solo proceso P4 con un hilo por conexión. La demultiplexación no cambia: un socket por conexión.', en: 'The connections of s.20 (A:9157, B:9156, B:5775 to port 80 of C), but a single process P4 with one thread per connection. Demultiplexing does not change: one socket per connection.' },
+      clientes: [{ ip: 'A' }, { ip: 'B' }],
+      servidor: { ip: 'C', modelo: 'uno-a-varios', escucha: [{ proto: 'tcp', puerto: 80, proceso: 'P4' }] },
+      segmentos: [seg('tcp', 'A', 9157, 'C', 80, { proc: 'P1' }), seg('tcp', 'B', 9156, 'C', 80, { proc: 'P2' }), seg('tcp', 'B', 5775, 'C', 80, { proc: 'P3' })]
+    },
+    web: {
+      id: 'web', slide: 17, proto: 'tcp',
+      titulo: { es: 'Servidor web hoy (s.17)', en: 'Web server today (s.17)' },
+      nota: { es: 'Un servidor por eventos (como nginx): un solo proceso atiende todos los sockets en el 443. A usa HTTP/2: una sola conexión con C para todas sus pestañas y peticiones. B usa HTTP/1.1 y abre dos conexiones en paralelo, con dos puertos efímeros.', en: 'An event-driven server (like nginx): a single process serves every socket on 443. A uses HTTP/2: a single connection to C for all its tabs and requests. B uses HTTP/1.1 and opens two parallel connections, with two ephemeral ports.' },
+      clientes: [{ ip: 'A' }, { ip: 'B' }],
+      servidor: { ip: 'C', modelo: 'eventos', escucha: [{ proto: 'tcp', puerto: 443, proceso: 'P4' }] },
+      segmentos: [
+        seg('tcp', 'A', 51734, 'C', 443, { proc: 'P1', etq: { es: 'pestaña 1', en: 'tab 1' } }),
+        seg('tcp', 'B', 62210, 'C', 443, { proc: 'P2' }),
+        seg('tcp', 'A', 51734, 'C', 443, { proc: 'P1', etq: { es: 'pestaña 2', en: 'tab 2' } }),
+        seg('tcp', 'B', 62211, 'C', 443, { proc: 'P2' }),
+        seg('tcp', 'A', 51734, 'C', 443, { proc: 'P1', etq: { es: 'pestaña 1', en: 'tab 1' } })]
+    },
+    s21: {
+      id: 's21', slide: 21, proto: 'mixto',
+      titulo: { es: '443/TCP y 443/UDP a la vez (s.21)', en: '443/TCP and 443/UDP at once (s.21)' },
+      nota: { es: 'C atiende HTTPS sobre TCP y HTTP/3 (QUIC) sobre UDP en el mismo puerto 443. El campo Protocolo de la cabecera IP (6 o 17) decide primero a qué protocolo de transporte va el segmento.', en: 'C serves HTTPS over TCP and HTTP/3 (QUIC) over UDP on the same port 443. The Protocol field of the IP header (6 or 17) decides first which transport protocol the segment goes to.' },
+      clientes: [{ ip: 'A' }, { ip: 'B' }],
+      servidor: { ip: 'C', modelo: 'eventos', escucha: [{ proto: 'tcp', puerto: 443, proceso: 'P4' }, { proto: 'udp', puerto: 443, proceso: 'P5' }] },
+      segmentos: [seg('tcp', 'A', 51734, 'C', 443, { proc: 'P1' }), seg('udp', 'B', 58120, 'C', 443, { proc: 'P2' }), seg('udp', 'A', 51734, 'C', 443, { proc: 'P1' }), seg('tcp', 'B', 58120, 'C', 443, { proc: 'P2' })]
+    }
+  };
+
+  // ---------------------------------------------------------------- ejercicios aleatorios
+  // opts: { proto ('udp' | 'tcp' | null = cualquiera), rango ('iana' | 'linux') }
+  function generar(semilla, opts = {}) {
+    const r = rng(semilla);
+    const el = a => a[Math.floor(r() * a.length)];
+    const proto = opts.proto || (r() < 0.5 ? 'udp' : 'tcp');
+    const rango = opts.rango || 'iana';
+    const POR = proto === 'udp' ? [53, 123, 6428, 443] : [80, 443, 22, 6428];
+    const SIN = [5000, 8080, 25, 110].filter(p => !POR.includes(p));
+    const nEsc = r() < 0.3 ? 2 : 1;
+    const puertos = [];
+    while (puertos.length < nEsc) { const p = el(POR); if (!puertos.includes(p)) puertos.push(p); }
+    const modelo = proto === 'tcp' ? el(['uno-a-uno', 'uno-a-varios', 'eventos']) : 'uno-a-uno';
+    const escucha = puertos.map((p, i) => ({ proto, puerto: p, proceso: modelo === 'uno-a-uno' && proto === 'tcp' ? 'P0' : 'P' + (4 + i) }));
+    const ips = r() < 0.5 ? ['A', 'B', 'D'] : ['A', 'B'];
+    // puertos origen: cada cliente 1–2; a veces el mismo número en dos clientes (la trampa de la s.19)
+    const usados = [];
+    const origenes = [];
+    ips.forEach((ip, i) => {
+      const n = r() < 0.4 ? 2 : 1;
+      for (let j = 0; j < n; j++) {
+        let po;
+        if (i > 0 && j === 0 && r() < 0.5) po = origenes[0].po;
+        else { po = efimero(r, rango, usados); usados.push(po); }
+        origenes.push({ ip, po });
+      }
+    });
+    const nSeg = 4 + Math.floor(r() * 3);
+    const segmentos = [];
+    let rechazos = 0;
+    for (let k = 0; k < nSeg; k++) {
+      // con cierta frecuencia se repite un origen ya usado, para que haya segmentos que van a un socket existente
+      const libres = origenes.filter(o => !segmentos.some(s => s.ipO === o.ip && s.po === o.po));
+      const o = k > 0 && (r() < 0.3 || !libres.length) ? el(origenes.filter(o => !libres.includes(o))) : el(libres.length ? libres : origenes);
+      let pd = el(puertos);
+      if (rechazos === 0 && k > 0 && r() < 0.12) { pd = el(SIN); rechazos++; }
+      segmentos.push(seg(proto, o.ip, o.po, 'C', pd));
+    }
+    return {
+      id: 'practica', semilla: Number(semilla) >>> 0, proto, rango,
+      titulo: { es: 'Ejercicio ' + (Number(semilla) >>> 0), en: 'Exercise ' + (Number(semilla) >>> 0) },
+      nota: { es: '', en: '' },
+      clientes: ips.map(ip => ({ ip })),
+      servidor: { ip: 'C', modelo, escucha },
+      segmentos
+    };
+  }
+
+  // Añade un segmento desde un cliente con un puerto efímero nuevo, al primer puerto en escucha de C.
+  function nuevoCliente(esc, r, rango = 'iana', ip = null) {
+    const e = copia(esc);
+    const usados = e.segmentos.map(s => s.po);
+    const ips = e.clientes.map(c => c.ip);
+    if (!ip) ip = ips.length < 3 ? 'D' : ips[Math.floor(r() * ips.length)];
+    if (!ips.includes(ip)) e.clientes.push({ ip });
+    const dest = e.servidor.escucha[0];
+    e.segmentos.push(seg(dest.proto, ip, efimero(r, rango, usados), e.servidor.ip, dest.puerto, { nuevo: true }));
+    return e;
+  }
+
+  return { PROTO, RANGOS, PROHIBIDOS, DECK, ESCENARIOS, rng, efimero, tablaInicial, demux, aplicar, responder, contar, simular, conProto, esMixto, generar, nuevoCliente };
+})();
+if (typeof module !== 'undefined') module.exports = MotorDemux;
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const CLAVE = 'transportDemux.v1';
+  const M = MotorDemux;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduceMov = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const copia = o => JSON.parse(JSON.stringify(o));
+
+  // ------------------------------------------------------------ estado
+  function base() {
+    return { esc: copia(M.ESCENARIOS.s14), preset: 's14', proto: null, rango: 'iana', k: 0, resp: false, pred: false, niveles: false, vista: { idioma: 'es', tema: 'auto' } };
+  }
+  function normalizar(o) {
+    if (!o || typeof o !== 'object' || !o.esc || !Array.isArray(o.esc.segmentos) || !o.esc.servidor || !Array.isArray(o.esc.servidor.escucha)) return null;
+    const b = base();
+    try { M.simular(o.esc); } catch { return null; }
+    return { ...b, ...o, k: Math.max(0, Math.min(Number(o.k) || 0, o.esc.segmentos.length)), proto: o.proto === 'udp' || o.proto === 'tcp' ? o.proto : null, rango: o.rango === 'linux' ? 'linux' : 'iana', vista: { ...b.vista, ...(o.vista || {}) } };
+  }
+  function cargarLocal() { try { const t = localStorage.getItem(CLAVE); return t ? normalizar(JSON.parse(t)) : null; } catch { return null; } }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch { /* sin almacenamiento */ } }
+
+  let estado = cargarLocal() || base();
+  estado.vista.idioma = 'es';  // idioma fijo en cada copia
+  let sim = null, escEf = null;
+  let animar = null;          // 'ida' | 'vuelta' | null: animación pendiente tras pintar
+  let reproduciendo = null;
+  let resps = {};             // predicciones: k → { valor, bien }
+  let finalResp = null;
+  const L = (es, en) => (estado.vista.idioma === 'en' ? en : es);
+  const T = o => (o ? (estado.vista.idioma === 'en' ? o.en : o.es) : '');
+  const PNOM = p => p === 'udp' ? 'UDP' : 'TCP';
+
+  // ------------------------------------------------------------ textos
+  const sockTxt = s => s.tipo === 'udp' ? `UDP (${s.ip}, ${s.puerto})` : s.tipo === 'bienvenida' ? `TCP ${L('bienvenida', 'welcome')} (${s.ip}, ${s.puerto})` : `TCP (${s.ipR}, ${s.puertoR}, ${s.ip}, ${s.puerto})`;
+  const procTxt = s => s.hilo ? `${s.proceso} · ${L('hilo', 'thread')} ${s.hilo}` : s.proceso;
+  const modeloTxt = m => ({ 'uno-a-uno': L('«uno a uno»: un proceso por conexión', '“one to one”: one process per connection'), 'uno-a-varios': L('«uno a varios»: un proceso, un hilo por conexión', '“one to many”: one process, one thread per connection'), eventos: L('por eventos: un proceso, muchos sockets', 'event-driven: one process, many sockets') }[m]);
+  const origen = s => `(${s.ipO}, ${s.po})`, destino = s => `(${s.ipD}, ${s.pd})`;
+  const tupla = s => `(${s.ipO}, ${s.po}, ${s.ipD}, ${s.pd})`;
+  const respuestaCorrecta = p => p.resultado.tipo === 'socket' ? p.destino : p.resultado.tipo;
+
+  function narrar(j) {
+    const p = sim.pasos[j], s = p.seg, r = p.resultado;
+    const mixto = M.esMixto(escEf);
+    let h = L(`<b>Segmento ${j + 1}</b>: ${PNOM(s.proto)} de <code>${origen(s)}</code> a <code>${destino(s)}</code>${s.etq ? ' (' + esc(T(s.etq)) + ')' : ''}. `, `<b>Segment ${j + 1}</b>: ${PNOM(s.proto)} from <code>${origen(s)}</code> to <code>${destino(s)}</code>${s.etq ? ' (' + esc(T(s.etq)) + ')' : ''}. `);
+    if (mixto) h += L(`Protocolo = ${M.PROTO[s.proto]} en la cabecera IP → ${PNOM(s.proto)}. `, `Protocol = ${M.PROTO[s.proto]} in the IP header → ${PNOM(s.proto)}. `);
+    if (r.tipo === 'rechazado') {
+      const otro = p.antes.sockets.find(x => x.proto !== s.proto && x.puerto === s.pd);
+      h += s.proto === 'udp'
+        ? L(`No hay ningún socket UDP en el puerto ${s.pd} de C: nadie escucha ahí y el segmento <b>se descarta</b>.`, `There is no UDP socket on port ${s.pd} of C: nobody listens there and the segment <b>is discarded</b>.`)
+        : L(`No hay socket de bienvenida TCP en el puerto ${s.pd} de C: nadie escucha ahí y el segmento <b>se descarta</b>.`, `There is no TCP welcome socket on port ${s.pd} of C: nobody listens there and the segment <b>is discarded</b>.`);
+      if (otro) h += L(` Hay un socket ${PNOM(otro.proto)} en ese puerto, pero el protocolo forma parte de la dirección.`, ` There is a ${PNOM(otro.proto)} socket on that port, but the protocol is part of the address.`);
+      return h;
+    }
+    const dest = p.despues.sockets.find(x => x.id === p.destino);
+    if (s.proto === 'udp') {
+      h += L(`En UDP el socket se identifica solo por el destino (IP_D, PD) = <code>${destino(s)}</code>: los datos se entregan al socket <b>${sockTxt(dest)}</b> de ${dest.proceso}.`, `In UDP the socket is identified only by the destination (IP_D, PD) = <code>${destino(s)}</code>: the data are delivered to socket <b>${sockTxt(dest)}</b> of ${dest.proceso}.`);
+      const prev = sim.pasos.slice(0, j).reverse().find(q => q.destino === p.destino && (q.seg.ipO !== s.ipO || q.seg.po !== s.po));
+      if (prev) h += L(` Es el mismo socket que recibió el segmento ${sim.pasos.indexOf(prev) + 1}, que venía de <code>${origen(prev.seg)}</code>: distinto origen, igual destino.`, ` It is the same socket that received segment ${sim.pasos.indexOf(prev) + 1}, which came from <code>${origen(prev.seg)}</code>: different origin, same destination.`);
+      return h;
+    }
+    if (r.tipo === 'socket') {
+      return h + L(`TCP mira los cuatro valores (IP_O, PO, IP_D, PD) = <code>${tupla(s)}</code>: ya hay un socket de conexión con esa 4-tupla y los datos van a él (<b>${sockTxt(dest)}</b>, ${procTxt(dest)}). No se crea nada.`, `TCP looks at the four values (IP_O, PO, IP_D, PD) = <code>${tupla(s)}</code>: there is already a connection socket with that 4-tuple and the data go to it (<b>${sockTxt(dest)}</b>, ${procTxt(dest)}). Nothing is created.`);
+    }
+    const m = estado.esc.servidor.modelo;
+    const quien = m === 'uno-a-uno' ? L(`un proceso nuevo, ${dest.proceso}`, `a new process, ${dest.proceso}`) : m === 'uno-a-varios' ? L(`un hilo nuevo (${dest.hilo}) del proceso ${dest.proceso}`, `a new thread (${dest.hilo}) of process ${dest.proceso}`) : L(`el mismo proceso ${dest.proceso}, que atiende todos sus sockets por eventos`, `the same process ${dest.proceso}, which serves all its sockets with events`);
+    h += L(`Ningún socket de conexión tiene la 4-tupla <code>${tupla(s)}</code>: el segmento llega al socket de bienvenida <code>(C, ${s.pd})</code>, que crea un <b>socket de conexión nuevo</b>, ${sockTxt(dest)}, atendido por ${quien}.`, `No connection socket has the 4-tuple <code>${tupla(s)}</code>: the segment reaches the welcome socket <code>(C, ${s.pd})</code>, which creates a <b>new connection socket</b>, ${sockTxt(dest)}, served by ${quien}.`);
+    const gemelo = p.antes.sockets.find(x => x.tipo === 'conexion' && x.puertoR === s.po && x.ipR !== s.ipO);
+    if (gemelo) h += L(` Ya había un socket con PO ${s.po}, pero de IP_O ${gemelo.ipR}: la IP origen basta para distinguirlos.`, ` There was already a socket with source port ${s.po}, but from source IP ${gemelo.ipR}: the source IP is enough to tell them apart.`);
+    const vecino = p.antes.sockets.find(x => x.tipo === 'conexion' && x.ipR === s.ipO && x.puertoR !== s.po);
+    if (!gemelo && vecino) h += L(` El host ${s.ipO} ya tenía otra conexión (PO ${vecino.puertoR}): otro PO, otro socket.`, ` Host ${s.ipO} already had another connection (source port ${vecino.puertoR}): another source port, another socket.`);
+    return h + L(' El establecimiento de la conexión se verá en GG32.', ' How the connection is established is seen in GG32.');
+  }
+  function narrarRespuesta(j) {
+    const p = sim.pasos[j], s = p.seg, q = M.responder(s);
+    const sk = p.despues.sockets.find(x => x.id === p.destino);
+    return L(`<b>Respuesta de C</b> al segmento ${j + 1}: sale por el socket ${sockTxt(sk)} con los puertos intercambiados, <b>PO = ${q.po}</b> y <b>PD = ${q.pd}</b>, y también las IP (IP_O = ${q.ipO}, IP_D = ${q.ipD}). El puerto origen de la petición era la dirección de retorno: el cliente escucha en su puerto ${s.po}, no en el ${s.pd}. No intercambiarlos es el error E_PUERTOS de la web de capturas.`,
+      `<b>Reply from C</b> to segment ${j + 1}: it leaves through socket ${sockTxt(sk)} with the ports swapped, <b>source port = ${q.po}</b> and <b>destination port = ${q.pd}</b>, and the IPs too (IP_O = ${q.ipO}, IP_D = ${q.ipD}). The source port of the request was the return address: the client listens on its port ${s.po}, not on ${s.pd}. Not swapping them is the E_PUERTOS error of the captures site.`);
+  }
+
+  // ------------------------------------------------------------ escena (SVG)
+  function escena(estrecho) {
+    const n = sim.pasos.length, k = estado.k;
+    const pend = estado.pred && k < n ? k : null;          // segmento en espera de predicción
+    const j = k > 0 ? k - 1 : null;                         // último segmento que ha llegado
+    const tabla = pend !== null ? sim.pasos[pend].antes : k > 0 ? sim.pasos[k - 1].despues : sim.inicial;
+    const W = estrecho ? 380 : 1000;
+    const FS = estrecho ? 13 : 15;
+    const mono = `font-family="IBM Plex Mono, ui-monospace, Menlo, monospace"`;
+    // clientes y sus puertos (sockets) hasta el segmento visible
+    const hasta = pend !== null ? pend : k - 1;
+    const clientes = escEf.clientes.map(c => ({ ip: c.ip, puertos: [] }));
+    escEf.segmentos.forEach((s, i) => {
+      if (i > hasta) return;
+      const c = clientes.find(x => x.ip === s.ipO); if (!c) return;
+      if (!c.puertos.some(x => x.proto === s.proto && x.po === s.po)) c.puertos.push({ proto: s.proto, po: s.po, proc: s.proc || '' });
+    });
+    const actSeg = pend !== null ? sim.pasos[pend].seg : j !== null ? sim.pasos[j].seg : null;
+    // geometría
+    const G = {};
+    const lineaC = estrecho ? 19 : 23;
+    if (!estrecho) {
+      let y = 14;
+      G.cli = clientes.map(c => { const h = Math.max(92, 52 + lineaC * c.puertos.length); const r = { x: 12, y, w: 220, h }; y += h + 14; return r; });
+      G.srv = { x: 590, y: 14, w: 398 };
+      G.card = { w: 262, h: 154 };
+    } else {
+      const nc = clientes.length, w = (W - 24 - (nc - 1) * 8) / nc;
+      const hmax = Math.max(70, 46 + lineaC * Math.max(0, ...clientes.map(c => c.puertos.length)));
+      G.cli = clientes.map((c, i) => ({ x: 12 + i * (w + 8), y: 10, w, h: hmax }));
+      G.card = { w: 262, h: 154 };
+      G.cardY = 10 + hmax + 34;
+      G.srv = { x: 12, y: G.cardY + G.card.h + 34, w: W - 24 };
+    }
+    const filaH = estrecho ? 38 : 42, filaG = 10, cabSrv = estrecho ? 64 : 70;
+    G.filas = tabla.sockets.map((s, i) => ({ x: G.srv.x + 10, y: G.srv.y + cabSrv + i * (filaH + filaG), w: G.srv.w - 20, h: filaH }));
+    G.srv.h = cabSrv + tabla.sockets.length * (filaH + filaG) + 8;
+    const fondoCli = Math.max(...G.cli.map(r => r.y + r.h));
+    const H = Math.max(fondoCli, G.srv.y + G.srv.h) + 14;
+    // posición de la tarjeta del segmento
+    const iCli = actSeg ? Math.max(0, clientes.findIndex(c => c.ip === (estado.resp && j !== null && pend === null ? actSeg.ipO : actSeg.ipO))) : 0;
+    const rc = G.cli[iCli] || G.cli[0];
+    if (!estrecho) { G.card.x = 272 + 20; G.card.y = Math.max(10, Math.min(H - G.card.h - 10, rc.y + rc.h / 2 - G.card.h / 2)); }
+    else { G.card.x = (W - G.card.w) / 2; G.card.y = G.cardY; }
+
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(ariaEscena(tabla, actSeg))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" font-size="${FS}">`;
+    s += `<defs>${['trama', 'html', 'ack', 'aviso', 'muted'].map(c => `<marker id="m-${c}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--${c})"/></marker>`).join('')}</defs>`;
+    s += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
+    // clientes
+    clientes.forEach((c, i) => {
+      const r = G.cli[i];
+      const activo = actSeg && actSeg.ipO === c.ip;
+      s += `<g><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="6" fill="var(--panel)" stroke="${activo ? 'var(--fg)' : 'var(--line)'}" stroke-width="${activo ? 2 : 1}"/>`;
+      s += `<text x="${r.x + 12}" y="${r.y + 24}" font-weight="700" font-size="${FS + 2}" fill="var(--fg)" font-family="Archivo, Helvetica Neue, Arial, sans-serif">${L('Cliente', 'Client')} ${esc(c.ip)}</text>`;
+      s += `<text x="${r.x + 12}" y="${r.y + 43}" fill="var(--muted)" font-size="${FS - 1}">${L('Dir. IP', 'IP addr.')}: ${esc(c.ip)}</text>`;
+      if (!c.puertos.length) s += `<text x="${r.x + 12}" y="${r.y + 43 + lineaC}" fill="var(--muted)" font-size="${FS - 2}" font-style="italic">${L('sin sockets aún', 'no sockets yet')}</text>`;
+      c.puertos.forEach((p, t) => {
+        const yo = actSeg && actSeg.ipO === c.ip && actSeg.po === p.po && actSeg.proto === p.proto;
+        const txt = `${p.proc ? p.proc + ' · ' : ''}${PNOM(p.proto)} ${p.po}`;
+        s += `<text x="${r.x + 12}" y="${r.y + 43 + lineaC * (t + 1)}" ${mono} font-size="${FS - 1}" fill="${yo ? 'var(--fg)' : 'var(--muted)'}" ${yo ? 'font-weight="600"' : ''}>${yo ? '▸ ' : ''}${esc(txt)}</text>`;
+      });
+      s += `</g>`;
+    });
+    // servidor y tabla de sockets
+    const S = G.srv;
+    s += `<rect x="${S.x}" y="${S.y}" width="${S.w}" height="${S.h}" rx="6" fill="var(--panel)" stroke="var(--fg)" stroke-width="1.5"/>`;
+    s += `<text x="${S.x + 12}" y="${S.y + 24}" font-weight="700" font-size="${FS + 2}" fill="var(--fg)" font-family="Archivo, Helvetica Neue, Arial, sans-serif">${L('Servidor', 'Server')} C <tspan font-weight="400" font-size="${FS - 1}" fill="var(--muted)" font-family="IBM Plex Sans, system-ui, sans-serif">· ${L('Dir. IP', 'IP addr.')}: C</tspan></text>`;
+    const cuenta = M.contar(tabla);
+    const subt = escEf.servidor.escucha.some(e => e.proto === 'tcp') ? modeloTxt(escEf.servidor.modelo) : L('un proceso con un socket por puerto', 'one process with one socket per port');
+    s += `<text x="${S.x + 12}" y="${S.y + 44}" fill="var(--muted)" font-size="${FS - 2}">${esc(subt)}</text>`;
+    s += `<text x="${S.x + S.w - 12}" y="${S.y + 24}" text-anchor="end" font-size="${FS - 1}" fill="var(--fg)">${L('tabla de sockets', 'socket table')}: <tspan font-weight="700" ${mono}>${cuenta.total}</tspan></text>`;
+    s += `<text x="${S.x + S.w - 12}" y="${S.y + cabSrv - 8}" text-anchor="end" font-size="${FS - 3}" fill="var(--muted)">${L('proceso · datos', 'process · data')}</text>`;
+    const destId = pend === null && j !== null ? sim.pasos[j].destino : null;
+    const nuevoId = pend === null && j !== null && sim.pasos[j].resultado.tipo === 'nuevo' ? sim.pasos[j].destino : null;
+    const bienvId = nuevoId ? sim.pasos[j].resultado.bienvenida.id : null;
+    tabla.sockets.forEach((sk, i) => {
+      const f = G.filas[i];
+      const es = sk.id === destId;
+      const col = sk.proto === 'udp' ? 'var(--html)' : 'var(--trama)';
+      s += `<g><rect x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" rx="4" fill="${es ? 'var(--camino)' : 'var(--bg)'}" stroke="${es ? 'var(--sel)' : 'var(--line)'}" stroke-width="${es ? 2.5 : 1}" ${sk.tipo === 'bienvenida' ? 'stroke-dasharray="5 3"' : ''}/>`;
+      s += `<rect x="${f.x + 6}" y="${f.y + 7}" width="${estrecho ? 46 : 54}" height="${f.h - 14}" rx="3" fill="${col}"/>`;
+      s += `<text x="${f.x + 6 + (estrecho ? 23 : 27)}" y="${f.y + f.h / 2 + 5}" text-anchor="middle" fill="var(--panel)" font-weight="600" font-size="${FS - 2}" ${mono}>${PNOM(sk.proto)}</text>`;
+      const etq = sk.tipo === 'udp' ? `(${sk.ip}, ${sk.puerto})` : sk.tipo === 'bienvenida' ? `${L('bienvenida', 'welcome')} (${sk.ip}, ${sk.puerto})` : `(${sk.ipR}, ${sk.puertoR}, ${sk.ip}, ${sk.puerto})`;
+      s += `<text x="${f.x + (estrecho ? 60 : 70)}" y="${f.y + f.h / 2 + 5}" ${mono} font-size="${FS}" fill="var(--fg)" ${es ? 'font-weight="600"' : ''}>${esc(etq)}</text>`;
+      s += `<text x="${f.x + f.w - 10}" y="${f.y + f.h / 2 + 5}" text-anchor="end" font-size="${FS - 2}" fill="var(--muted)" ${mono}>${esc(procTxt(sk))}${sk.tipo !== 'bienvenida' ? ` · ×${sk.entregados}` : ''}</text>`;
+      if (sk.id === nuevoId) s += `<text x="${f.x + f.w - 10}" y="${f.y - 2}" text-anchor="end" font-size="${FS - 3}" font-weight="600" fill="var(--html)">${L('nuevo', 'new')}</text>`;
+      s += `</g>`;
+    });
+    // tarjeta del segmento (petición, respuesta o en espera)
+    if (actSeg) {
+      const vuelta = estado.resp && pend === null && j !== null && sim.pasos[j].resultado.tipo !== 'rechazado';
+      const seg = vuelta ? M.responder(actSeg) : actSeg;
+      const C = G.card;
+      const colP = vuelta ? 'var(--ack)' : pend === null && j !== null && sim.pasos[j].resultado.tipo === 'rechazado' ? 'var(--aviso)' : actSeg.proto === 'udp' ? 'var(--html)' : 'var(--trama)';
+      const descarte = pend === null && j !== null && sim.pasos[j].resultado.tipo === 'rechazado';
+      const titulo = vuelta ? L(`respuesta al segmento ${j + 1}`, `reply to segment ${j + 1}`) : pend !== null ? L(`segmento ${pend + 1} · ¿a qué socket va?`, `segment ${pend + 1} · which socket?`) : descarte ? L(`segmento ${j + 1} · ✕ se descarta`, `segment ${j + 1} · ✕ discarded`) : L(`segmento ${j + 1}`, `segment ${j + 1}`);
+      let c = `<g id="tarjeta"><rect x="${C.x}" y="${C.y}" width="${C.w}" height="${C.h}" rx="6" fill="var(--panel)" stroke="${colP}" stroke-width="2"/>`;
+      c += `<text x="${C.x + 10}" y="${C.y + 20}" font-weight="600" font-size="${FS - 1}" fill="${colP}">${esc(titulo)}</text>`;
+      const celda = (x, y, w, et, val, marca) => {
+        let t = `<rect x="${x}" y="${y}" width="${w}" height="38" rx="3" fill="var(--bg)" stroke="${marca === 2 ? 'var(--sel)' : 'var(--line)'}" stroke-width="${marca === 2 ? 2.5 : 1}" ${marca === 1 ? 'stroke-dasharray="4 3"' : ''}/>`;
+        t += `<text x="${x + 6}" y="${y + 13}" font-size="10.5" fill="var(--muted)" ${mono}>${et}${marca ? ' ⇄' : ''}</text>`;
+        t += `<text x="${x + 6}" y="${y + 32}" font-size="${FS + 1}" font-weight="600" fill="var(--fg)" ${mono}>${esc(val)}</text>`;
+        return t;
+      };
+      c += `<text x="${C.x + 10}" y="${C.y + 40}" font-size="11" fill="var(--muted)">${L('cabecera IP', 'IP header')}</text>`;
+      const cw = (C.w - 20 - 8) / 3;
+      c += celda(C.x + 10, C.y + 45, cw, L('Protocolo', 'Protocol'), `${M.PROTO[seg.proto]}`, 0);
+      c += celda(C.x + 14 + cw, C.y + 45, cw, 'IP_O', seg.ipO, vuelta ? 1 : 0);
+      c += celda(C.x + 18 + 2 * cw, C.y + 45, cw, 'IP_D', seg.ipD, vuelta ? 1 : 0);
+      c += `<text x="${C.x + 10}" y="${C.y + 100}" font-size="11" fill="var(--muted)">${L('cabecera ' + PNOM(seg.proto), PNOM(seg.proto) + ' header')}</text>`;
+      const pw = (C.w - 20 - 4) / 2;
+      c += celda(C.x + 10, C.y + 105, pw, 'PO', seg.po, vuelta ? 2 : 0);
+      c += celda(C.x + 14 + pw, C.y + 105, pw, 'PD', seg.pd, vuelta ? 2 : 0);
+      c += `</g>`;
+      // flechas
+      let fl = '';
+      const fil = id => G.filas[tabla.sockets.findIndex(x => x.id === id)];
+      const lin = (x1, y1, x2, y2, col, disc, ancho = 2.2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--${col})" stroke-width="${ancho}" ${disc ? 'stroke-dasharray="6 4"' : ''} marker-end="url(#m-${col})"/>`;
+      const haciaFila = (f, col, disc) => {
+        if (!estrecho) return lin(C.x + C.w, C.y + C.h / 2, f.x - 2, f.y + f.h / 2, col, disc);
+        const xm = disc ? 5 : 8;
+        return `<path d="M${C.x + 30},${C.y + C.h} V${S.y - 12} H${xm} V${f.y + f.h / 2} H${f.x - 2}" fill="none" stroke="var(--${col})" stroke-width="2.2" ${disc ? 'stroke-dasharray="6 4"' : ''} marker-end="url(#m-${col})"/>`;
+      };
+      const pc = proto => proto === 'udp' ? 'html' : 'trama';
+      // cliente ↔ tarjeta
+      const deCli = estrecho ? [rc.x + rc.w / 2, rc.y + rc.h, C.x + C.w / 2, C.y - 2] : [rc.x + rc.w, rc.y + rc.h / 2, C.x - 2, C.y + C.h / 2];
+      if (vuelta) {
+        const f = fil(sim.pasos[j].destino);
+        if (!estrecho) fl += lin(f.x, f.y + f.h / 2, C.x + C.w + 2, C.y + C.h / 2, 'ack', false);
+        else fl += `<path d="M${f.x},${f.y + f.h / 2} H8 V${S.y - 12} H${C.x + 30} V${C.y + C.h + 2}" fill="none" stroke="var(--ack)" stroke-width="2.2" marker-end="url(#m-ack)"/>`;
+        fl += estrecho ? lin(C.x + C.w / 2, C.y, rc.x + rc.w / 2, rc.y + rc.h + 2, 'ack', false) : lin(C.x, C.y + C.h / 2, rc.x + rc.w + 2, rc.y + rc.h / 2, 'ack', false);
+      } else {
+        fl += lin(deCli[0], deCli[1], deCli[2], deCli[3], pc(actSeg.proto), false);
+        if (pend === null) {
+          const p = sim.pasos[j];
+          if (p.resultado.tipo === 'rechazado') {
+            const x1 = estrecho ? C.x + C.w / 2 : C.x + C.w, y1 = estrecho ? C.y + C.h : C.y + C.h / 2;
+            const x2 = estrecho ? x1 : x1 + 18, y2 = estrecho ? y1 + 14 : y1;
+            fl += `<g><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--aviso)" stroke-width="2.2"/><text x="${x2 + (estrecho ? 0 : 9)}" y="${y2 + (estrecho ? 16 : 7)}" text-anchor="middle" font-size="${FS + 4}" font-weight="700" fill="var(--aviso)">✕</text></g>`;
+          } else {
+            if (bienvId) fl += haciaFila(fil(bienvId), 'muted', true);
+            fl += haciaFila(fil(p.destino), pc(actSeg.proto), false);
+          }
+        }
+      }
+      s += `<g id="flechas">${fl}</g>` + c;
+    } else {
+      const tx = estrecho ? W / 2 : 272 + 20 + 131;
+      const ty = estrecho ? G.cardY + 77 : Math.min(H / 2, 120);
+      s += `<text x="${tx}" y="${ty}" text-anchor="middle" fill="var(--muted)" font-size="${FS}">${L('Pulsa ▶ para enviar', 'Press ▶ to send')}</text><text x="${tx}" y="${ty + 22}" text-anchor="middle" fill="var(--muted)" font-size="${FS}">${L('el primer segmento', 'the first segment')}</text>`;
+    }
+    s += `</svg>`;
+    return { svg: s, G, rc };
+  }
+  function ariaEscena(tabla, seg) {
+    const socks = tabla.sockets.map(sockTxt).join('; ');
+    return L(`Escena: clientes ${escEf.clientes.map(c => c.ip).join(', ')} y servidor C con ${tabla.sockets.length} sockets: ${socks}.${seg ? ` Segmento actual: ${PNOM(seg.proto)} de (${seg.ipO}, ${seg.po}) a (${seg.ipD}, ${seg.pd}).` : ''}`, `Scene: clients ${escEf.clientes.map(c => c.ip).join(', ')} and server C with ${tabla.sockets.length} sockets: ${socks}.${seg ? ` Current segment: ${PNOM(seg.proto)} from (${seg.ipO}, ${seg.po}) to (${seg.ipD}, ${seg.pd}).` : ''}`);
+  }
+
+  // ------------------------------------------------------------ tres niveles
+  function niveles() {
+    const n = sim.pasos.length, k = estado.k;
+    const pend = estado.pred && k < n ? k : null;
+    const i = pend !== null ? pend : k - 1;
+    if (i < 0) return `<p class="nota">${L('Envía un segmento para ver los tres niveles.', 'Send a segment to see the three levels.')}</p>`;
+    const p = sim.pasos[i], s = p.seg;
+    const oculto = pend !== null;
+    const dest = p.destino ? p.despues.sockets.find(x => x.id === p.destino) : null;
+    const res3 = oculto ? '?' : p.resultado.tipo === 'rechazado' ? L('ninguno: se descarta', 'none: discarded') : (p.resultado.tipo === 'nuevo' ? L('nuevo: ', 'new: ') : '') + sockTxt(dest);
+    const clave = s.proto === 'udp' ? `PD = ${s.pd}` : `(IP_O, PO, IP_D, PD) = ${tupla(s)}`;
+    return `<div class="nivel"><span class="cap">${L('Red · cabecera IP', 'Network · IP header')}</span><span>IP_D = <span class="val">${s.ipD}</span></span><span class="nota">${L('es la dirección de este host', 'is this host’s address')}</span></div><span class="flecha" aria-hidden="true">→</span>` +
+      `<div class="nivel"><span class="cap">${L('Protocolo · cabecera IP', 'Protocol · IP header')}</span><span>${L('Protocolo', 'Protocol')} = <span class="val">${M.PROTO[s.proto]}</span></span><span class="nota">→ ${PNOM(s.proto)}${L(' (6 = TCP, 17 = UDP)', ' (6 = TCP, 17 = UDP)')}</span></div><span class="flecha" aria-hidden="true">→</span>` +
+      `<div class="nivel activo"><span class="cap">${L('Puerto · cabecera ' + PNOM(s.proto), 'Port · ' + PNOM(s.proto) + ' header')}</span><span class="val" style="font-weight:500">${esc(clave)}</span><span>${L('socket', 'socket')}: <span class="val">${esc(res3)}</span></span></div>`;
+  }
+
+  // ------------------------------------------------------------ tabla de segmentos
+  function tablaSeg() {
+    const n = sim.pasos.length, k = estado.k;
+    let h = `<table><thead><tr><th>#</th><th>${L('Protocolo', 'Protocol')}</th><th>IP_O</th><th>PO</th><th>IP_D</th><th>PD</th><th>${L('Socket en C', 'Socket in C')}</th><th>${L('Qué pasa', 'What happens')}</th></tr></thead><tbody>`;
+    sim.pasos.forEach((p, i) => {
+      const s = p.seg, hecho = i < k;
+      const dest = p.destino ? p.despues.sockets.find(x => x.id === p.destino) : null;
+      const r = p.resultado.tipo;
+      const sk = !hecho ? (estado.pred ? '?' : '') : dest ? sockTxt(dest) : '—';
+      const qp = !hecho ? (estado.pred && i === k ? L('¿?', '?') : '') : r === 'nuevo' ? L('crea un socket de conexión', 'creates a connection socket') : r === 'socket' ? L('al socket que ya existía', 'to the existing socket') : L('se descarta', 'discarded');
+      const pr = resps[i] ? (resps[i].bien ? ' ✓' : ' ✗') : '';
+      h += `<tr class="${i === k - 1 ? 'actual' : ''}${!hecho ? ' pend' : ''}"><td class="n">${i + 1}${pr}</td><td class="n">${PNOM(s.proto)} (${M.PROTO[s.proto]})</td><td class="n">${s.ipO}</td><td class="n">${s.po}</td><td class="n">${s.ipD}</td><td class="n">${s.pd}</td><td class="n">${esc(sk)}</td><td class="${hecho ? 'r-' + r : ''}">${esc(qp)}</td></tr>`;
+    });
+    return h + `</tbody></table>`;
+  }
+
+  // ------------------------------------------------------------ predicción
+  function pintarPred() {
+    const n = sim.pasos.length, k = estado.k;
+    const cuerpo = $('#pred-cuerpo');
+    if (k < n) {
+      const p = sim.pasos[k], s = p.seg;
+      const ops = p.antes.sockets.map(x => [x.id, `${L('al socket', 'to socket')} ${sockTxt(x)}`]);
+      ops.push(['nuevo', L('se crea un socket nuevo (de conexión)', 'a new (connection) socket is created')]);
+      ops.push(['rechazado', L('a ninguno: se descarta', 'to none: it is discarded')]);
+      const previa = cuerpo.querySelector('#pr-sel')?.dataset.k === String(k) ? cuerpo.querySelector('#pr-sel').value : '';
+      cuerpo.innerHTML = `<p class="nota">${L(`Segmento ${k + 1}: ${PNOM(s.proto)} de (${s.ipO}, ${s.po}) a (${s.ipD}, ${s.pd}). ¿A qué socket de C van sus datos?`, `Segment ${k + 1}: ${PNOM(s.proto)} from (${s.ipO}, ${s.po}) to (${s.ipD}, ${s.pd}). Which socket of C do its data go to?`)}</p>` +
+        `<div class="fila"><select class="ancho" id="pr-sel" data-k="${k}" aria-label="${esc(L('Socket de destino', 'Destination socket'))}"><option value="">${L('— elige —', '— choose —')}</option>${ops.map(([v, t]) => `<option value="${v}"${previa === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` +
+        `<div class="fila"><button type="button" class="btn prim" id="b-comprobar">${L('Comprobar', 'Check')}</button><span class="nota">${aciertos()}</span></div>`;
+    } else {
+      const otro = escEf.proto === 'udp' || escEf.segmentos.every(s => s.proto === 'udp') ? 'tcp' : 'udp';
+      const mixto = M.esMixto(escEf);
+      cuerpo.innerHTML = `<p class="nota">${L('Final del escenario.', 'End of the scenario.')} ${aciertos()}</p>` +
+        `<div class="fila"><label class="et" for="pr-n">${L('¿Cuántos sockets tiene ahora el servidor C?', 'How many sockets does server C have now?')}</label><input type="number" id="pr-n" min="0" step="1" inputmode="numeric"></div>` +
+        (mixto ? '' : `<div class="fila"><label class="et" for="pr-m">${L(`¿Y cuántos tendría si los mismos segmentos fueran ${PNOM(otro)}?`, `And how many would it have if the same segments were ${PNOM(otro)}?`)}</label><input type="number" id="pr-m" min="0" step="1" inputmode="numeric" data-otro="${otro}"></div>`) +
+        `<div class="fila"><button type="button" class="btn prim" id="b-final">${L('Comprobar', 'Check')}</button><button type="button" class="btn" id="b-otro">${L('Nuevo ejercicio', 'New exercise')}</button></div>`;
+      if (finalResp) { $('#pr-n').value = finalResp.n; if ($('#pr-m')) $('#pr-m').value = finalResp.m; }
+    }
+  }
+  function aciertos() {
+    const v = Object.values(resps);
+    return v.length ? L(`Aciertos: ${v.filter(x => x.bien).length} de ${v.length}.`, `Correct: ${v.filter(x => x.bien).length} out of ${v.length}.`) : '';
+  }
+  $('#pred-cuerpo').addEventListener('click', e => {
+    if (e.target.id === 'b-comprobar') {
+      const v = $('#pr-sel').value, fb = $('#fb');
+      if (!v) { fb.className = 'fb ko'; fb.textContent = L('Elige una opción.', 'Choose an option.'); return; }
+      const p = sim.pasos[estado.k], bien = v === respuestaCorrecta(p);
+      resps[estado.k] = { valor: v, bien };
+      const dest = p.destino ? p.despues.sockets.find(x => x.id === p.destino) : null;
+      const sol = p.resultado.tipo === 'nuevo' ? L('se crea un socket de conexión nuevo', 'a new connection socket is created') : p.resultado.tipo === 'rechazado' ? L('se descarta', 'it is discarded') : L(`va al socket ${sockTxt(dest)}`, `it goes to socket ${sockTxt(dest)}`);
+      const pista = p.seg.proto === 'udp' ? L('En UDP solo cuenta el destino (IP_D, PD).', 'In UDP only the destination (IP_D, PD) counts.') : L('En TCP cuentan los cuatro valores (IP_O, PO, IP_D, PD).', 'In TCP the four values (IP_O, PO, IP_D, PD) count.');
+      fb.className = 'fb ' + (bien ? 'ok' : 'ko');
+      fb.textContent = bien ? L(`Correcto: ${sol}.`, `Correct: ${sol}.`) : L(`No: ${sol}. ${pista}`, `No: ${sol}. ${pista}`);
+      irA(estado.k + 1, 'ida');
+    } else if (e.target.id === 'b-final') {
+      const fb = $('#fb');
+      const nv = $('#pr-n').value, mv = $('#pr-m') ? $('#pr-m').value : null;
+      finalResp = { n: nv, m: mv };
+      if (nv === '' || (mv !== null && mv === '')) { fb.className = 'fb ko'; fb.textContent = L('Responde a las preguntas.', 'Answer the questions.'); return; }
+      const c = sim.cuenta;
+      const det = c.udp && !c.bienvenida ? L(`${c.total}: un socket UDP por puerto en escucha`, `${c.total}: one UDP socket per listening port`) : L(`${c.total}: ${c.udp ? c.udp + ' UDP + ' : ''}${c.bienvenida} de bienvenida + ${c.conexion} de conexión`, `${c.total}: ${c.udp ? c.udp + ' UDP + ' : ''}${c.bienvenida} welcome + ${c.conexion} connection`);
+      let bien = Number(nv) === c.total, txt = (bien ? L('Sockets: correcto, ', 'Sockets: correct, ') : L('Sockets: no, son ', 'Sockets: no, there are ')) + det + '.';
+      if (mv !== null) {
+        const otro = $('#pr-m').dataset.otro, c2 = M.simular(M.conProto(escEf, otro)).cuenta;
+        const b2 = Number(mv) === c2.total; bien = bien && b2;
+        const det2 = otro === 'udp' ? L(`${c2.total}: en UDP, un socket por puerto, vengan de donde vengan`, `${c2.total}: in UDP, one socket per port, wherever they come from`) : L(`${c2.total}: en TCP, ${c2.bienvenida} de bienvenida + una por 4-tupla distinta (${c2.conexion})`, `${c2.total}: in TCP, ${c2.bienvenida} welcome + one per distinct 4-tuple (${c2.conexion})`);
+        txt += ' ' + (b2 ? L(`Con ${PNOM(otro)}: correcto, `, `With ${PNOM(otro)}: correct, `) : L(`Con ${PNOM(otro)}: no, serían `, `With ${PNOM(otro)}: no, there would be `)) + det2 + '.';
+      }
+      fb.className = 'fb ' + (bien ? 'ok' : 'ko'); fb.textContent = txt;
+    } else if (e.target.id === 'b-otro') nuevoEjercicio();
+  });
+
+  // ------------------------------------------------------------ pintar
+  let ultimaEscena = null;
+  function pintar() {
+    guardarLocal();
+    const mixto = M.esMixto(estado.esc);
+    escEf = estado.proto && !mixto ? M.conProto(estado.esc, estado.proto) : estado.esc;
+    sim = M.simular(escEf);
+    const n = sim.pasos.length;
+    estado.k = Math.min(estado.k, n);
+    const k = estado.k;
+    const j = k > 0 ? k - 1 : null;
+    const pend = estado.pred && k < n;
+    if (estado.resp && (j === null || pend || sim.pasos[j].resultado.tipo === 'rechazado')) estado.resp = false;
+    const protoAct = mixto ? null : escEf.segmentos[0]?.proto || escEf.servidor.escucha[0].proto;
+
+    document.querySelectorAll('#presets [data-preset]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.preset === estado.preset)));
+    $('#esc-nota').textContent = estado.preset === 'practica' ? L(`Ejercicio aleatorio (semilla ${estado.esc.semilla}).`, `Random exercise (seed ${estado.esc.semilla}).`) : T(M.ESCENARIOS[estado.preset]?.nota);
+    document.querySelectorAll('#proto button').forEach(b => { b.disabled = mixto; b.setAttribute('aria-pressed', String(!mixto && b.dataset.v === protoAct)); });
+    $('#proto-nota').innerHTML = mixto ? L('Escenario mixto: cada segmento lleva su protocolo (6 o 17) y el servidor escucha en los dos.', 'Mixed scenario: each segment carries its protocol (6 or 17) and the server listens on both.')
+      : protoAct === 'udp' ? L('UDP: el socket es (IP_D, PD). Todos los segmentos al mismo puerto de C entran por un único socket.', 'UDP: the socket is (IP_D, PD). Every segment to the same port of C goes into a single socket.')
+      : L('TCP: un socket de bienvenida y un socket de conexión por cada 4-tupla (IP_O, PO, IP_D, PD) distinta. El establecimiento de la conexión se verá en GG32.', 'TCP: a welcome socket and one connection socket per distinct 4-tuple (IP_O, PO, IP_D, PD). How the connection is established is seen in GG32.');
+    document.querySelectorAll('#rango button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === estado.rango)));
+    document.querySelectorAll('#tema button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === estado.vista.tema)));
+    $('#c-pred').checked = estado.pred; $('#c-niveles').checked = estado.niveles;
+
+    const tabla = pend ? sim.pasos[k].antes : j !== null ? sim.pasos[j].despues : sim.inicial;
+    const c = M.contar(tabla);
+    const desg = c.bienvenida || c.conexion ? `${c.udp ? c.udp + ' UDP + ' : ''}${c.bienvenida} ${L('bienv.', 'welc.')} + ${c.conexion} ${L('con.', 'conn.')}` : `${c.udp} UDP`;
+    $('#resumen').innerHTML = [
+      [L('Escenario', 'Scenario'), estado.preset === 'practica' ? L('ejercicio', 'exercise') : 's.' + M.ESCENARIOS[estado.preset].slide],
+      [L('Protocolo', 'Protocol'), mixto ? 'TCP + UDP' : PNOM(protoAct)],
+      [L('Segmento', 'Segment'), `${k} / ${n}`],
+      [L('Sockets en C', 'Sockets in C'), `${c.total} (${desg})`],
+      [L('Procesos en C', 'Processes in C'), String(c.procesos)]
+    ].map(([a, b], i) => `<div class="dato${i >= 3 ? ' fuerte' : ''}"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join('');
+
+    $('#r-etq').textContent = k === 0 ? L(`${n} segmentos por enviar`, `${n} segments to send`) : L(`segmento ${k} de ${n}`, `segment ${k} of ${n}`);
+    $('#b-responder').disabled = j === null || pend || sim.pasos[j].resultado.tipo === 'rechazado';
+    $('#b-responder').setAttribute('aria-pressed', String(estado.resp));
+    $('#r-play').disabled = estado.pred; $('#r-sig').disabled = (pend) || k >= n; $('#r-fin').disabled = estado.pred || k >= n;
+    $('#r-ant').disabled = k === 0; $('#r-ini').disabled = k === 0;
+
+    let nar;
+    if (estado.resp && j !== null) nar = narrarRespuesta(j);
+    else if (pend) nar = (j !== null ? narrar(j) + ' ' : '') + L(`<br>Ahora el segmento ${k + 1}: elige su socket abajo y pulsa «Comprobar».`, `<br>Now segment ${k + 1}: choose its socket below and press “Check”.`);
+    else if (j !== null) nar = narrar(j) + (k === n ? L(` <br>Fin del escenario: C tiene ${sim.cuenta.total} sockets.`, ` <br>End of the scenario: C has ${sim.cuenta.total} sockets.`) : '');
+    else nar = `<b>${esc(estado.preset === 'practica' ? L('Ejercicio', 'Exercise') : T(M.ESCENARIOS[estado.preset].titulo))}.</b> ${esc(estado.preset === 'practica' ? '' : T(M.ESCENARIOS[estado.preset].nota))} ${L('Pulsa ▶ o → para enviar el primer segmento.', 'Press ▶ or → to send the first segment.')}`;
+    $('#narra').innerHTML = nar;
+
+    const ancho = $('#lienzo').clientWidth || 1000;
+    const E = escena(ancho < 640);
+    $('#lienzo').innerHTML = E.svg;
+    ultimaEscena = E;
+    $('#leyenda').innerHTML = `<span><i style="border-color:var(--trama)"></i>TCP (6)</span><span><i style="border-color:var(--html)"></i>UDP (17)</span><span><i class="disc" style="border-color:var(--muted)"></i>${L('vía el socket de bienvenida (borde discontinuo)', 'via the welcome socket (dashed border)')}</span><span><i style="border-color:var(--ack)"></i>${L('respuesta (⇄ campos intercambiados)', 'reply (⇄ swapped fields)')}</span><span><i style="border-color:var(--sel)"></i>${L('socket que recibe (borde grueso)', 'receiving socket (thick border)')}</span>`;
+    $('#t-niveles').hidden = !estado.niveles;
+    if (estado.niveles) $('#niveles').innerHTML = niveles();
+    $('#tabla').innerHTML = tablaSeg();
+    $('#t-pred').hidden = !estado.pred;
+    if (estado.pred) pintarPred(); else $('#fb').textContent = '';
+    if (animar && !reduceMov) animarEscena(animar, E, ancho < 640);
+    animar = null;
+  }
+  function animarEscena(tipo, E, estrecho) {
+    const t = document.querySelector('#tarjeta'), f = document.querySelector('#flechas');
+    if (!t) return;
+    const C = E.G.card, rc = E.rc;
+    let dx, dy;
+    if (tipo === 'ida') { dx = estrecho ? 0 : rc.x + rc.w - C.x - 40; dy = estrecho ? rc.y - C.y : 0; }
+    else { dx = estrecho ? 0 : 200; dy = estrecho ? 120 : 0; }
+    try {
+      t.animate([{ transform: `translate(${dx}px, ${dy}px)`, opacity: 0.2 }, { transform: 'translate(0px, 0px)', opacity: 1 }], { duration: 650, easing: 'ease-out' });
+      if (f) f.animate([{ opacity: 0 }, { opacity: 0, offset: 0.55 }, { opacity: 1 }], { duration: 1000, easing: 'ease-out' });
+    } catch { /* sin animaciones web */ }
+  }
+  let tRes = null;
+  addEventListener('resize', () => { clearTimeout(tRes); tRes = setTimeout(pintar, 120); });
+
+  // ------------------------------------------------------------ navegación
+  function irA(k, anim) { estado.k = Math.max(0, Math.min(k, sim ? sim.pasos.length : k)); estado.resp = false; animar = anim || null; pintar(); }
+  function parar() { if (reproduciendo) { clearInterval(reproduciendo); reproduciendo = null; $('#r-play').textContent = '▶'; } }
+  function siguiente() {
+    if (estado.pred) { const s = $('#pr-sel'); if (s) s.focus(); return; }
+    if (estado.k >= sim.pasos.length) { parar(); return; }
+    irA(estado.k + 1, 'ida');
+    if (estado.k >= sim.pasos.length) parar();
+  }
+  $('#r-ini').addEventListener('click', () => { parar(); irA(0); });
+  $('#r-fin').addEventListener('click', () => { parar(); irA(sim.pasos.length); });
+  $('#r-sig').addEventListener('click', () => { parar(); siguiente(); });
+  $('#r-ant').addEventListener('click', () => { parar(); if (estado.resp) { estado.resp = false; pintar(); } else irA(estado.k - 1); });
+  $('#r-play').addEventListener('click', () => {
+    if (reproduciendo) { parar(); return; }
+    if (estado.pred) return;
+    if (estado.k >= sim.pasos.length) irA(0);
+    if (reduceMov) { siguiente(); return; }
+    $('#r-play').textContent = '⏸';
+    siguiente(); reproduciendo = setInterval(siguiente, 2400);
+  });
+  $('#b-responder').addEventListener('click', () => { parar(); estado.resp = !estado.resp; animar = estado.resp ? 'vuelta' : null; pintar(); });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea') || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === ' ' && !e.target.matches('button')) { e.preventDefault(); $('#r-play').click(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); parar(); siguiente(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#r-ant').click(); }
+    else if (e.key === 'Home') { parar(); irA(0); }
+    else if (e.key === 'End' && !estado.pred) { parar(); irA(sim.pasos.length); }
+  });
+
+  // ------------------------------------------------------------ panel
+  const reiniciarPred = () => { resps = {}; finalResp = null; $('#fb').textContent = ''; $('#fb').className = 'fb'; };
+  $('#presets').addEventListener('click', e => {
+    const b = e.target.closest('[data-preset]'); if (!b) return;
+    parar(); estado.esc = copia(M.ESCENARIOS[b.dataset.preset]); estado.preset = b.dataset.preset; estado.proto = null; reiniciarPred(); irA(0);
+  });
+  $('#proto').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    parar(); estado.proto = b.dataset.v; reiniciarPred(); irA(0);
+    toast(L(`Los mismos segmentos, ahora con ${PNOM(b.dataset.v)}`, `The same segments, now with ${PNOM(b.dataset.v)}`));
+  });
+  $('#rango').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; estado.rango = b.dataset.v; pintar(); });
+  $('#tema').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; estado.vista.tema = b.dataset.v; aplicarTema(); pintar(); });
+  function aplicarTema() { const t = estado.vista.tema; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+  $('#b-cliente').addEventListener('click', () => {
+    parar();
+    const base = estado.proto && !M.esMixto(estado.esc) ? M.conProto(estado.esc, estado.proto) : estado.esc;
+    const r = M.rng(Date.now() ^ (base.segmentos.length * 7919));
+    const e = M.nuevoCliente(base, r, estado.rango);
+    // el puerto del SO no debe coincidir con otro ya usado por ese host
+    estado.esc = e;
+    const u = e.segmentos.at(-1);
+    toast(L(`El SO de ${u.ipO} elige el puerto efímero ${u.po}`, `${u.ipO}’s OS chooses ephemeral port ${u.po}`));
+    irA(e.segmentos.length - 1);
+    if (!estado.pred) irA(e.segmentos.length, 'ida');
+  });
+  $('#c-pred').addEventListener('change', e => { parar(); estado.pred = e.target.checked; reiniciarPred(); if (estado.pred && estado.k >= sim.pasos.length) irA(0); else pintar(); });
+  $('#c-niveles').addEventListener('change', e => { estado.niveles = e.target.checked; pintar(); });
+  function nuevoEjercicio() {
+    parar();
+    const semilla = (Date.now() % 1000000) + 1;
+    estado.esc = M.generar(semilla, { rango: estado.rango }); estado.preset = 'practica'; estado.proto = null; estado.pred = true; reiniciarPred(); irA(0);
+    toast(L('Nuevo ejercicio: predice cada segmento', 'New exercise: predict each segment'));
+  }
+  $('#b-ejercicio').addEventListener('click', nuevoEjercicio);
+  $('#b-reset').addEventListener('click', () => { parar(); const i = estado.vista.idioma; estado = base(); estado.vista.idioma = i; reiniciarPred(); aplicarTema(); irA(0); });
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('vis'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('vis'), 1800); }
+
+  // ------------------------------------------------------------ idioma
+  const ORIG = new WeakMap();
+  function aplicarIdioma() {
+    const en = estado.vista.idioma === 'en';
+    document.documentElement.lang = en ? 'en' : 'es';
+    document.title = en ? 'Which socket? UDP and TCP demultiplexing' : '¿A qué socket va? Demultiplexación UDP y TCP';
+    if ($('#idioma')) $('#idioma').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === estado.vista.idioma)));
+    const guarda = (el, k, v) => { if (!ORIG.has(el)) ORIG.set(el, {}); const o = ORIG.get(el); if (!(k in o)) o[k] = v; return o[k]; };
+    document.querySelectorAll('[data-en]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); if (en) el.textContent = el.dataset.en; else el.innerHTML = es; });
+    document.querySelectorAll('[data-en-html]').forEach(el => { const es = guarda(el, 'h', el.innerHTML); el.innerHTML = en ? el.dataset.enHtml : es; });
+    document.querySelectorAll('[data-en-aria]').forEach(el => { const es = guarda(el, 'a', el.getAttribute('aria-label')); el.setAttribute('aria-label', en ? el.dataset.enAria : es); });
+  }
+  
+
+  aplicarTema();
+  aplicarIdioma();
+  pintar();
+})();
+</script>
+
+</body>
+</html>
