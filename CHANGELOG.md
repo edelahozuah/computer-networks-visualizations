@@ -26,6 +26,11 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 - The UDP datagram and its pseudo-header (`udp-datagram`, session 3.1): header fields, Length and
   maximum sizes (65 527 B, 65 507 B over IPv4), the 12-byte pseudo-header built from the IPv4 header,
   and the IP → protocol → port cascade, with exercises. Source in `src/udp-datagram`.
+- Reliable data transfer: stop-and-wait, GBN and SR (`reliable-data-transfer`, session 3.2):
+  space-time diagram over a channel that loses, corrupts or delays packets (click on any packet or ACK),
+  sender and receiver windows with sequence numbers modulo 2^k, timers, the book's scenarios (Fig. 3.16,
+  3.22, 3.26, 3.27), windows that are too large, a sender utilization calculator, prediction mode and
+  exercises. Source in `src/reliable-data-transfer` (engine tested by `test_motor.js`).
 
 ### Removed
 - Speaker notes and presenter window of the DNS step by step source
