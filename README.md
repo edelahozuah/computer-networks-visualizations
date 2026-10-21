@@ -43,6 +43,7 @@ are in use on [edelahozuah.github.io](https://edelahozuah.github.io/docencia/ar1
 | 3 · Multiplexing and demultiplexing | **Which socket? UDP and TCP demultiplexing**<br>¿A qué socket va? Demultiplexación UDP y TCP | Session 3.1 | [EN](03-transport-layer/transport-demultiplexing.en.html) · [ES](03-transport-layer/transport-demultiplexing.es.html) · [source](src/transport-demultiplexing/) |
 | 3 · UDP | **UDP checksum step by step**<br>Checksum UDP paso a paso | Session 3.1 | [EN](03-transport-layer/udp-checksum.en.html) · [ES](03-transport-layer/udp-checksum.es.html) · [source](src/udp-checksum/) |
 | 3 · UDP | **The UDP datagram and its pseudo-header**<br>El datagrama UDP y su pseudocabecera | Session 3.1 | [EN](03-transport-layer/udp-datagram.en.html) · [ES](03-transport-layer/udp-datagram.es.html) · [source](src/udp-datagram/) |
+| 3 | **Reliable data transfer: stop-and-wait, GBN and SR**<br>Transferencia fiable: parada y espera, GBN y SR | Session 3.2 | [EN](03-transport-layer/reliable-data-transfer.en.html) · [ES](03-transport-layer/reliable-data-transfer.es.html) · [source](src/reliable-data-transfer/) |
 <!-- catalog:end -->
 
 Each visualization has a thumbnail in `thumbnails/` and an entry in
@@ -94,6 +95,7 @@ are larger and are developed from modular sources in `src/`, each with a
 | `src/transport-demultiplexing/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/transport-demultiplexing.{es,en}.html` |
 | `src/udp-checksum/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/udp-checksum.{es,en}.html` |
 | `src/udp-datagram/` | bilingual, reuses the `udp-checksum` engine, tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/udp-datagram.{es,en}.html` |
+| `src/reliable-data-transfer/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/reliable-data-transfer.{es,en}.html` |
 
 The published files of the first two are derived from those builds with the
 language fixed and the language switch removed; those of DNS step by step are

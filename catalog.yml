@@ -1418,3 +1418,96 @@ visualizations:
   thumbnail: thumbnails/udp-datagram.jpg
   source: src/udp-datagram
   added: '2026-10-17'
+- id: reliable-data-transfer
+  topic: 3
+  session: '3.2'
+  title:
+    es: 'Transferencia fiable: parada y espera, GBN y SR'
+    en: 'Reliable data transfer: stop-and-wait, GBN and SR'
+  description:
+    es: >-
+      Diagrama espacio-tiempo de rdt3.0, Retroceder N y Repetición selectiva sobre un canal que pierde,
+      corrompe o retrasa paquetes: haz clic en cualquier paquete o ACK para provocar la incidencia y mira
+      las ventanas, los temporizadores y las retransmisiones. Modo predicción y ejercicios.
+    en: >-
+      Space-time diagram of rdt3.0, Go-Back-N and Selective Repeat over a channel that loses, corrupts or
+      delays packets: click on any packet or ACK to cause the incident and watch the windows, the timers and
+      the retransmissions. Prediction mode and exercises.
+  summary:
+    es: >-
+      Visualización de los principios de la transferencia de datos fiable (Kurose y Ross §3.4). Un emisor
+      envía paquetes a un receptor por un canal no fiable y el receptor tiene que entregar los datos una vez y
+      en orden. Se dibuja el diagrama espacio-tiempo con el tiempo en unidades de L/R: cada paquete es una banda
+      que dura L/R y cada ACK una flecha discontinua; a la izquierda, los temporizadores del emisor. Tres
+      protocolos: parada y espera (rdt3.0, bit alternante), Retroceder N (GBN: un temporizador, ACK
+      acumulativos, el receptor descarta lo que llega fuera de orden) y Repetición selectiva (SR: un
+      temporizador por paquete, ACK individuales y búfer en el receptor). Al hacer clic en un paquete o un ACK
+      se pierde, llega con errores de bits o se retrasa, y todo se vuelve a simular. Encima, las ventanas del
+      emisor y del receptor en cada instante, con base, nextseqnum y los números de secuencia módulo 2^k.
+      Escenarios del libro: las cuatro situaciones de rdt3.0 (Fig. 3.16), el procesamiento en cadena, la
+      pérdida de pkt2 en GBN (Fig. 3.22) y en SR (Fig. 3.26), un ACK perdido que salva el ACK acumulativo y las
+      ventanas demasiado grandes: N > 2^k − 1 en GBN y N > 2^k/2 en SR (Fig. 3.27), en las que el receptor
+      entrega un duplicado como dato nuevo. Se avisa también cuando un retraso desordena el canal. Incluye una
+      calculadora de la utilización del emisor, U = N·(L/R)/(RTT + L/R), con el ejemplo del libro (1000 B,
+      1 Gbit/s, 30 ms: U = 0,00027), el modo predicción (qué hace el receptor con cada paquete y qué retransmite
+      el emisor en cada timeout) y ejercicios aleatorios.
+    en: >-
+      A visualization of the principles of reliable data transfer (Kurose and Ross §3.4). A sender sends
+      packets to a receiver over an unreliable channel and the receiver must deliver the data once and in
+      order. The space-time diagram is drawn with time in units of L/R: each packet is a band lasting L/R and
+      each ACK a dashed arrow; on the left, the sender's timers. Three protocols: stop-and-wait (rdt3.0,
+      alternating bit), Go-Back-N (GBN: one timer, cumulative ACKs, the receiver discards out-of-order
+      packets) and Selective Repeat (SR: one timer per packet, individual ACKs and a receiver buffer).
+      Clicking on a packet or an ACK makes it lost, corrupted by bit errors or delayed, and everything is
+      simulated again. Above, the sender and receiver windows at each moment, with base, nextseqnum and the
+      sequence numbers modulo 2^k. Scenarios from the book: the four situations of rdt3.0 (Fig. 3.16),
+      pipelining, the loss of pkt2 in GBN (Fig. 3.22) and in SR (Fig. 3.26), a lost ACK saved by the
+      cumulative ACK, and windows that are too large: N > 2^k − 1 in GBN and N > 2^k/2 in SR (Fig. 3.27), where
+      the receiver delivers a duplicate as new data. It also warns when a delay reorders the channel. It
+      includes a calculator of sender utilization, U = N·(L/R)/(RTT + L/R), with the book's example (1000 B,
+      1 Gbit/s, 30 ms: U = 0.00027), prediction mode (what the receiver does with each packet and what the
+      sender retransmits on each timeout) and random exercises.
+  concepts:
+    es:
+    - transferencia de datos fiable
+    - rdt3.0
+    - protocolo de bit alternante
+    - parada y espera
+    - número de secuencia
+    - ACK
+    - temporizador
+    - retransmisión
+    - procesamiento en cadena
+    - Retroceder N (GBN)
+    - Repetición selectiva (SR)
+    - ventana deslizante
+    - ACK acumulativo
+    - utilización del emisor
+    en:
+    - reliable data transfer
+    - rdt3.0
+    - alternating-bit protocol
+    - stop-and-wait
+    - sequence number
+    - ACK
+    - timer
+    - retransmission
+    - pipelining
+    - Go-Back-N (GBN)
+    - Selective Repeat (SR)
+    - sliding window
+    - cumulative ACK
+    - sender utilization
+  formulas:
+    es:
+    - U_emisor = N·(L/R) / (RTT + L/R), como mucho 1 (parada y espera, N = 1)
+    - GBN correcto si N ≤ 2^k − 1; SR correcto si N ≤ 2^k / 2
+    en:
+    - U_sender = N·(L/R) / (RTT + L/R), at most 1 (stop-and-wait, N = 1)
+    - GBN is correct if N ≤ 2^k − 1; SR is correct if N ≤ 2^k / 2
+  files:
+    es: 03-transport-layer/reliable-data-transfer.es.html
+    en: 03-transport-layer/reliable-data-transfer.en.html
+  thumbnail: thumbnails/reliable-data-transfer.jpg
+  source: src/reliable-data-transfer
+  added: '2026-10-21'
