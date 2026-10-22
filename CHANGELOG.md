@@ -6,6 +6,8 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 ## [Unreleased]
 
 ### Added
+- Acknowledgment of the University of Alcalá project UAH/EV1827 in the README and in the
+  Zenodo metadata (`notes` in `.zenodo.json`).
 - Browser cache: cache or server? (`http-cache`, session 2.3): decision tree, sequence
   diagram and cache table for a page visited several times, with exercises. Source in
   `src/http-cache` (engine tested by `test_motor.js`).

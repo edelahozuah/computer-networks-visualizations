@@ -125,6 +125,14 @@ Zenodo read.
 > courses* (Version 0.1.0) [Computer software]. University of Alcalá.
 > https://doi.org/10.5281/zenodo.23285664
 
+## Acknowledgments
+
+This work was carried out within the University of Alcalá project
+UAH/EV1827, *Hacia una Integración Crítica y Ética de la Inteligencia
+Artificial Generativa en el Aprendizaje en 'Laboratorio de Redes, Sistemas y
+Servicios'* (Towards a critical and ethical integration of generative AI in
+learning in the *Networks, Systems and Services Laboratory* course).
+
 ## License
 
 [CC BY-SA 4.0](LICENSE). You may reuse, adapt and redistribute the
@@ -162,5 +170,9 @@ computadoras: un enfoque descendente*, y se usan en
   `scripts/thumbnails.sh`, y `scripts/check.py` y `scripts/build_index.py`.
 - **Cita y DOI:** véase [Citing](#citing). Cada versión se archiva en Zenodo;
   el DOI de concepto es [10.5281/zenodo.23285664](https://doi.org/10.5281/zenodo.23285664).
+- **Agradecimientos:** este trabajo se ha realizado en el marco del proyecto
+  UAH/EV1827 de la Universidad de Alcalá, *Hacia una Integración Crítica y
+  Ética de la Inteligencia Artificial Generativa en el Aprendizaje en
+  'Laboratorio de Redes, Sistemas y Servicios'*.
 - **Licencia:** [CC BY-SA 4.0](LICENSE). Reutiliza, adapta y comparte citando
   al autor y manteniendo la licencia.
