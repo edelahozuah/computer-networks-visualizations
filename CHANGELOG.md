@@ -29,8 +29,9 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 - Reliable data transfer: stop-and-wait, GBN and SR (`reliable-data-transfer`, session 3.2):
   space-time diagram over a channel that loses, corrupts or delays packets (click on any packet or ACK),
   sender and receiver windows with sequence numbers modulo 2^k, timers, the book's scenarios (Fig. 3.16,
-  3.22, 3.26, 3.27), windows that are too large, a sender utilization calculator, prediction mode and
-  exercises. Source in `src/reliable-data-transfer` (engine tested by `test_motor.js`).
+  3.22, 3.26), a sender utilization calculator, prediction mode and exercises. What the visible slides
+  do not cover (maximum window for k-bit sequence numbers, windows that are too large, Fig. 3.27, and a
+  channel that reorders) is grouped as an extension. Source in `src/reliable-data-transfer` (engine tested by `test_motor.js`).
 
 ### Removed
 - Speaker notes and presenter window of the DNS step by step source

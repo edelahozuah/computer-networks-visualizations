@@ -86,6 +86,9 @@ button.btn.mini { padding: 1px 7px; font-size: 0.8rem; }
 .grupo { font-size: 0.74rem; color: var(--muted); margin: 4px 0 0; font-family: var(--mono); }
 .nota { font-size: 0.82rem; color: var(--muted); margin: 0; }
 .nota.aviso { color: var(--aviso); }
+details.amp { border-top: 1px dashed var(--line); padding-top: 6px; }
+details.amp summary { cursor: pointer; font-size: 0.82rem; color: var(--muted); }
+details.amp[open] summary { margin-bottom: 6px; }
 .nota code, .narra code, td code { font-family: var(--mono); font-size: 0.92em; background: var(--suave); padding: 0 4px; border-radius: 3px; }
 label.chk { display: inline-flex; align-items: center; gap: 7px; font-size: 0.9rem; cursor: pointer; }
 ul.inc { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
@@ -176,8 +179,12 @@ g.tx:hover .eje { stroke-width: 3.4; }
         <h2 data-en="Parameters">Parámetros</h2>
         <div class="fila"><label class="et" for="p-n" data-en="Packets to send">Paquetes a enviar</label><input type="number" id="p-n" min="1" max="16" step="1"></div>
         <div class="fila"><label class="et" for="p-N" data-en="Window N">Ventana N</label><input type="number" id="p-N" min="1" max="16" step="1"></div>
-        <div class="fila"><label class="et" for="p-k" data-en="Sequence number bits k">Bits de nº de secuencia k</label><input type="number" id="p-k" min="1" max="4" step="1"></div>
         <p class="nota" id="ventana-nota"></p>
+        <details class="amp" id="amp-k">
+          <summary data-en="Extension (not covered in class): window and sequence numbers">Ampliación (no visto en clase): ventana y números de secuencia</summary>
+          <div class="fila"><label class="et" for="p-k" data-en="Sequence number bits k">Bits de nº de secuencia k</label><input type="number" id="p-k" min="1" max="4" step="1"></div>
+          <p class="nota" id="ventana-amp"></p>
+        </details>
         <div class="fila"><label class="et" for="p-tp" data-en="Propagation delay (in L/R)">Retardo de propagación (en L/R)</label><input type="number" id="p-tp" min="1" max="8" step="1"></div>
         <div class="fila"><label class="et" for="p-to" data-en="Timeout (in L/R)">Temporizador (en L/R)</label><input type="number" id="p-to" min="1" max="40" step="1"><button type="button" class="btn mini" id="b-to" data-en="adjust">ajustar</button></div>
         <p class="nota" id="to-nota"></p>
@@ -267,9 +274,10 @@ g.tx:hover .eje { stroke-width: 3.4; }
           <li data-en="Time is measured in units of L/R, the transmission time of a data packet. The propagation delay is the same in both directions, so RTT = 2·(propagation delay). ACKs are small: their transmission time is negligible and they travel in the opposite direction, which does not compete with the data.">El tiempo se mide en unidades de L/R, el tiempo de transmisión de un paquete de datos. El retardo de propagación es el mismo en los dos sentidos, así que RTT = 2·(retardo de propagación). Los ACK son pequeños: su tiempo de transmisión es despreciable y viajan en sentido contrario, sin competir con los datos.</li>
           <li data-en="Sender and receiver only see sequence numbers modulo 2^k (pkt0, pkt1…). dN is the N-th piece of data from the application: it is shown only when sequence numbers repeat, to see which data each packet carries.">Emisor y receptor solo ven números de secuencia módulo 2^k (pkt0, pkt1…). dN es el N-ésimo dato de la aplicación: se muestra solo cuando los números de secuencia se repiten, para ver qué dato lleva cada paquete.</li>
           <li data-en="Stop-and-wait is rdt3.0 (alternating bit): k = 1 and N = 1. The receiver of rdt3.0 and GBN sends, for anything that is not the expected packet, the ACK of the last one received in order; a corrupted ACK or one that acknowledges nothing new is ignored by the sender.">Parada y espera es rdt3.0 (bit alternante): k = 1 y N = 1. El receptor de rdt3.0 y de GBN contesta a todo lo que no sea el paquete esperado con el ACK del último recibido en orden; un ACK con errores, o que no confirma nada nuevo, el emisor lo ignora.</li>
-          <li data-en="GBN: one timer, for the oldest unacknowledged packet; it is restarted with every ACK that moves the window. Cumulative ACKs. Correct if N ≤ 2^k − 1. SR: one timer per packet, individual ACKs and a receiver buffer. Correct if N ≤ 2^k / 2. Kurose and Ross, §3.4.">GBN: un temporizador, el del paquete más antiguo sin confirmar, que se reinicia con cada ACK que hace avanzar la ventana; ACK acumulativos; correcto si N ≤ 2^k − 1. SR: un temporizador por paquete, ACK individuales y búfer en el receptor; correcto si N ≤ 2^k / 2. Kurose y Ross, §3.4.</li>
-          <li data-en="Bit errors are always detected by the checksum (in reality, some multi-bit errors go unnoticed, as seen in GG31). A delayed packet arrives 3·L/R later. If a delay makes a packet overtake another one, the channel reorders: the protocols of §3.4 assume it does not, and they may fail.">Los errores de bits siempre los detecta el checksum (en realidad, algunos errores de varios bits pasan, como se vio en GG31). Un paquete retrasado llega 3·L/R más tarde. Si un retraso hace que un paquete adelante a otro, el canal desordena: los protocolos de §3.4 suponen que no lo hace y pueden fallar.</li>
+          <li data-en="GBN: one timer, for the oldest unacknowledged packet; it is restarted with every ACK that moves the window. Cumulative ACKs. SR: one timer per packet, individual ACKs and a receiver buffer. Kurose and Ross, §3.4.">GBN: un temporizador, el del paquete más antiguo sin confirmar, que se reinicia con cada ACK que hace avanzar la ventana; ACK acumulativos. SR: un temporizador por paquete, ACK individuales y búfer en el receptor. Kurose y Ross, §3.4.</li>
+          <li data-en="Bit errors are always detected by the checksum (in reality, some multi-bit errors go unnoticed, as seen in GG31). A delayed packet arrives 3·L/R later.">Los errores de bits siempre los detecta el checksum (en realidad, algunos errores de varios bits pasan, como se vio en GG31). Un paquete retrasado llega 3·L/R más tarde.</li>
           <li data-en="The timer starts when the packet starts being transmitted. “Adjust” sets it to RTT + L/R + 1: enough for the ACK to arrive in time. With a smaller value there are premature timeouts and needless retransmissions. TCP estimates it from the measured RTT (§3.5.3).">El temporizador arranca cuando empieza la transmisión del paquete. «Ajustar» lo fija en RTT + L/R + 1, lo justo para que el ACK llegue a tiempo; con un valor menor hay timeouts prematuros y retransmisiones innecesarias. TCP lo estima a partir del RTT medido (§3.5.3).</li>
+          <li data-en="Extension (not covered in class). With k-bit sequence numbers, GBN is correct if N ≤ 2^k − 1 and SR if N ≤ 2^k / 2; with a larger window the receiver or the sender confuses old packets or ACKs with new ones (scenarios “window too large”). If a delay makes a packet overtake another one, the channel reorders: the protocols of §3.4 assume it does not, and they may fail.">Ampliación (no visto en clase). Con números de secuencia de k bits, GBN es correcto si N ≤ 2^k − 1 y SR si N ≤ 2^k / 2; con una ventana mayor, el receptor o el emisor confunden paquetes o ACK viejos con nuevos (escenarios «ventana demasiado grande»). Si un retraso hace que un paquete adelante a otro, el canal desordena: los protocolos de §3.4 suponen que no lo hace y pueden fallar.</li>
         </ul>
       </details>
     </div>
@@ -949,11 +957,12 @@ if (typeof module !== 'undefined') module.exports = MotorRDT;
     estado.t = Math.max(0, Math.min(estado.t, tMax));
 
     // panel
-    const PRE = [['', 'saw-ok', 'saw-pkt', 'saw-ack', 'saw-prem'], ['', 'cadena', 'gbn-pkt', 'gbn-ack', 'gbn-max'], ['', 'sr-pkt', 'sr-dilema']];
-    const GRUPO = [L('rdt3.0 · parada y espera', 'rdt3.0 · stop-and-wait'), L('en cadena · GBN', 'pipelined · GBN'), L('en cadena · SR', 'pipelined · SR')];
+    const PRE = [['', 'saw-ok', 'saw-pkt', 'saw-ack', 'saw-prem'], ['', 'cadena', 'gbn-pkt', 'gbn-ack'], ['', 'sr-pkt'], ['', 'gbn-max', 'sr-dilema']];
+    const GRUPO = [L('rdt3.0 · parada y espera', 'rdt3.0 · stop-and-wait'), L('en cadena · GBN', 'pipelined · GBN'), L('en cadena · SR', 'pipelined · SR'), L('ampliación · no visto en clase', 'extension · not covered in class')];
+    const amp = PRE[3].includes(estado.preset);
     $('#presets').innerHTML = PRE.map((g, i) => `<p class="grupo">${GRUPO[i]}</p>` + g.slice(1).map(id => `<button type="button" class="btn" data-preset="${id}" aria-pressed="${estado.preset === id}">${esc(T(M.ESCENARIOS[id].titulo))}</button>`).join('')).join('');
     const e = M.ESCENARIOS[estado.preset];
-    $('#esc-nota').textContent = estado.preset === 'practica' ? L(`Ejercicio aleatorio (semilla ${estado.semilla}).`, `Random exercise (seed ${estado.semilla}).`) : estado.preset === 'propio' ? L('Escenario modificado.', 'Modified scenario.') : T(e?.nota);
+    $('#esc-nota').textContent = estado.preset === 'practica' ? L(`Ejercicio aleatorio (semilla ${estado.semilla}).`, `Random exercise (seed ${estado.semilla}).`) : estado.preset === 'propio' ? L('Escenario modificado.', 'Modified scenario.') : (amp ? L('Ampliación (no visto en clase). ', 'Extension (not covered in class). ') : '') + T(e?.nota);
     document.querySelectorAll('#proto button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === c.proto)));
     $('#proto-nota').textContent = c.proto === 'saw' ? L('Un paquete sin confirmar como mucho; números de secuencia 0 y 1.', 'At most one unacknowledged packet; sequence numbers 0 and 1.')
       : c.proto === 'gbn' ? L('Hasta N paquetes sin confirmar; un temporizador; ACK acumulativos; el receptor descarta lo que llega fuera de orden.', 'Up to N unacknowledged packets; one timer; cumulative ACKs; the receiver discards out-of-order packets.')
@@ -964,8 +973,13 @@ if (typeof module !== 'undefined') module.exports = MotorRDT;
     const regla = c.proto === 'gbn' ? `N ≤ 2^k − 1 = ${vmax}` : c.proto === 'sr' ? `N ≤ 2^k / 2 = ${vmax}` : '';
     const vn = $('#ventana-nota');
     vn.className = 'nota' + (c.N > vmax ? ' aviso' : '');
-    vn.textContent = c.proto === 'saw' ? L('k = 1 (bit alternante) y N = 1.', 'k = 1 (alternating bit) and N = 1.')
-      : L(`Números de secuencia 0–${c.S - 1}. ${c.N > vmax ? '⚠ Ventana demasiado grande: hace falta ' : 'Correcto: '}${regla}.`, `Sequence numbers 0–${c.S - 1}. ${c.N > vmax ? '⚠ Window too large: it must be ' : 'Correct: '}${regla}.`);
+    vn.textContent = c.proto === 'saw' ? L('Números de secuencia 0 y 1 (bit alternante); N = 1.', 'Sequence numbers 0 and 1 (alternating bit); N = 1.')
+      : L(`Números de secuencia 0–${c.S - 1}.${c.N > vmax ? ' ⚠ Ventana demasiado grande para ese rango (ver la ampliación).' : ''}`, `Sequence numbers 0–${c.S - 1}.${c.N > vmax ? ' ⚠ Window too large for that range (see the extension).' : ''}`);
+    const va = $('#ventana-amp');
+    va.className = 'nota' + (c.N > vmax ? ' aviso' : '');
+    va.textContent = c.proto === 'saw' ? L('k = 1 (bit alternante) y N = 1.', 'k = 1 (alternating bit) and N = 1.')
+      : L(`${c.N > vmax ? '⚠ Ventana demasiado grande: hace falta ' : 'Correcto: '}${regla}.`, `${c.N > vmax ? '⚠ Window too large: it must be ' : 'Correct: '}${regla}.`);
+    if (amp || c.N > vmax || (c.proto !== 'saw' && c.k !== 3)) $('#amp-k').open = true;
     const tn = $('#to-nota');
     tn.className = 'nota' + (c.to < 2 * c.tp + 1 ? ' aviso' : '');
     tn.textContent = L(`RTT = ${2 * c.tp}; el ACK llega ${2 * c.tp + 1} después de empezar a enviar el paquete.${c.to < 2 * c.tp + 1 ? ' ⚠ El temporizador vencerá antes: timeouts prematuros.' : ''}`, `RTT = ${2 * c.tp}; the ACK arrives ${2 * c.tp + 1} after the packet starts being sent.${c.to < 2 * c.tp + 1 ? ' ⚠ The timer will expire first: premature timeouts.' : ''}`);
@@ -985,7 +999,7 @@ if (typeof module !== 'undefined') module.exports = MotorRDT;
       ['Timeouts', oculto ? '?' : String(cu.timeouts), ''],
       [L('U emisor', 'Sender U'), oculto ? '?' : nf(cu.U, 2), 'fuerte'],
       [L('Entrega', 'Delivery'), oculto ? '?' : okTxt, oculto ? '' : sim.correcto ? 'ok' : 'ko']
-    ].map(([a, b, k]) => `<div class="dato ${k}"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join('') + (sim.reordena && !oculto ? `<div class="dato ko"><b>⚠</b><span>${L('el canal desordena', 'the channel reorders')}</span></div>` : '');
+    ].map(([a, b, k]) => `<div class="dato ${k}"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join('') + (sim.reordena && !oculto ? `<div class="dato ko"><b>⚠</b><span>${L('el canal desordena (ampliación)', 'the channel reorders (extension)')}</span></div>` : '');
 
     // reproductor
     const r = $('#r-t'); r.max = tMax; r.value = pend ? pend.t : estado.t; r.disabled = estado.pred;
