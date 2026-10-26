@@ -46,6 +46,9 @@ h1 span { color: var(--trama); }
 .sub { color: var(--muted); margin: 0; max-width: 78ch; }
 .cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .seg.idioma { flex: 0 0 auto; }
+.protos { display: flex; flex-direction: column; gap: 6px; }
+.protos .fila { gap: 3px; }
+.protos .fila > span { flex-basis: 100%; color: var(--muted); font-size: 0.82rem; }
 .seg.idioma button { padding: 4px 10px; font-weight: 600; }
 .rejilla { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 18px; align-items: start; }
 @media (max-width: 900px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
@@ -164,7 +167,10 @@ g.tx:hover .eje { stroke-width: 3.4; }
 
       <section>
         <h2 data-en="Protocol">Protocolo</h2>
-        <div class="seg" id="proto" role="group" aria-label="Protocolo" data-en-aria="Protocol"><button type="button" data-v="saw" data-en="Stop-and-wait">Parada y espera</button><button type="button" data-v="gbn">GBN</button><button type="button" data-v="sr">SR</button></div>
+        <div class="protos" id="proto" role="group" aria-label="Protocolo" data-en-aria="Protocol">
+          <div class="fila"><span data-en="Stop-and-wait">Parada y espera</span><div class="seg"><button type="button" data-v="rdt20">rdt2.0</button><button type="button" data-v="rdt21">rdt2.1</button><button type="button" data-v="rdt22">rdt2.2</button><button type="button" data-v="saw">rdt3.0</button></div></div>
+          <div class="fila"><span data-en="Pipelined">En cadena</span><div class="seg"><button type="button" data-v="gbn">GBN</button><button type="button" data-v="sr">SR</button></div></div>
+        </div>
         <p class="nota" id="proto-nota"></p>
       </section>
 
@@ -267,6 +273,7 @@ g.tx:hover .eje { stroke-width: 3.4; }
           <li data-en="Time is measured in units of L/R, the transmission time of a data packet. The propagation delay is the same in both directions, so RTT = 2·(propagation delay). ACKs are small: their transmission time is negligible and they travel in the opposite direction, which does not compete with the data.">El tiempo se mide en unidades de L/R, el tiempo de transmisión de un paquete de datos. El retardo de propagación es el mismo en los dos sentidos, así que RTT = 2·(retardo de propagación). Los ACK son pequeños: su tiempo de transmisión es despreciable y viajan en sentido contrario, sin competir con los datos.</li>
           <li data-en="Sender and receiver only see sequence numbers modulo 2^k (pkt0, pkt1…). dN is the N-th piece of data from the application: it is shown only when sequence numbers repeat, to see which data each packet carries.">Emisor y receptor solo ven números de secuencia módulo 2^k (pkt0, pkt1…). dN es el N-ésimo dato de la aplicación: se muestra solo cuando los números de secuencia se repiten, para ver qué dato lleva cada paquete.</li>
           <li data-en="Stop-and-wait is rdt3.0 (alternating bit): k = 1 and N = 1. The receiver of rdt3.0 and GBN sends, for anything that is not the expected packet, the ACK of the last one received in order; a corrupted ACK or one that acknowledges nothing new is ignored by the sender.">Parada y espera es rdt3.0 (bit alternante): k = 1 y N = 1. El receptor de rdt3.0 y de GBN contesta a todo lo que no sea el paquete esperado con el ACK del último recibido en orden; un ACK con errores, o que no confirma nada nuevo, el emisor lo ignora.</li>
+          <li data-en="rdt2.0, rdt2.1 and rdt2.2 assume a channel with bit errors but no losses: there is no timer and the sender waits for the receiver’s reply to each packet. In rdt2.0 and rdt2.1 the reply is an ACK or a NAK without a sequence number; if it arrives corrupted, the sender cannot tell which one it was and retransmits (the option Kurose and Ross discuss). rdt2.0 has no sequence numbers, so its receiver delivers that retransmission as new data; rdt2.1 recognizes it with a one-bit sequence number. rdt2.2 has no NAK: the ACK carries the number of the last packet received correctly, and a duplicate ACK is equivalent to a NAK. Kurose and Ross, §3.4.1.">rdt2.0, rdt2.1 y rdt2.2 suponen un canal con errores de bits pero sin pérdidas: no hay temporizador y el emisor espera la respuesta del receptor a cada paquete. En rdt2.0 y rdt2.1 la respuesta es un ACK o un NAK sin número de secuencia; si llega con errores, el emisor no sabe cuál era y retransmite (la opción que discuten Kurose y Ross). rdt2.0 no tiene números de secuencia, así que su receptor entrega esa retransmisión como un dato nuevo; rdt2.1 la reconoce con un número de secuencia de un bit. rdt2.2 no usa NAK: el ACK lleva el número del último paquete recibido bien, y un ACK duplicado equivale a un NAK. Kurose y Ross, §3.4.1.</li>
           <li data-en="GBN: one timer, for the oldest unacknowledged packet; it is restarted with every ACK that moves the window. Cumulative ACKs. SR: one timer per packet, individual ACKs and a receiver buffer. Kurose and Ross, §3.4.">GBN: un temporizador, el del paquete más antiguo sin confirmar, que se reinicia con cada ACK que hace avanzar la ventana; ACK acumulativos. SR: un temporizador por paquete, ACK individuales y búfer en el receptor. Kurose y Ross, §3.4.</li>
           <li data-en="Bit errors are always detected by the checksum (in reality, some multi-bit errors go unnoticed, as seen in GG31). A delayed packet arrives 3·L/R later.">Los errores de bits siempre los detecta el checksum (en realidad, algunos errores de varios bits pasan, como se vio en GG31). Un paquete retrasado llega 3·L/R más tarde.</li>
           <li data-en="The timer starts when the packet starts being transmitted. “Adjust” sets it to RTT + L/R + 1: enough for the ACK to arrive in time. With a smaller value there are premature timeouts and needless retransmissions. TCP estimates it from the measured RTT (§3.5.3).">El temporizador arranca cuando empieza la transmisión del paquete. «Ajustar» lo fija en RTT + L/R + 1, lo justo para que el ACK llegue a tiempo; con un valor menor hay timeouts prematuros y retransmisiones innecesarias. TCP lo estima a partir del RTT medido (§3.5.3).</li>
@@ -317,12 +324,14 @@ g.tx:hover .eje { stroke-width: 3.4; }
   const T = o => (o ? (estado.vista.idioma === 'en' ? o.en : o.es) : '');
   const nf = (x, d = 3) => new Intl.NumberFormat(estado.vista.idioma === 'en' ? 'en-GB' : 'es-ES', { maximumSignificantDigits: d }).format(x);
   const tf = t => new Intl.NumberFormat(estado.vista.idioma === 'en' ? 'en-GB' : 'es-ES', { maximumFractionDigits: 1 }).format(t);
-  const PROTO = p => ({ saw: L('parada y espera (rdt3.0)', 'stop-and-wait (rdt3.0)'), gbn: 'Go-Back-N (GBN)', sr: L('repetición selectiva (SR)', 'Selective Repeat (SR)') }[p]);
+  const PROTO = p => ({ rdt20: 'rdt2.0', rdt21: 'rdt2.1', rdt22: L('rdt2.2 (sin NAK)', 'rdt2.2 (no NAK)'), saw: L('parada y espera (rdt3.0)', 'stop-and-wait (rdt3.0)'), gbn: 'Go-Back-N (GBN)', sr: L('repetición selectiva (SR)', 'Selective Repeat (SR)') }[p]);
+  const NOMBRE = p => ({ rdt20: 'rdt2.0', rdt21: 'rdt2.1', rdt22: 'rdt2.2', saw: 'rdt3.0' }[p]);
   const claveSuc = s => `${s.tipo}@${s.t}@${s.tx ?? s.abs}`;
 
   // ------------------------------------------------------------ textos
-  const verDato = () => sim.cfg.S < sim.cfg.n;
-  const pkt = (seq, abs) => `pkt${seq}${verDato() && abs !== undefined ? '·d' + abs : ''}`;
+  const sinSeq = () => sim.cfg.proto === 'rdt20';
+  const verDato = () => !sinSeq() && sim.cfg.S < sim.cfg.n;
+  const pkt = (seq, abs) => sinSeq() ? `pkt·d${abs}` : `pkt${seq}${verDato() && abs !== undefined ? '·d' + abs : ''}`;
   const lista = xs => xs.join(', ');
   function describe(s) {
     const c = sim.cfg, R = c.proto === 'sr' ? 'SR' : c.proto === 'gbn' ? 'GBN' : L('el receptor', 'the receiver');
@@ -335,7 +344,7 @@ g.tx:hover .eje { stroke-width: 3.4; }
     if (s.tipo === 'pierde') {
       const d = sim.tx[s.tx];
       return d.tipo === 'd' ? L(`<span class="mal">${pkt(d.seq, d.abs)} se pierde</span> en la red.`, `<span class="mal">${pkt(d.seq, d.abs)} is lost</span> in the network.`)
-        : L(`<span class="mal">ACK${d.seq} se pierde</span> en la red.`, `<span class="mal">ACK${d.seq} is lost</span> in the network.`);
+        : L(`<span class="mal">${M.etiquetaAck(d)} se pierde</span> en la red.`, `<span class="mal">${M.etiquetaAck(d)} is lost</span> in the network.`);
     }
     if (s.tipo === 'llega') {
       const p = pkt(s.seq, s.abs);
@@ -344,30 +353,48 @@ g.tx:hover .eje { stroke-width: 3.4; }
       switch (s.accion) {
         case 'entrega':
           h = s.entregados.length > 1
-            ? L(`Llega ${p}, el que esperaba: el receptor <b>entrega</b> ${lista(datos)} a la capa superior (los demás estaban en el búfer) y envía ACK${s.ack}.`, `${p} arrives, the expected one: the receiver <b>delivers</b> ${lista(datos)} to the upper layer (the others were in the buffer) and sends ACK${s.ack}.`)
-            : L(`Llega ${p}, el que esperaba: el receptor <b>entrega</b> ${lista(datos)} a la capa superior y envía ACK${s.ack}.`, `${p} arrives, the expected one: the receiver <b>delivers</b> ${lista(datos)} to the upper layer and sends ACK${s.ack}.`);
+            ? L(`Llega ${p}, el que esperaba: el receptor <b>entrega</b> ${lista(datos)} a la capa superior (los demás estaban en el búfer) y envía ${s.ackEtq}.`, `${p} arrives, the expected one: the receiver <b>delivers</b> ${lista(datos)} to the upper layer (the others were in the buffer) and sends ${s.ackEtq}.`)
+            : sinSeq() ? L(`Llega ${p} sin errores: el receptor lo <b>entrega</b> a la capa superior y envía ${s.ackEtq}.`, `${p} arrives without errors: the receiver <b>delivers</b> it to the upper layer and sends ${s.ackEtq}.`)
+            : L(`Llega ${p}, el que esperaba: el receptor <b>entrega</b> ${lista(datos)} a la capa superior y envía ${s.ackEtq}.`, `${p} arrives, the expected one: the receiver <b>delivers</b> ${lista(datos)} to the upper layer and sends ${s.ackEtq}.`);
           break;
         case 'almacena':
-          h = L(`Llega ${p}, fuera de orden pero dentro de la ventana del receptor: lo <b>guarda en el búfer</b> y envía ACK${s.ack}.`, `${p} arrives, out of order but inside the receiver’s window: it <b>stores it in the buffer</b> and sends ACK${s.ack}.`);
+          h = L(`Llega ${p}, fuera de orden pero dentro de la ventana del receptor: lo <b>guarda en el búfer</b> y envía ${s.ackEtq}.`, `${p} arrives, out of order but inside the receiver’s window: it <b>stores it in the buffer</b> and sends ${s.ackEtq}.`);
+          break;
+        case 'nak':
+          h = L(`${p} llega con <span class="mal">errores de bits</span> (el checksum lo detecta): el receptor lo descarta y responde <b>NAK</b>.`, `${p} arrives with <span class="mal">bit errors</span> (the checksum detects them): the receiver discards it and replies <b>NAK</b>.`);
           break;
         case 'descarta-ack':
-          h = s.corrupto ? L(`${p} llega con <span class="mal">errores de bits</span> (el checksum lo detecta): ${R} lo <b>descarta</b> y repite ACK${s.ack}, el del último recibido en orden.`, `${p} arrives with <span class="mal">bit errors</span> (the checksum detects them): ${R} <b>discards</b> it and repeats ACK${s.ack}, the one of the last packet received in order.`)
-            : s.duplicado ? L(`${p} es un <b>duplicado</b> (ya lo había entregado): ${R} lo descarta y repite ACK${s.ack}.`, `${p} is a <b>duplicate</b> (already delivered): ${R} discards it and repeats ACK${s.ack}.`)
-            : L(`${p} llega <b>fuera de orden</b> (esperaba pkt${(s.ack + 1) % c.S}): ${R} lo <b>descarta</b> y repite ACK${s.ack}, el del último recibido en orden.`, `${p} arrives <b>out of order</b> (pkt${(s.ack + 1) % c.S} was expected): ${R} <b>discards</b> it and repeats ACK${s.ack}, the one of the last packet received in order.`);
+          h = s.corrupto ? L(`${p} llega con <span class="mal">errores de bits</span> (el checksum lo detecta): ${R} lo <b>descarta</b> y repite ${s.ackEtq}, el del último recibido en orden${c.proto === 'rdt22' ? ', en lugar de un NAK' : ''}.`, `${p} arrives with <span class="mal">bit errors</span> (the checksum detects them): ${R} <b>discards</b> it and repeats ${s.ackEtq}, the one of the last packet received in order${c.proto === 'rdt22' ? ', instead of a NAK' : ''}.`)
+            : s.duplicado ? L(`${p} es un <b>duplicado</b> (ya lo había entregado): ${R} lo descarta y repite ${s.ackEtq}.`, `${p} is a <b>duplicate</b> (already delivered): ${R} discards it and repeats ${s.ackEtq}.`)
+            : L(`${p} llega <b>fuera de orden</b> (esperaba pkt${(s.ack + 1) % c.S}): ${R} lo <b>descarta</b> y repite ${s.ackEtq}, el del último recibido en orden.`, `${p} arrives <b>out of order</b> (pkt${(s.ack + 1) % c.S} was expected): ${R} <b>discards</b> it and repeats ${s.ackEtq}, the one of the last packet received in order.`);
           break;
         case 'reack':
-          h = L(`${p} ya lo había recibido (su ACK se perdió o se retrasó): lo descarta y <b>vuelve a enviar ACK${s.ack}</b>, para que el emisor pueda avanzar.`, `${p} had already been received (its ACK was lost or delayed): it discards it and <b>sends ACK${s.ack} again</b>, so that the sender can move on.`);
+          h = M.RDT2(c.proto) ? L(`${p} es un <b>duplicado</b>: el nº de secuencia no es el que esperaba (su ACK llegó al emisor con errores). Lo descarta y <b>vuelve a enviar ${s.ackEtq}</b>, para que el emisor pueda avanzar.`, `${p} is a <b>duplicate</b>: its sequence number is not the expected one (its ACK reached the sender with errors). It discards it and <b>sends ${s.ackEtq} again</b>, so that the sender can move on.`)
+            : L(`${p} ya lo había recibido (su ACK se perdió o se retrasó): lo descarta y <b>vuelve a enviar ${s.ackEtq}</b>, para que el emisor pueda avanzar.`, `${p} had already been received (its ACK was lost or delayed): it discards it and <b>sends ${s.ackEtq} again</b>, so that the sender can move on.`);
           break;
         default:
           h = s.corrupto ? L(`${p} llega con <span class="mal">errores de bits</span>: SR lo descarta <b>sin enviar nada</b>; ya lo arreglará el temporizador del emisor.`, `${p} arrives with <span class="mal">bit errors</span>: SR discards it <b>without sending anything</b>; the sender’s timer will deal with it.`)
             : L(`${p} cae fuera de la ventana del receptor: se descarta sin enviar nada.`, `${p} falls outside the receiver’s window: it is discarded without sending anything.`);
       }
       if (s.confunde) h += L(` <span class="mal">⚠ Pero es d${s.abs}, un duplicado: el receptor lo toma por d${s.esperado} porque los números de secuencia se repiten demasiado pronto (ventana demasiado grande).</span>`, ` <span class="mal">⚠ But it is d${s.abs}, a duplicate: the receiver takes it for d${s.esperado} because sequence numbers repeat too soon (window too large).</span>`);
+      else if (s.mal && sinSeq()) h += L(` <span class="mal">⚠ Es d${s.abs} otra vez: sin números de secuencia, rdt2.0 no distingue una retransmisión de un dato nuevo y entrega un duplicado.</span>`, ` <span class="mal">⚠ It is d${s.abs} again: without sequence numbers, rdt2.0 cannot tell a retransmission from new data and delivers a duplicate.</span>`);
       else if (s.mal) h += L(` <span class="mal">⚠ Entrega errónea: ${lista(s.entregados.filter(e => !e.bien).map(e => 'd' + e.dato))} no es el dato que tocaba.</span>`, ` <span class="mal">⚠ Wrong delivery: ${lista(s.entregados.filter(e => !e.bien).map(e => 'd' + e.dato))} is not the data that was due.</span>`);
       return h;
     }
+    if (s.tipo === 'ack' && M.RDT2(c.proto)) {
+      const a = s.etq, q = pkt(s.pseq, s.abs);
+      if (s.accion === 'nak') return L(`Llega NAK: ${q} llegó con errores; el emisor lo <b>retransmite</b>.`, `NAK arrives: ${q} arrived with errors; the sender <b>retransmits</b> it.`);
+      if (s.accion === 'dup') return L(`Llega ${a}, pero el emisor esperaba ACK${s.pseq}: un <b>ACK duplicado</b> equivale a un NAK, así que <b>retransmite</b> ${q}.`, `${a} arrives, but the sender expected ACK${s.pseq}: a <b>duplicate ACK</b> is equivalent to a NAK, so it <b>retransmits</b> ${q}.`);
+      if (s.accion === 'corrupto') {
+        if (c.proto === 'rdt22') return L(`Llega un ACK con <span class="mal">errores de bits</span>: el emisor no sabe qué confirma y <b>retransmite</b> ${q}.`, `An ACK arrives with <span class="mal">bit errors</span>: the sender does not know what it acknowledges and <b>retransmits</b> ${q}.`);
+        return L(`Llega la respuesta con <span class="mal">errores de bits</span>: el emisor no sabe si era ACK o NAK y, por si acaso, <b>retransmite</b> ${q}.`, `The reply arrives with <span class="mal">bit errors</span>: the sender cannot tell whether it was ACK or NAK and, just in case, <b>retransmits</b> ${q}.`)
+          + (sinSeq() ? L(` <span class="mal">Si era un ACK, el receptor recibirá un duplicado y no tiene forma de reconocerlo.</span>`, ` <span class="mal">If it was an ACK, the receiver will get a duplicate and has no way to recognize it.</span>`)
+            : L(' Si era un ACK, el receptor reconocerá el duplicado por su número de secuencia.', ' If it was an ACK, the receiver will recognize the duplicate by its sequence number.'));
+      }
+      return L(`Llega ${a}: ${q} confirmado; ${s.base >= c.n ? 'ya está todo confirmado' : 'el emisor puede enviar el siguiente'}.`, `${a} arrives: ${q} acknowledged; ${s.base >= c.n ? 'everything is acknowledged now' : 'the sender can send the next one'}.`);
+    }
     if (s.tipo === 'ack') {
-      const a = `ACK${s.seq}`;
+      const a = s.etq;
       if (s.accion === 'corrupto') return L(`Llega ${a} con <span class="mal">errores de bits</span>: el emisor lo ignora.`, `${a} arrives with <span class="mal">bit errors</span>: the sender ignores it.`);
       if (s.accion === 'dup') return L(`Llega ${a}, que no confirma nada nuevo (duplicado): el emisor lo ignora.`, `${a} arrives, which acknowledges nothing new (duplicate): the sender ignores it.`);
       if (s.accion === 'marca') return L(`Llega ${a}: el emisor marca ${pkt(s.seq, s.abs)} como confirmado y para su temporizador; la ventana no avanza porque falta pkt${s.base % c.S}.`, `${a} arrives: the sender marks ${pkt(s.seq, s.abs)} as acknowledged and stops its timer; the window does not move because pkt${s.base % c.S} is missing.`);
@@ -482,10 +509,10 @@ g.tx:hover .eje { stroke-width: 3.4; }
         h += `<line class="eje" x1="${xR}" y1="${ya}" x2="${xe}" y2="${ye}" stroke="var(--${col})" stroke-width="2" stroke-dasharray="5 4" ${perdido ? '' : `marker-end="url(#m-${col})"`}/>`;
         h += `<line x1="${xR}" y1="${ya}" x2="${xe}" y2="${ye}" stroke="transparent" stroke-width="16"/>`;
         const lx = frac(xR, xS, estrecho ? 0.2 : 0.14), ly = frac(ya, yz, estrecho ? 0.2 : 0.14) + 15;
-        h += `<text x="${lx}" y="${ly}" text-anchor="end" font-size="${FS - 1}" font-weight="600" fill="var(--${col})" ${mono} paint-order="stroke" stroke="var(--lienzo)" stroke-width="4">ACK${d.seq}${etqInc}</text>`;
+        h += `<text x="${lx}" y="${ly}" text-anchor="end" font-size="${FS - 1}" font-weight="600" fill="var(--${col})" ${mono} paint-order="stroke" stroke="var(--lienzo)" stroke-width="4">${M.etiquetaAck(d)}${etqInc}</text>`;
         if (perdido) h += `<text x="${xe}" y="${ye + 6}" text-anchor="middle" font-size="${FS + 5}" font-weight="700" fill="var(--aviso)">✕</text>`;
         if (d.estado === 'corrupto') h += `<text x="${xS + 14}" y="${yz - 4}" font-size="${FS + 2}" fill="var(--aviso)">⚡</text>`;
-        g += `<g class="tx" data-clave="${d.clave}" tabindex="0" role="button" aria-label="${esc('ACK' + d.seq + ': ' + estadoTxt(inc) + '. ' + L('Pulsa para cambiar la incidencia', 'Press to change the incident'))}">${h}</g>`;
+        g += `<g class="tx" data-clave="${d.clave}" tabindex="0" role="button" aria-label="${esc(M.etiquetaAck(d) + ': ' + estadoTxt(inc) + '. ' + L('Pulsa para cambiar la incidencia', 'Press to change the incident'))}">${h}</g>`;
       }
     });
     // anotaciones en los extremos
@@ -494,6 +521,11 @@ g.tx:hover .eje { stroke-width: 3.4; }
       if (e.tipo === 'llega') {
         const [txt, col] = anotLlegada(e);
         g += `<text x="${xa}" y="${y(e.t) + 4}" font-size="${FS - 1}" fill="var(--${col})" ${e.mal || e.confunde ? 'font-weight="700"' : ''}>${esc(estrecho ? anotCorta(e) : txt)}</text>`;
+      } else if (e.tipo === 'ack' && e.retransmite) {
+        const txt = estrecho ? '↻' : { nak: L('NAK · retransmite', 'NAK · retransmits'), corrupto: L('error · retransmite', 'error · retransmits'), dup: L('ACK duplicado · retransmite', 'duplicate ACK · retransmits') }[e.accion];
+        g += `<text x="${xS - 8}" y="${y(e.t) + 4}" text-anchor="end" font-size="${FS - 2}" font-weight="600" fill="var(--aviso)">${esc(txt)}</text>`;
+      } else if (e.tipo === 'ack' && !estrecho && M.RDT2(c.proto)) {
+        g += `<text x="${xS - 8}" y="${y(e.t) + 4}" text-anchor="end" font-size="${FS - 2}" fill="var(--ack)">${esc(e.base >= c.n ? L('todo confirmado', 'all acked') : L('confirmado', 'acked'))}</text>`;
       } else if (e.tipo === 'ack' && !estrecho) {
         const txt = e.accion === 'dup' ? L('se ignora', 'ignored') : e.accion === 'corrupto' ? L('error: se ignora', 'error: ignored') : e.accion === 'marca' ? L(`confirmado ${pkt(e.seq, e.abs)}`, `acked ${pkt(e.seq, e.abs)}`) : (e.base >= c.n ? L('todo confirmado', 'all acked') : `base → ${e.base % c.S}`) + (e.confunde ? ' ⚠' : '');
         g += `<text x="${xS - 8}" y="${y(e.t) + 4}" text-anchor="end" font-size="${FS - 2}" fill="var(--${e.confunde ? 'aviso' : e.accion === 'dup' || e.accion === 'corrupto' ? 'muted' : 'ack'})">${esc(txt)}</text>`;
@@ -510,18 +542,19 @@ g.tx:hover .eje { stroke-width: 3.4; }
   }
   // En el móvil: ✓ entrega, ▣ búfer, ✕ descarta; con el ACK que se envía.
   function anotCorta(e) {
-    const ack = e.ack !== null && e.ack !== undefined ? ' A' + e.ack : '';
+    const ack = e.ackEtq ? ' ' + e.ackEtq.replace('ACK', 'A').replace('NAK', 'N') : '';
     const w = e.mal || e.confunde ? '⚠' : '';
-    return { entrega: '✓ ' + e.entregados.map(x => 'd' + x.dato).join(',') + w, almacena: '▣' + w + ack, 'descarta-ack': '✕' + ack, reack: '↺' + ack, ignora: '✕' }[e.accion] || '';
+    return { entrega: '✓ ' + e.entregados.map(x => 'd' + x.dato).join(',') + w, almacena: '▣' + w + ack, 'descarta-ack': '✕' + ack, reack: '↺' + ack, nak: '✕' + ack, ignora: '✕' }[e.accion] || '';
   }
   function anotLlegada(e) {
     const d = e.entregados.map(x => 'd' + x.dato).join(',');
-    const ackT = e.ack !== null && e.ack !== undefined ? ` · ACK${e.ack}` : '';
+    const ackT = e.ackEtq ? ` · ${e.ackEtq}` : '';
     switch (e.accion) {
       case 'entrega': return [L('entrega ', 'delivers ') + d + ackT + (e.mal || e.confunde ? ' ⚠' : ''), e.mal || e.confunde ? 'aviso' : 'ack'];
       case 'almacena': return [L('al búfer', 'to buffer') + ackT + (e.confunde ? ' ⚠' : ''), e.confunde ? 'aviso' : 'html'];
       case 'descarta-ack': return [(e.corrupto ? L('error · descarta', 'error · discards') : e.duplicado ? L('duplicado · descarta', 'duplicate · discards') : L('fuera de orden · descarta', 'out of order · discards')) + ackT, 'aviso'];
-      case 'reack': return [L('ya lo tenía', 'already had it') + ackT, 'muted'];
+      case 'reack': return [(M.RDT2(sim.cfg.proto) ? L('duplicado · descarta', 'duplicate · discards') : L('ya lo tenía', 'already had it')) + ackT, 'muted'];
+      case 'nak': return [L('error · descarta', 'error · discards') + ackT, 'aviso'];
       default: return [e.corrupto ? L('error · descarta, sin ACK', 'error · discards, no ACK') : L('fuera de ventana', 'outside window'), 'aviso'];
     }
   }
@@ -536,7 +569,9 @@ g.tx:hover .eje { stroke-width: 3.4; }
   function ventanas(estrecho) {
     const c = sim.cfg, f = M.fotoEn(sim, pend ? pend.t - EPS : estado.t);
     const W = estrecho ? 420 : 1000, n = c.n;
-    const x0 = estrecho ? 70 : 110, cw = Math.min(56, (W - x0 - 12) / n), ch = 40;
+    // rdt2.0 puede entregar más datos de los enviados (duplicados): la fila del receptor se alarga
+    const nR = Math.max(n, sim.entregados.length);
+    const x0 = estrecho ? 70 : 110, cw = Math.min(56, (W - x0 - 12) / nR), ch = 40;
     const FS = estrecho ? 12 : 14;
     const mono = `font-family="IBM Plex Mono, ui-monospace, Menlo, monospace"`;
     const fila = (yy, titulo, celdas, marco, nota) => {
@@ -553,28 +588,33 @@ g.tx:hover .eje { stroke-width: 3.4; }
     };
     const emisor = [];
     for (let i = 0; i < n; i++) {
-      const seq = i % c.S;
+      const seq = sinSeq() ? 'd' + i : i % c.S;
       if (f.conf[i]) emisor.push({ fill: 'var(--ack)', ink: 'var(--panel)', txt: seq });
       else if (i >= f.base && i < f.next) emisor.push({ fill: 'var(--trama)', ink: 'var(--panel)', txt: seq });
       else if (i >= f.next && i < f.base + c.N) emisor.push({ fill: 'var(--panel)', txt: seq, dash: true, stroke: 'var(--muted)' });
       else emisor.push({ fill: 'var(--suave)', ink: 'var(--muted)', txt: seq });
     }
     const ultimo = Math.min(n, f.base + c.N);
-    const notaE = `base = ${f.base < n ? f.base % c.S : '—'} · nextseqnum = ${f.next < n ? f.next % c.S : '—'} · ${L('sin confirmar', 'unacked')}: ${f.next - f.base - (c.proto === 'sr' ? f.conf.slice(f.base, f.next).filter(Boolean).length : 0)} / N = ${c.N}`;
+    const pendientes = f.next - f.base - (c.proto === 'sr' ? f.conf.slice(f.base, f.next).filter(Boolean).length : 0);
+    const notaE = sinSeq() ? `${L('sin confirmar', 'unacked')}: ${pendientes} / N = 1 · ${L('sin números de secuencia', 'no sequence numbers')}`
+      : `base = ${f.base < n ? f.base % c.S : '—'} · nextseqnum = ${f.next < n ? f.next % c.S : '—'} · ${L('sin confirmar', 'unacked')}: ${pendientes} / N = ${c.N}`;
     const receptor = [];
     const bufAbs = {};
     f.buf.forEach(b => { const pos = f.entregados + ((b.seq - f.r + c.S) % c.S); bufAbs[pos] = b; });
-    for (let i = 0; i < n; i++) {
-      const seq = i % c.S;
+    for (let i = 0; i < nR; i++) {
+      const seq = sinSeq() ? 'd' + i : i % c.S;
       if (i < f.entregados) {
-        const bien = sim.entregados[i] === i;
-        receptor.push(bien ? { fill: 'var(--ack)', ink: 'var(--panel)', txt: seq } : { fill: 'var(--aviso)', ink: 'var(--panel)', txt: seq + '!' });
+        const dato = sim.entregados[i];
+        const bien = sinSeq() ? sim.entregados.indexOf(dato) === i : dato === i;
+        const txt = sinSeq() ? 'd' + dato : seq;
+        receptor.push(bien ? { fill: 'var(--ack)', ink: 'var(--panel)', txt } : { fill: 'var(--aviso)', ink: 'var(--panel)', txt: txt + '!' });
       } else if (bufAbs[i]) receptor.push(bufAbs[i].dato === i ? { fill: 'var(--html)', ink: 'var(--panel)', txt: seq } : { fill: 'var(--aviso)', ink: 'var(--panel)', txt: 'd' + bufAbs[i].dato });
       else if (c.proto === 'sr' ? i < f.entregados + c.N : i === f.entregados) receptor.push({ fill: 'var(--panel)', txt: seq, dash: true, stroke: 'var(--muted)' });
       else receptor.push({ fill: 'var(--suave)', ink: 'var(--muted)', txt: seq });
     }
     const rN = c.proto === 'sr' ? c.N : 1;
-    const notaR = c.proto === 'sr' ? `rcv_base = ${f.r} · ${L('en el búfer', 'buffered')}: ${f.buf.length} · ${L('entregados', 'delivered')}: ${f.entregados}` : `expectedseqnum = ${f.r} · ${L('entregados', 'delivered')}: ${f.entregados}`;
+    const notaR = c.proto === 'sr' ? `rcv_base = ${f.r} · ${L('en el búfer', 'buffered')}: ${f.buf.length} · ${L('entregados', 'delivered')}: ${f.entregados}`
+      : sinSeq() ? `${L('entregados', 'delivered')}: ${f.entregados}` : `expectedseqnum = ${f.r} · ${L('entregados', 'delivered')}: ${f.entregados}`;
     const H = 2 * (ch + 26) + 8;
     let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(L(`Ventanas en t = ${tf(estado.t)}. Emisor: ${notaE}. Receptor: ${notaR}.`, `Windows at t = ${tf(estado.t)}. Sender: ${notaE}. Receiver: ${notaR}.`))}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif">`;
     s += `<rect width="${W}" height="${H}" fill="var(--lienzo)"/>`;
@@ -602,17 +642,23 @@ g.tx:hover .eje { stroke-width: 3.4; }
     ['almacena', L('lo guarda en el búfer y envía su ACK', 'it stores it in the buffer and sends its ACK')],
     ['descarta-ack', L('lo descarta y repite el ACK del último recibido en orden', 'it discards it and repeats the ACK of the last one received in order')],
     ['reack', L('ya lo tenía: lo descarta y vuelve a enviar su ACK', 'it already had it: it discards it and sends its ACK again')],
+    ['nak', L('lo descarta y responde NAK', 'it discards it and replies NAK')],
     ['ignora', L('lo descarta sin enviar nada', 'it discards it without sending anything')]
   ];
   const OPS_TO = () => [
     ['uno', L('retransmite solo el paquete de ese temporizador', 'it retransmits only that timer’s packet')],
     ['todos', L('retransmite ese paquete y todos los enviados después sin confirmar', 'it retransmits that packet and all those sent after it and not acknowledged')]
   ];
+  const OPS_ACK = () => [
+    ['siguiente', L('lo da por confirmado y envía el paquete siguiente', 'it takes it as acknowledged and sends the next packet')],
+    ['retransmite', L('retransmite el paquete pendiente', 'it retransmits the pending packet')]
+  ];
+  const opsDe = p => p.tipo === 'llega' ? OPS_LLEGA() : p.tipo === 'ack' ? OPS_ACK() : OPS_TO();
   function pintarPred() {
     const cuerpo = $('#pred-cuerpo');
     if (!pend) {
       const v = Object.values(resps);
-      cuerpo.innerHTML = `<p class="nota">${estado.t >= sim.tUltimo - EPS ? L('Final del escenario.', 'End of the scenario.') : L('Avanza con ▶︎| o →: se parará antes de cada llegada al receptor y de cada timeout.', 'Move on with ▶︎| or →: it stops before each arrival at the receiver and each timeout.')} ${v.length ? L(`Aciertos: ${v.filter(Boolean).length} de ${v.length}.`, `Correct: ${v.filter(Boolean).length} out of ${v.length}.`) : ''}</p>`;
+      cuerpo.innerHTML = `<p class="nota">${estado.t >= sim.tUltimo - EPS ? L('Final del escenario.', 'End of the scenario.') : M.RDT2(sim.cfg.proto) ? L('Avanza con ▶︎| o →: se parará antes de cada llegada al receptor y de cada respuesta que llegue al emisor.', 'Move on with ▶︎| or →: it stops before each arrival at the receiver and each reply that reaches the sender.') : L('Avanza con ▶︎| o →: se parará antes de cada llegada al receptor y de cada timeout.', 'Move on with ▶︎| or →: it stops before each arrival at the receiver and each timeout.')} ${v.length ? L(`Aciertos: ${v.filter(Boolean).length} de ${v.length}.`, `Correct: ${v.filter(Boolean).length} out of ${v.length}.`) : ''}</p>`;
       return;
     }
     const p = pend;
@@ -622,6 +668,11 @@ g.tx:hover .eje { stroke-width: 3.4; }
       q = L(`En t = ${tf(p.t)} llega al receptor ${pkt(p.seq, p.abs)}${p.corrupto ? ' con errores de bits (el checksum lo detecta)' : ''}. ¿Qué hace el receptor (${PROTO(sim.cfg.proto)})?`, `At t = ${tf(p.t)} ${pkt(p.seq, p.abs)} reaches the receiver${p.corrupto ? ' with bit errors (the checksum detects them)' : ''}. What does the receiver do (${PROTO(sim.cfg.proto)})?`);
       ops = OPS_LLEGA();
       void d;
+    } else if (p.tipo === 'ack') {
+      const malo = sim.tx[p.tx].estado === 'corrupto';
+      q = malo ? L(`En t = ${tf(p.t)} llega al emisor la respuesta a ${pkt(p.pseq, p.abs)} con errores de bits. ¿Qué hace el emisor (${PROTO(sim.cfg.proto)})?`, `At t = ${tf(p.t)} the reply to ${pkt(p.pseq, p.abs)} reaches the sender with bit errors. What does the sender do (${PROTO(sim.cfg.proto)})?`)
+        : L(`En t = ${tf(p.t)} llega al emisor ${p.etq}; está esperando la respuesta a ${pkt(p.pseq, p.abs)}. ¿Qué hace el emisor (${PROTO(sim.cfg.proto)})?`, `At t = ${tf(p.t)} ${p.etq} reaches the sender, which is waiting for the reply to ${pkt(p.pseq, p.abs)}. What does the sender do (${PROTO(sim.cfg.proto)})?`);
+      ops = OPS_ACK();
     } else {
       q = L(`En t = ${tf(p.t)} vence un temporizador del emisor (${pkt(p.seq, p.abs)}). ¿Qué retransmite (${PROTO(sim.cfg.proto)})?`, `At t = ${tf(p.t)} a sender timer expires (${pkt(p.seq, p.abs)}). What does it retransmit (${PROTO(sim.cfg.proto)})?`);
       ops = OPS_TO();
@@ -635,7 +686,7 @@ g.tx:hover .eje { stroke-width: 3.4; }
     if (!sel) { fb.className = 'fb ko'; fb.textContent = L('Elige una opción.', 'Choose an option.'); return; }
     const p = pend, buenas = M.respuesta(sim, p), bien = buenas.includes(sel.value);
     resps[claveSuc(p)] = bien;
-    const sol = (p.tipo === 'llega' ? OPS_LLEGA() : OPS_TO()).find(o => o[0] === buenas[0])[1];
+    const sol = opsDe(p).find(o => o[0] === buenas[0])[1];
     fb.className = 'fb ' + (bien ? 'ok' : 'ko');
     fb.textContent = (bien ? L('Correcto: ', 'Correct: ') : L('No: ', 'No: ')) + sol + '. ' + describe(p).replace(/<[^>]+>/g, '');
     pend = null; estado.t = p.t; pintar();
@@ -670,32 +721,39 @@ g.tx:hover .eje { stroke-width: 3.4; }
     estado.t = Math.max(0, Math.min(estado.t, tMax));
 
     // panel
-    const PRE = [['', 'saw-ok', 'saw-pkt', 'saw-ack', 'saw-prem'], ['', 'cadena', 'gbn-pkt', 'gbn-ack'], ['', 'sr-pkt'], ['', 'gbn-max', 'sr-dilema']];
-    const GRUPO = [L('rdt3.0 · parada y espera', 'rdt3.0 · stop-and-wait'), L('en cadena · GBN', 'pipelined · GBN'), L('en cadena · SR', 'pipelined · SR'), L('ampliación · no visto en clase', 'extension · not covered in class')];
-    const amp = PRE[3].includes(estado.preset);
+    const PRE = [['', 'rdt20-nak', 'rdt20-ack', 'rdt21-ack', 'rdt22-pkt'], ['', 'saw-ok', 'saw-pkt', 'saw-ack', 'saw-prem'], ['', 'cadena', 'gbn-pkt', 'gbn-ack'], ['', 'sr-pkt'], ['', 'gbn-max', 'sr-dilema']];
+    const GRUPO = [L('rdt2.x · solo errores de bits', 'rdt2.x · bit errors only'), L('rdt3.0 · parada y espera', 'rdt3.0 · stop-and-wait'), L('en cadena · GBN', 'pipelined · GBN'), L('en cadena · SR', 'pipelined · SR'), L('ampliación · no visto en clase', 'extension · not covered in class')];
+    const amp = PRE.at(-1).includes(estado.preset);
     $('#presets').innerHTML = PRE.map((g, i) => `<p class="grupo">${GRUPO[i]}</p>` + g.slice(1).map(id => `<button type="button" class="btn" data-preset="${id}" aria-pressed="${estado.preset === id}">${esc(T(M.ESCENARIOS[id].titulo))}</button>`).join('')).join('');
     const e = M.ESCENARIOS[estado.preset];
     $('#esc-nota').textContent = estado.preset === 'practica' ? L(`Ejercicio aleatorio (semilla ${estado.semilla}).`, `Random exercise (seed ${estado.semilla}).`) : estado.preset === 'propio' ? L('Escenario modificado.', 'Modified scenario.') : (amp ? L('Ampliación (no visto en clase). ', 'Extension (not covered in class). ') : '') + T(e?.nota);
     document.querySelectorAll('#proto button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === c.proto)));
-    $('#proto-nota').textContent = c.proto === 'saw' ? L('Un paquete sin confirmar como mucho; números de secuencia 0 y 1.', 'At most one unacknowledged packet; sequence numbers 0 and 1.')
+    const solo = L(' El canal no pierde ni retrasa: solo hay errores de bits (clic: ⚡ ↔ normal) y no hace falta temporizador.', ' The channel neither loses nor delays: there are only bit errors (click: ⚡ ↔ normal) and no timer is needed.');
+    $('#proto-nota').textContent = c.proto === 'rdt20' ? L('ACK y NAK, sin números de secuencia.', 'ACK and NAK, no sequence numbers.') + solo
+      : c.proto === 'rdt21' ? L('ACK y NAK; los paquetes llevan un bit de número de secuencia (0, 1) para reconocer los duplicados.', 'ACK and NAK; packets carry a one-bit sequence number (0, 1) to recognize duplicates.') + solo
+      : c.proto === 'rdt22' ? L('Sin NAK: el ACK lleva el número del último paquete recibido bien; un ACK duplicado equivale a un NAK.', 'No NAK: the ACK carries the number of the last packet received correctly; a duplicate ACK is equivalent to a NAK.') + solo
+      : c.proto === 'saw' ? L('rdt3.0: un paquete sin confirmar como mucho; números de secuencia 0 y 1; temporizador para las pérdidas.', 'rdt3.0: at most one unacknowledged packet; sequence numbers 0 and 1; a timer for losses.')
       : c.proto === 'gbn' ? L('Hasta N paquetes sin confirmar; un temporizador; ACK acumulativos; el receptor descarta lo que llega fuera de orden.', 'Up to N unacknowledged packets; one timer; cumulative ACKs; the receiver discards out-of-order packets.')
       : L('Hasta N paquetes sin confirmar; un temporizador por paquete; ACK individuales; el receptor guarda lo que llega fuera de orden.', 'Up to N unacknowledged packets; one timer per packet; individual ACKs; the receiver buffers out-of-order packets.');
     $('#p-n').value = c.n; $('#p-N').value = c.N; $('#p-k').value = c.k; $('#p-tp').value = c.tp; $('#p-to').value = c.to;
-    $('#p-N').disabled = c.proto === 'saw'; $('#p-k').disabled = c.proto === 'saw'; $('#p-N').max = c.S;
+    const uno = M.unoAUno(c.proto), rdt2 = M.RDT2(c.proto);
+    $('#p-N').disabled = uno; $('#p-k').disabled = uno; $('#p-N').max = c.S;
+    $('#p-to').disabled = rdt2; $('#b-to').disabled = rdt2;
     const vmax = M.ventanaMax(c.proto, c.k);
     const regla = c.proto === 'gbn' ? `N ≤ 2^k − 1 = ${vmax}` : c.proto === 'sr' ? `N ≤ 2^k / 2 = ${vmax}` : '';
     const vn = $('#ventana-nota');
     vn.className = 'nota' + (c.N > vmax ? ' aviso' : '');
-    vn.textContent = c.proto === 'saw' ? L('Números de secuencia 0 y 1 (bit alternante); N = 1.', 'Sequence numbers 0 and 1 (alternating bit); N = 1.')
+    vn.textContent = c.proto === 'rdt20' ? L('Sin números de secuencia; N = 1.', 'No sequence numbers; N = 1.')
+      : uno ? L(`Números de secuencia 0 y 1${c.proto === 'saw' ? ' (bit alternante)' : ''}; N = 1.`, `Sequence numbers 0 and 1${c.proto === 'saw' ? ' (alternating bit)' : ''}; N = 1.`)
       : L(`Números de secuencia 0–${c.S - 1}.${c.N > vmax ? ' ⚠ Ventana demasiado grande para ese rango (ver la ampliación).' : ''}`, `Sequence numbers 0–${c.S - 1}.${c.N > vmax ? ' ⚠ Window too large for that range (see the extension).' : ''}`);
     const va = $('#ventana-amp');
     va.className = 'nota' + (c.N > vmax ? ' aviso' : '');
-    va.textContent = c.proto === 'saw' ? L('k = 1 (bit alternante) y N = 1.', 'k = 1 (alternating bit) and N = 1.')
+    va.textContent = uno ? L('Parada y espera: k = 1 y N = 1.', 'Stop-and-wait: k = 1 and N = 1.')
       : L(`${c.N > vmax ? '⚠ Ventana demasiado grande: hace falta ' : 'Correcto: '}${regla}.`, `${c.N > vmax ? '⚠ Window too large: it must be ' : 'Correct: '}${regla}.`);
-    if (amp || c.N > vmax || (c.proto !== 'saw' && c.k !== 3)) $('#amp-k').open = true;
+    if (amp || c.N > vmax || (!uno && c.k !== 3)) $('#amp-k').open = true;
     const tn = $('#to-nota');
-    tn.className = 'nota' + (c.to < 2 * c.tp + 1 ? ' aviso' : '');
-    tn.textContent = L(`RTT = ${2 * c.tp}; el ACK llega ${2 * c.tp + 1} después de empezar a enviar el paquete.${c.to < 2 * c.tp + 1 ? ' ⚠ El temporizador vencerá antes: timeouts prematuros.' : ''}`, `RTT = ${2 * c.tp}; the ACK arrives ${2 * c.tp + 1} after the packet starts being sent.${c.to < 2 * c.tp + 1 ? ' ⚠ The timer will expire first: premature timeouts.' : ''}`);
+    tn.className = 'nota' + (!rdt2 && c.to < 2 * c.tp + 1 ? ' aviso' : '');
+    tn.textContent = rdt2 ? L(`RTT = ${2 * c.tp}. ${NOMBRE(c.proto)} no usa temporizador: el emisor espera la respuesta a cada paquete.`, `RTT = ${2 * c.tp}. ${NOMBRE(c.proto)} uses no timer: the sender waits for the reply to each packet.`) : L(`RTT = ${2 * c.tp}; el ACK llega ${2 * c.tp + 1} después de empezar a enviar el paquete.${c.to < 2 * c.tp + 1 ? ' ⚠ El temporizador vencerá antes: timeouts prematuros.' : ''}`, `RTT = ${2 * c.tp}; the ACK arrives ${2 * c.tp + 1} after the packet starts being sent.${c.to < 2 * c.tp + 1 ? ' ⚠ The timer will expire first: premature timeouts.' : ''}`);
     const incs = Object.entries(c.inc);
     $('#inc-lista').innerHTML = incs.length ? incs.map(([k, v]) => `<li><span>${INC_SIG[v]} <code>${esc(nombreClave(k))}</code> ${estadoTxt(v)}</span><button type="button" class="btn mini" data-quita="${k}" aria-label="${esc(L('Quitar', 'Remove') + ' ' + nombreClave(k))}">×</button></li>`).join('') : `<li class="nota">${L('Ninguna: el canal es perfecto.', 'None: the channel is perfect.')}</li>`;
     document.querySelectorAll('#tema button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === estado.vista.tema)));
@@ -706,10 +764,10 @@ g.tx:hover .eje { stroke-width: 3.4; }
     const oculto = estado.pred && !acabado;
     const okTxt = sim.limite ? L('no termina', 'does not end') : sim.correcto ? L('correcta', 'correct') : L('errónea', 'wrong');
     $('#resumen').innerHTML = [
-      [L('Protocolo', 'Protocol'), c.proto === 'saw' ? 'rdt3.0' : c.proto.toUpperCase() + ` · N = ${c.N}`, ''],
+      [L('Protocolo', 'Protocol'), uno ? NOMBRE(c.proto) : c.proto.toUpperCase() + ` · N = ${c.N}`, ''],
       [L('Tiempo total', 'Total time'), oculto ? '?' : sim.fin !== null ? tf(sim.fin) + ' L/R' : '—', 'fuerte'],
       [L('Transmisiones', 'Transmissions'), oculto ? '?' : `${cu.datos} (${cu.retrans} ${L('retr.', 'retr.')})`, 'fuerte'],
-      ['Timeouts', oculto ? '?' : String(cu.timeouts), ''],
+      ['Timeouts', oculto ? '?' : rdt2 ? '—' : String(cu.timeouts), ''],
       [L('U emisor', 'Sender U'), oculto ? '?' : nf(cu.U, 2), 'fuerte'],
       [L('Entrega', 'Delivery'), oculto ? '?' : okTxt, oculto ? '' : sim.correcto ? 'ok' : 'ko']
     ].map(([a, b, k]) => `<div class="dato ${k}"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join('') + (sim.reordena && !oculto ? `<div class="dato ko"><b>⚠</b><span>${L('el canal desordena (ampliación)', 'the channel reorders (extension)')}</span></div>` : '');
@@ -723,7 +781,9 @@ g.tx:hover .eje { stroke-width: 3.4; }
 
     $('#narra').innerHTML = narrar();
     const ancho = $('#lienzo').clientWidth || 1000, estrecho = ancho < 640;
-    $('#v-tit').innerHTML = L(`Ventanas en t = ${tf(Math.min(pend ? pend.t : estado.t, sim.tUltimo))} <small>· números de secuencia módulo 2^k = ${c.S}${verDato() ? '; encima, el dato (dN)' : ''}</small>`, `Windows at t = ${tf(Math.min(pend ? pend.t : estado.t, sim.tUltimo))} <small>· sequence numbers modulo 2^k = ${c.S}${verDato() ? '; above, the data (dN)' : ''}</small>`);
+    const tV = tf(Math.min(pend ? pend.t : estado.t, sim.tUltimo));
+    $('#v-tit').innerHTML = sinSeq() ? L(`Ventanas en t = ${tV} <small>· sin números de secuencia: cada casilla es un dato (dN)</small>`, `Windows at t = ${tV} <small>· no sequence numbers: each cell is a piece of data (dN)</small>`)
+      : L(`Ventanas en t = ${tV} <small>· números de secuencia módulo 2^k = ${c.S}${verDato() ? '; encima, el dato (dN)' : ''}</small>`, `Windows at t = ${tV} <small>· sequence numbers modulo 2^k = ${c.S}${verDato() ? '; above, the data (dN)' : ''}</small>`);
     $('#ventanas').innerHTML = ventanas(estrecho);
     $('#leyenda-v').innerHTML = `<span><i class="caja" style="background:var(--ack)"></i>${L('confirmado / entregado', 'acked / delivered')}</span><span><i class="caja" style="background:var(--trama)"></i>${L('enviado, sin confirmar', 'sent, not acked')}</span><span><i class="caja" style="background:var(--panel);border-style:dashed"></i>${L('disponible / esperado', 'usable / expected')}</span><span><i class="caja" style="background:var(--html)"></i>${L('en el búfer del receptor', 'in the receiver buffer')}</span><span><i class="caja" style="background:var(--suave)"></i>${L('fuera de la ventana', 'outside the window')}</span><span><i class="caja" style="background:var(--aviso)"></i>${L('dato equivocado', 'wrong data')}</span>`;
     $('#lienzo').innerHTML = diagrama(estrecho);
@@ -736,10 +796,12 @@ g.tx:hover .eje { stroke-width: 3.4; }
   function nombreClave(k) {
     const m = k.match(/^(a\.)?d(\d+)\.(\d+)$/);
     if (!m) return k;
-    const i = +m[2], seq = i % (2 ** (estado.cfg.proto === 'saw' ? 1 : estado.cfg.k)), intento = +m[3];
-    const p = `pkt${seq}${(2 ** estado.cfg.k) < estado.cfg.n || estado.cfg.proto === 'saw' ? '·d' + i : ''}`;
+    const pr = estado.cfg.proto, uno = M.unoAUno(pr);
+    const i = +m[2], seq = i % (2 ** (uno ? 1 : estado.cfg.k)), intento = +m[3];
+    const p = pr === 'rdt20' ? `pkt·d${i}` : `pkt${seq}${(2 ** estado.cfg.k) < estado.cfg.n || uno ? '·d' + i : ''}`;
     const n = intento > 1 ? L(` (envío ${intento})`, ` (send ${intento})`) : '';
-    return m[1] ? L(`ACK de ${p}${n}`, `ACK of ${p}${n}`) : p + n;
+    const resp = pr === 'rdt20' || pr === 'rdt21' ? 'ACK/NAK' : 'ACK';
+    return m[1] ? L(`${resp} de ${p}${n}`, `${resp} of ${p}${n}`) : p + n;
   }
 
   // ------------------------------------------------------------ navegación
@@ -794,7 +856,7 @@ g.tx:hover .eje { stroke-width: 3.4; }
   // ------------------------------------------------------------ incidencias
   function cambiaInc(clave, foco) {
     parar();
-    const orden = [undefined, ...M.INCIDENCIAS], inc = estado.cfg.inc;
+    const orden = [undefined, ...(M.RDT2(estado.cfg.proto) ? ['corrupto'] : M.INCIDENCIAS)], inc = estado.cfg.inc;
     const sig = orden[(orden.indexOf(inc[clave]) + 1) % orden.length];
     if (sig) inc[clave] = sig; else delete inc[clave];
     if (estado.preset !== 'practica') estado.preset = 'propio';
@@ -818,10 +880,11 @@ g.tx:hover .eje { stroke-width: 3.4; }
     parar();
     const c = estado.cfg, p = b.dataset.v;
     if (p === c.proto) return;
-    if (p === 'saw') { c.N = 1; c.k = 1; }
-    else if (c.proto === 'saw') { c.k = 3; c.N = 4; }
+    if (M.unoAUno(p)) { c.N = 1; c.k = 1; }
+    else if (M.unoAUno(c.proto)) { c.k = 3; c.N = 4; }
+    const quitadas = M.RDT2(p) && Object.values(c.inc).some(v => v !== 'corrupto');
     c.proto = p; estado.preset = 'propio'; reiniciarPred(); irA(0);
-    toast(L(`Las mismas incidencias, ahora con ${PROTO(p)}`, `The same incidents, now with ${PROTO(p)}`));
+    toast(quitadas ? L(`${PROTO(p)}: solo se mantienen los errores de bits`, `${PROTO(p)}: only bit errors are kept`) : L(`Las mismas incidencias, ahora con ${PROTO(p)}`, `The same incidents, now with ${PROTO(p)}`));
   });
   const params = { 'p-n': 'n', 'p-N': 'N', 'p-k': 'k', 'p-tp': 'tp', 'p-to': 'to' };
   Object.entries(params).forEach(([id, k]) => $('#' + id).addEventListener('change', e => {
