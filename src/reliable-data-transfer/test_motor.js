@@ -1,6 +1,7 @@
-// Pruebas del motor de transferencia fiable: figuras de Kurose y Ross (3.16, 3.22, 3.26, 3.27), utilización del
-// ejemplo del libro, límites de la ventana y 3000 escenarios aleatorios con ventana correcta, en los que
-// el receptor tiene que entregar todos los datos, una vez y en orden, sea cual sea la incidencia.
+// Pruebas del motor de transferencia fiable: rdt2.0, rdt2.1 y rdt2.2 (§3.4.1), figuras de Kurose y Ross (3.16,
+// 3.22, 3.26, 3.27), utilización del ejemplo del libro, límites de la ventana y escenarios aleatorios (3000 con
+// ventana correcta y 1500 de rdt2.x con errores de bits), en los que el receptor tiene que entregar todos los
+// datos, una vez y en orden, sea cual sea la incidencia.
 const M = require('./motor.js');
 let fallos = 0, n = 0;
 const ok = (c, m) => { n++; if (!c) { fallos++; console.error('FALLO: ' + m); } };
@@ -8,8 +9,29 @@ const sim = id => M.simular(M.ESCENARIOS[id]);
 const tipos = (s, t) => s.log.filter(x => x.tipo === t);
 const envios = s => tipos(s, 'envia').map(x => (x.re ? 'r' : '') + x.abs).join(' ');
 
+// ---------------------------------------------------------------- rdt2.x: solo errores de bits, sin temporizador
+let s = sim('rdt20-nak');
+ok(s.correcto && envios(s) === '0 1 r1 2' && !s.timers.length, 'rdt20-nak: ' + envios(s));
+ok(tipos(s, 'llega').find(x => x.corrupto).accion === 'nak' && tipos(s, 'ack').some(x => x.accion === 'nak' && x.retransmite), 'rdt20-nak: NAK y retransmisión');
+s = sim('rdt20-ack');
+ok(!s.correcto && s.entregados.join() === '0,0,1,2' && envios(s) === '0 r0 1 2', 'rdt20-ack: entrega d0 dos veces → ' + s.entregados);
+ok(tipos(s, 'ack')[0].accion === 'corrupto' && tipos(s, 'ack')[0].retransmite && tipos(s, 'llega')[1].mal, 'rdt20-ack: ACK ilegible → retransmite → duplicado entregado');
+s = sim('rdt21-ack');
+ok(s.correcto && envios(s) === '0 r0 1 2', 'rdt21-ack: ' + envios(s));
+ok(tipos(s, 'llega')[1].accion === 'reack' && tipos(s, 'llega')[1].ackEtq === 'ACK', 'rdt21-ack: duplicado → descarta y reenvía ACK');
+s = M.simular({ proto: 'rdt21', n: 3, tp: 2, inc: { 'd1.1': 'corrupto' } });
+ok(s.correcto && tipos(s, 'llega').find(x => x.corrupto).ackEtq === 'NAK', 'rdt21: paquete corrupto → NAK');
+s = sim('rdt22-pkt');
+ok(s.correcto && envios(s) === '0 1 r1 2', 'rdt22-pkt: ' + envios(s));
+ok(tipos(s, 'llega').find(x => x.corrupto).ackEtq === 'ACK0' && tipos(s, 'ack').find(x => x.retransmite).accion === 'dup', 'rdt22-pkt: ACK0 duplicado ≡ NAK');
+ok(!s.tx.some(x => x.nak), 'rdt22: nunca envía NAK');
+const c2 = M.normalizar({ proto: 'rdt22', N: 4, k: 3, inc: { 'd0.1': 'perdido', 'd1.1': 'corrupto', 'a.d1.1': 'retrasado' } });
+ok(c2.N === 1 && c2.k === 1 && Object.keys(c2.inc).join() === 'd1.1', 'normalizar rdt2.x: solo errores de bits');
+ok(M.respuesta(s, tipos(s, 'ack').find(x => x.retransmite)).join() === 'retransmite' && M.preguntables(s).some(x => x.tipo === 'ack'), 'predicción en rdt2.x: respuestas del emisor');
+ok(!M.preguntables(sim('saw-ok')).some(x => x.tipo === 'ack'), 'predicción en rdt3.0: sin preguntas sobre ACK');
+
 // ---------------------------------------------------------------- parada y espera (rdt3.0, Fig. 3.16)
-let s = sim('saw-ok');
+s = sim('saw-ok');
 ok(s.correcto && s.cuenta.datos === 4 && s.cuenta.retrans === 0 && s.fin === 4 * 7, 'saw-ok: 4 ciclos de RTT + L/R = 7 → ' + s.fin);
 ok(Math.abs(s.cuenta.U - 1 / 7) < 1e-9, 'saw-ok: U = (L/R)/(RTT + L/R) = 1/7');
 ok(s.tx.filter(x => x.tipo === 'd').map(x => x.seq).join('') === '0101', 'saw: bit alternante 0101');
@@ -88,7 +110,7 @@ ok(M.respuesta(s, { tipo: 'timeout', reenvia: [1] }).includes('uno') && M.respue
 const r = M.rng(2026);
 let probados = 0, desordenados = 0, fallaDesorden = 0;
 for (let t = 0; t < 3000; t++) {
-  const proto = M.PROTOS[t % 3];
+  const proto = ['saw', 'gbn', 'sr'][t % 3];
   const k = proto === 'saw' ? 1 : 2 + Math.floor(r() * 2);
   const N = proto === 'saw' ? 1 : 1 + Math.floor(r() * M.ventanaMax(proto, k));
   const nn = 3 + Math.floor(r() * 8), tp = 1 + Math.floor(r() * 4);
@@ -110,10 +132,26 @@ for (let t = 0; t < 3000; t++) {
 }
 ok(probados + desordenados === 3000 && probados > 2000, `aleatorios: ${probados} sin desorden, ${desordenados} con desorden`);
 ok(fallaDesorden > 0, 'hay casos con desorden en los que el protocolo falla: ' + fallaDesorden);
+// rdt2.x con errores de bits aleatorios en paquetes y respuestas: rdt2.1 y rdt2.2 siempre entregan bien;
+// rdt2.0 también, salvo que se corrompa algún ACK/NAK.
+let fallos20 = 0;
+for (let t = 0; t < 1500; t++) {
+  const proto = ['rdt20', 'rdt21', 'rdt22'][t % 3];
+  const nn = 2 + Math.floor(r() * 6), inc = {};
+  for (let i = 0; i < nn; i++) for (let a = 1; a <= 3; a++) {
+    if (r() < 0.25) inc[`d${i}.${a}`] = 'corrupto';
+    if (r() < 0.25) inc[`a.d${i}.${a}`] = 'corrupto';
+  }
+  const x = M.simular({ proto, n: nn, tp: 1 + Math.floor(r() * 4), inc });
+  const ackMal = x.tx.some(y => y.tipo === 'a' && y.estado === 'corrupto');
+  if (proto === 'rdt20' && ackMal) { if (!x.correcto) fallos20++; continue; }
+  if (!x.correcto || x.timers.length) { ok(false, 'rdt2.x aleatorio incorrecto ' + JSON.stringify({ proto, nn, inc }) + ' entregados ' + x.entregados); break; }
+}
+ok(fallos20 > 0, 'rdt2.0 con ACK/NAK corruptos entrega duplicados: ' + fallos20);
 // el caso que encontró la prueba: un pkt0 retransmitido y retrasado llega tras pkt1 y se entrega como pkt2
 s = M.simular({ proto: 'saw', n: 6, tp: 3, to: 9, inc: { 'a.d0.1': 'retrasado', 'd0.2': 'retrasado', 'a.d2.2': 'perdido', 'a.d4.1': 'retrasado', 'a.d5.2': 'perdido' } });
 ok(s.reordena && s.errores.length, 'bit alternante con canal que desordena: entrega errónea');
 ok(!sim('saw-prem').reordena && !sim('gbn-pkt').reordena, 'los escenarios del libro no desordenan');
 
-console.log(fallos ? `${fallos} de ${n} pruebas fallan` : `OK: ${n} pruebas (3000 escenarios aleatorios)`);
+console.log(fallos ? `${fallos} de ${n} pruebas fallan` : `OK: ${n} pruebas (4500 escenarios aleatorios)`);
 process.exit(fallos ? 1 : 0);

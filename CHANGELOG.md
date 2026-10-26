@@ -6,6 +6,10 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 ## [Unreleased]
 
 ### Added
+- Reliable data transfer: rdt2.0, rdt2.1 and rdt2.2 (`reliable-data-transfer`, session 3.2), the
+  stop-and-wait versions for a channel with bit errors and no losses (no timer): ACK/NAK, a corrupted
+  reply that makes rdt2.0 deliver a duplicate, the one-bit sequence number of rdt2.1 and the duplicate
+  ACK of rdt2.2, with four scenarios and prediction questions on the sender's reaction to each reply.
 - Acknowledgment of the University of Alcalá project UAH/EV1827 in the README and in the
   Zenodo metadata (`notes` in `.zenodo.json`).
 - Browser cache: cache or server? (`http-cache`, session 2.3): decision tree, sequence

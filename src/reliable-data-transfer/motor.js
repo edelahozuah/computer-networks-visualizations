@@ -1,5 +1,7 @@
-// Motor de la transferencia de datos fiable (Kurose y Ross §3.4): parada y espera (rdt3.0, bit alternante),
-// Retroceder N (GBN) y Repetición selectiva (SR), con simulación de sucesos discretos.
+// Motor de la transferencia de datos fiable (Kurose y Ross §3.4): parada y espera (rdt2.0, rdt2.1, rdt2.2 y
+// rdt3.0, bit alternante), Retroceder N (GBN) y Repetición selectiva (SR), con simulación de sucesos discretos.
+// rdt2.x suponen un canal que solo introduce errores de bits (no pierde ni retrasa): no hay temporizador y el
+// emisor reacciona a cada respuesta del receptor (ACK, NAK o una respuesta ilegible).
 // El emisor y el receptor trabajan solo con números de secuencia módulo 2^k, como en un protocolo real; el
 // motor sabe además qué dato de la aplicación lleva cada paquete y así detecta cuándo el receptor entrega un
 // duplicado como si fuera nuevo (ventana demasiado grande para el espacio de números de secuencia).
@@ -8,26 +10,32 @@
 const MotorRDT = (() => {
   'use strict';
 
-  const PROTOS = ['saw', 'gbn', 'sr'];
+  const PROTOS = ['rdt20', 'rdt21', 'rdt22', 'saw', 'gbn', 'sr'];
+  const RDT2 = p => p === 'rdt20' || p === 'rdt21' || p === 'rdt22';
+  const unoAUno = p => p === 'saw' || RDT2(p);   // parada y espera: N = 1, k = 1
   const INCIDENCIAS = ['perdido', 'corrupto', 'retrasado'];
   const RETRASO = 3;                 // lo que se retrasa un paquete o un ACK «retrasado», en L/R
   const LIMITE = { sucesos: 4000, t: 3000 };
 
   // Ventana máxima correcta para k bits: GBN 2^k − 1; SR 2^(k−1); parada y espera 1 (con k = 1).
-  const ventanaMax = (proto, k) => proto === 'saw' ? 1 : proto === 'gbn' ? 2 ** k - 1 : 2 ** (k - 1);
+  const ventanaMax = (proto, k) => unoAUno(proto) ? 1 : proto === 'gbn' ? 2 ** k - 1 : 2 ** (k - 1);
+  // Etiqueta de una respuesta del receptor: NAK, ACK sin número (rdt2.0 y rdt2.1) o ACKn.
+  const etiquetaAck = a => a.nak ? 'NAK' : a.seq === null || a.seq === undefined ? 'ACK' : 'ACK' + a.seq;
   const toPorDefecto = tp => 2 * tp + 2;   // RTT + L/R + 1: lo justo para que no venza antes del ACK
 
   function normalizar(c) {
     const proto = PROTOS.includes(c.proto) ? c.proto : 'gbn';
     const ent = (v, a, b, d) => { const x = Math.round(Number(v)); return Number.isFinite(x) ? Math.max(a, Math.min(b, x)) : d; };
-    const k = proto === 'saw' ? 1 : ent(c.k, 1, 4, 3);
+    const k = unoAUno(proto) ? 1 : ent(c.k, 1, 4, 3);
     const S = 2 ** k;
-    const N = proto === 'saw' ? 1 : ent(c.N, 1, S, Math.min(4, S));   // hasta S: más allá ni siquiera son distintos
+    const N = unoAUno(proto) ? 1 : ent(c.N, 1, S, Math.min(4, S));   // hasta S: más allá ni siquiera son distintos
     const tp = ent(c.tp, 1, 8, 3);
     const to = ent(c.to, 1, 40, toPorDefecto(tp));
     const n = ent(c.n, 1, 16, 8);
     const inc = {};
-    for (const [q, v] of Object.entries(c.inc || {})) if (INCIDENCIAS.includes(v) && /^(d\d+\.\d+|a\.d\d+\.\d+)$/.test(q)) inc[q] = v;
+    // rdt2.x: el canal no pierde ni retrasa, solo hay errores de bits
+    const validas = RDT2(proto) ? ['corrupto'] : INCIDENCIAS;
+    for (const [q, v] of Object.entries(c.inc || {})) if (validas.includes(v) && /^(d\d+\.\d+|a\.d\d+\.\d+)$/.test(q)) inc[q] = v;
     return { proto, k, S, N, tp, to, n, inc };
   }
 
@@ -73,7 +81,7 @@ const MotorRDT = (() => {
       while (E.next < n && E.next < E.base + N) {
         const d = transmite(E.next, ahora, false);
         if (proto === 'sr') E.timersSR[E.next] = arrancaTimer(E.next, d.t0);
-        else if (!E.timer) E.timer = arrancaTimer(E.base, d.t0);
+        else if (!E.timer && !RDT2(proto)) E.timer = arrancaTimer(E.base, d.t0);
         E.next++;
       }
     }
@@ -81,16 +89,30 @@ const MotorRDT = (() => {
     // porque la ventana no pasa de S).
     const enVentana = a => { for (let j = E.base; j < E.next; j++) if (j % S === a) return j; return null; };
 
+    // rdt2.x: hay un único paquete pendiente (base) y el emisor responde a cada respuesta del receptor. NAK, una
+    // respuesta con errores (no sabe si era ACK o NAK) o, en rdt2.2, un ACK con otro nº de secuencia (ACK
+    // duplicado ≡ NAK) → retransmite; un ACK correcto → confirma y envía el siguiente.
+    function ackRdt2(ev) {
+      const a = tx[ev.tx], j = E.base;
+      const accion = a.estado === 'corrupto' ? 'corrupto' : a.nak ? 'nak' : proto === 'rdt22' && a.seq !== j % S ? 'dup' : 'avanza';
+      const d = { tx: a.id, seq: a.seq, etq: etiquetaAck(a), accion, abs: j, pseq: j % S };
+      if (accion !== 'avanza') { anota(ev.t, 'ack', { ...d, base: E.base, retransmite: true }); transmite(j, ev.t, true); return; }
+      E.conf[j] = true; E.base = j + 1;
+      anota(ev.t, 'ack', { ...d, base: E.base, antes: j, acum: 1 });
+      if (E.base >= n && E.fin === null) E.fin = ev.t;
+      llena(ev.t);
+    }
     function ackLlega(ev) {
+      if (RDT2(proto)) return ackRdt2(ev);
       const a = tx[ev.tx];
-      if (a.estado === 'corrupto') return anota(ev.t, 'ack', { tx: a.id, seq: a.seq, accion: 'corrupto', base: E.base });
+      if (a.estado === 'corrupto') return anota(ev.t, 'ack', { tx: a.id, seq: a.seq, etq: etiquetaAck(a), accion: 'corrupto', base: E.base });
       const j = enVentana(a.seq);
-      if (j === null || (proto === 'sr' && E.conf[j])) return anota(ev.t, 'ack', { tx: a.id, seq: a.seq, accion: 'dup', base: E.base });
+      if (j === null || (proto === 'sr' && E.conf[j])) return anota(ev.t, 'ack', { tx: a.id, seq: a.seq, etq: etiquetaAck(a), accion: 'dup', base: E.base });
       if (proto === 'sr') {
         E.conf[j] = true; paraTimer(E.timersSR[j], ev.t); delete E.timersSR[j];
         const antes = E.base;
         while (E.base < n && E.conf[E.base]) E.base++;
-        anota(ev.t, 'ack', { tx: a.id, seq: a.seq, accion: E.base > antes ? 'avanza' : 'marca', abs: j, base: E.base, antes });
+        anota(ev.t, 'ack', { tx: a.id, seq: a.seq, etq: etiquetaAck(a), accion: E.base > antes ? 'avanza' : 'marca', abs: j, base: E.base, antes });
       } else {
         const antes = E.base;
         for (let x = E.base; x <= j; x++) E.conf[x] = true;
@@ -98,7 +120,7 @@ const MotorRDT = (() => {
         paraTimer(E.timer, ev.t); E.timer = null;
         if (E.base < E.next) E.timer = arrancaTimer(E.base, ev.t);
         // si el receptor aún no tiene el dato j, el emisor ha confundido un ACK duplicado con uno nuevo (N > 2^k − 1)
-        anota(ev.t, 'ack', { tx: a.id, seq: a.seq, accion: 'avanza', abs: j, base: E.base, antes, acum: j - antes + 1, confunde: j >= R.entregados.length });
+        anota(ev.t, 'ack', { tx: a.id, seq: a.seq, etq: etiquetaAck(a), accion: 'avanza', abs: j, base: E.base, antes, acum: j - antes + 1, confunde: j >= R.entregados.length });
       }
       if (E.base >= n && E.fin === null) E.fin = ev.t;
       llena(ev.t);
@@ -122,24 +144,35 @@ const MotorRDT = (() => {
     }
 
     // ---------------------------------------------------------------- receptor
-    function enviaAck(a, ahora, dtx) {
+    // a: nº de secuencia del ACK (null en rdt2.0 y rdt2.1, cuyos ACK/NAK no llevan número)
+    function enviaAck(a, ahora, dtx, nak = false) {
       const clave = `a.${dtx.clave}`;
       const estado = inc[clave] || 'ok';
       const t1 = ahora + tp + (estado === 'retrasado' ? RETRASO : 0);
-      const k = { id: tx.length, tipo: 'a', clave, seq: a, t0: ahora, t1, estado, de: dtx.id };
+      const k = { id: tx.length, tipo: 'a', clave, seq: a, nak, t0: ahora, t1, estado, de: dtx.id };
       tx.push(k);
       if (estado === 'perdido') { k.tPerdida = ahora + tp / 2; anota(k.tPerdida, 'pierde', { tx: k.id }); }
       else evento(t1, 0, 'ackLlega', { tx: k.id });
       return k;
     }
+    // bien: el dato que tocaba en esa posición; en rdt2.0, que no sea un duplicado (tras el primero, los demás
+    // se desplazan, pero el único error es el duplicado)
     function entrega(p, t, lista) {
+      const dup = R.entregados.includes(p);
       R.entregados.push(p);
-      lista.push({ dato: p, bien: p === R.entregados.length - 1 });
+      lista.push({ dato: p, bien: proto === 'rdt20' ? !dup : p === R.entregados.length - 1 });
     }
     function llega(ev) {
       const d = tx[ev.tx], x = d.seq, t = ev.t;
       const out = { tx: d.id, abs: d.abs, seq: x, corrupto: d.estado === 'corrupto', entregados: [] };
-      if (proto !== 'sr') {
+      let nak = false;
+      if (proto === 'rdt20' || proto === 'rdt21') {
+        // ACK/NAK sin número. rdt2.0 no tiene números de secuencia: entrega todo lo que llega sin errores.
+        if (out.corrupto) { out.accion = 'nak'; nak = true; }
+        else if (proto === 'rdt20' || x === R.r) { entrega(d.abs, t, out.entregados); out.accion = 'entrega'; R.r = (R.r + 1) % S; }
+        else { out.accion = 'reack'; out.duplicado = true; }
+        out.ack = null; out.responde = true;
+      } else if (proto !== 'sr') {
         if (!out.corrupto && x === R.r) {
           entrega(d.abs, t, out.entregados);
           out.accion = 'entrega'; out.ack = x; R.r = (R.r + 1) % S;
@@ -165,7 +198,11 @@ const MotorRDT = (() => {
         } else if (atras >= 1 && atras <= N) { out.accion = 'reack'; out.ack = x; }
         else { out.accion = 'ignora'; out.ack = null; }
       }
-      if (out.ack !== null && out.ack !== undefined) out.acktx = enviaAck(out.ack, t, d).id;
+      if (out.responde || (out.ack !== null && out.ack !== undefined)) {
+        const k = enviaAck(out.ack, t, d, nak);
+        out.acktx = k.id; out.ackEtq = etiquetaAck(k);
+      }
+      delete out.responde;
       out.mal = out.entregados.some(e => !e.bien);
       anota(t, 'llega', out);
     }
@@ -226,9 +263,11 @@ const MotorRDT = (() => {
   const instantes = sim => [...new Set(sim.log.map(x => +x.t.toFixed(6)))].sort((a, b) => a - b);
 
   // Sucesos sobre los que se pregunta en el modo predicción y su respuesta correcta.
-  const preguntables = sim => sim.log.filter(x => x.tipo === 'llega' || x.tipo === 'timeout');
+  // En rdt2.x, sin temporizador, se pregunta también qué hace el emisor con cada respuesta del receptor.
+  const preguntables = sim => sim.log.filter(x => x.tipo === 'llega' || x.tipo === 'timeout' || (x.tipo === 'ack' && RDT2(sim.cfg.proto)));
   function respuesta(sim, s) {
     if (s.tipo === 'timeout') return s.reenvia.length > 1 ? ['todos'] : ['uno', 'todos'];
+    if (s.tipo === 'ack') return [s.retransmite ? 'retransmite' : 'siguiente'];
     return [s.accion];
   }
 
@@ -240,9 +279,13 @@ const MotorRDT = (() => {
   }
 
   // ------------------------------------------------------------ escenarios
-  // Los de Kurose y Ross (8.ª ed.): Fig. 3.16 (rdt3.0), 3.18–3.19 (rendimiento), 3.22 (GBN), 3.26 (SR) y 3.27
-  // (dilema de SR).
+  // Los de Kurose y Ross (8.ª ed.): §3.4.1 (rdt2.0, rdt2.1 y rdt2.2), Fig. 3.16 (rdt3.0), 3.18–3.19
+  // (rendimiento), 3.22 (GBN), 3.26 (SR) y 3.27 (dilema de SR).
   const ESCENARIOS = {
+    'rdt20-nak':  { proto: 'rdt20', n: 3, tp: 3, inc: { 'd1.1': 'corrupto' }, titulo: { es: 'rdt2.0: un paquete con errores', en: 'rdt2.0: a packet with errors' }, nota: { es: 'd1 llega con errores de bits: el receptor los detecta con el checksum y responde NAK, y el emisor lo retransmite. Parada y espera con ACK/NAK y sin temporizador: este canal no pierde paquetes.', en: 'd1 arrives with bit errors: the receiver detects them with the checksum and replies NAK, and the sender retransmits it. Stop-and-wait with ACK/NAK and no timer: this channel does not lose packets.' } },
+    'rdt20-ack':  { proto: 'rdt20', n: 3, tp: 3, inc: { 'a.d0.1': 'corrupto' }, titulo: { es: 'rdt2.0: un ACK con errores', en: 'rdt2.0: an ACK with errors' }, nota: { es: 'El ACK de d0 llega con errores: el emisor no sabe si era ACK o NAK y retransmite d0. Sin números de secuencia, el receptor no lo distingue de un dato nuevo y entrega d0 dos veces. Es el fallo que resuelve rdt2.1.', en: 'The ACK of d0 arrives with errors: the sender cannot tell ACK from NAK and retransmits d0. Without sequence numbers, the receiver cannot tell it from new data and delivers d0 twice. This is the flaw rdt2.1 fixes.' } },
+    'rdt21-ack':  { proto: 'rdt21', n: 3, tp: 3, inc: { 'a.d0.1': 'corrupto' }, titulo: { es: 'rdt2.1: un ACK con errores', en: 'rdt2.1: an ACK with errors' }, nota: { es: 'El mismo caso con un bit de número de secuencia: el receptor reconoce pkt0 repetido, lo descarta y vuelve a enviar ACK. Prueba a corromper un paquete: el receptor responde NAK.', en: 'The same case with a one-bit sequence number: the receiver recognizes the repeated pkt0, discards it and sends ACK again. Try corrupting a packet: the receiver replies NAK.' } },
+    'rdt22-pkt':  { proto: 'rdt22', n: 3, tp: 3, inc: { 'd1.1': 'corrupto' }, titulo: { es: 'rdt2.2: un paquete con errores (sin NAK)', en: 'rdt2.2: a packet with errors (no NAK)' }, nota: { es: 'pkt1 llega con errores: el receptor repite ACK0, el del último recibido bien. El emisor esperaba ACK1: un ACK duplicado equivale a un NAK y retransmite pkt1.', en: 'pkt1 arrives with errors: the receiver repeats ACK0, the one of the last packet received correctly. The sender expected ACK1: a duplicate ACK is equivalent to a NAK, and it retransmits pkt1.' } },
     'saw-ok':     { proto: 'saw', n: 4, tp: 3, inc: {}, titulo: { es: 'Parada y espera sin pérdidas', en: 'Stop-and-wait without losses' }, nota: { es: 'rdt3.0 (bit alternante): un paquete, su ACK, el siguiente. El canal está casi siempre parado: U = (L/R)/(RTT + L/R). Fig. 3.16a.', en: 'rdt3.0 (alternating bit): one packet, its ACK, the next one. The channel is idle most of the time: U = (L/R)/(RTT + L/R). Fig. 3.16a.' } },
     'saw-pkt':    { proto: 'saw', n: 3, tp: 3, inc: { 'd1.1': 'perdido' }, titulo: { es: 'Parada y espera: se pierde un paquete', en: 'Stop-and-wait: a packet is lost' }, nota: { es: 'Se pierde pkt1: no llega ACK, vence el temporizador y el emisor lo retransmite. Fig. 3.16b.', en: 'pkt1 is lost: no ACK arrives, the timer expires and the sender retransmits it. Fig. 3.16b.' } },
     'saw-ack':    { proto: 'saw', n: 3, tp: 3, inc: { 'a.d1.1': 'perdido' }, titulo: { es: 'Parada y espera: se pierde un ACK', en: 'Stop-and-wait: an ACK is lost' }, nota: { es: 'Se pierde ACK1: el emisor retransmite pkt1 y el receptor recibe un duplicado; gracias al nº de secuencia lo descarta y repite ACK1. Fig. 3.16c.', en: 'ACK1 is lost: the sender retransmits pkt1 and the receiver gets a duplicate; thanks to the sequence number it discards it and repeats ACK1. Fig. 3.16c.' } },
@@ -262,20 +305,21 @@ const MotorRDT = (() => {
   }
   function generar(semilla) {
     const r = rng(semilla), ent = (a, b) => a + Math.floor(r() * (b - a + 1));
-    const proto = ['saw', 'gbn', 'sr', 'gbn', 'sr'][ent(0, 4)];
-    const N = proto === 'saw' ? 1 : ent(3, 4), n = proto === 'saw' ? ent(3, 4) : ent(6, 8), tp = ent(2, 3);
-    const inc = {}, nInc = proto === 'saw' ? 1 : ent(1, 2);
+    const proto = ['rdt21', 'rdt22', 'saw', 'gbn', 'sr', 'gbn', 'sr'][ent(0, 6)];
+    const N = unoAUno(proto) ? 1 : ent(3, 4), n = unoAUno(proto) ? ent(3, 4) : ent(6, 8), tp = ent(2, 3);
+    const inc = {}, nInc = unoAUno(proto) ? 1 : ent(1, 2);
     const usados = new Set();
     while (Object.keys(inc).length < nInc) {
       const i = ent(0, n - 2);
       if (usados.has(i)) continue;
       usados.add(i);
+      if (RDT2(proto)) { inc[ent(0, 1) ? `a.d${i}.1` : `d${i}.1`] = 'corrupto'; continue; }   // solo errores de bits
       const tipo = ['perdido', 'perdido', 'corrupto', 'ack'][ent(0, 3)];
       if (tipo === 'ack') inc[`a.d${i}.1`] = 'perdido'; else inc[`d${i}.1`] = tipo;
     }
     return { proto, n, N, k: 3, tp, inc, semilla };
   }
 
-  return { PROTOS, INCIDENCIAS, RETRASO, ventanaMax, toPorDefecto, normalizar, simular, fotoEn, instantes, preguntables, respuesta, utilizacion, ESCENARIOS, rng, generar };
+  return { PROTOS, RDT2, unoAUno, etiquetaAck, INCIDENCIAS, RETRASO, ventanaMax, toPorDefecto, normalizar, simular, fotoEn, instantes, preguntables, respuesta, utilizacion, ESCENARIOS, rng, generar };
 })();
 if (typeof module !== 'undefined') module.exports = MotorRDT;
