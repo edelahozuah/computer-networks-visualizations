@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TCP diagram template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Plantilla en blanco para resolver ejercicios de TCP: una fila por tic, tablas de campos a cada
+   lado y dos líneas de tiempo; los segmentos tardan medio tic en llegar. Mismas variables que las
+   piezas de transporte (banco de trabajo: panel a la izquierda, lienzo a la derecha). */
+:root {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --lienzo: #ffffff;
+  --fg: #16202a;
+  --muted: #5a6876;
+  --line: #c8d1d9;
+  --suave: #e7ecf0;
+  --trama: #1f5fbf;
+  --rejilla: #4a5866;
+  --sel: #c97a00;
+  --aviso: #b4482a;
+  --bien: #17855a;
+  --camino: #fff1d6;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --rejilla: #7d8b98; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --rejilla: #7d8b98; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1400px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; margin-bottom: 16px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.rejilla { display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1000px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
+.panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.panel section:first-child { border-top: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+input[type="text"], textarea {
+  font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; min-width: 0; width: 100%;
+}
+textarea { min-height: 84px; resize: vertical; font-size: 0.9rem; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 4px 10px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.86rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+button.btn:hover:not(:disabled) { border-color: var(--fg); }
+button.btn:disabled { opacity: .45; cursor: default; }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+button.btn.peligro:hover { border-color: var(--aviso); color: var(--aviso); }
+button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.estado { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.estado.sucio { color: var(--sel); font-weight: 600; }
+.ayuda { margin: 0; padding-left: 1.2em; font-size: 0.84rem; display: flex; flex-direction: column; gap: 4px; }
+
+/* Lista de ejercicios guardados */
+.lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; }
+.item { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.item.activo { border-color: var(--trama); box-shadow: inset 3px 0 0 var(--trama); }
+.item .abrir { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; color: var(--fg); font: inherit; padding: 6px 8px; cursor: pointer; }
+.item .abrir b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .abrir small { color: var(--muted); font-size: 0.78rem; }
+.item .acc { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 0.9rem; }
+.item .acc:hover { color: var(--fg); background: var(--suave); }
+.item .acc.borrar:hover { color: var(--aviso); }
+.vacio { font-size: 0.84rem; color: var(--muted); margin: 0; }
+
+/* Zona del diagrama */
+.zona { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); min-width: 0; }
+.barra { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); min-height: 52px; }
+.barra .txt { flex: 1 1 360px; min-width: 0; font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.barra .txt .pista { color: var(--muted); }
+.barra .txt b { color: var(--sel); }
+.barra label.chk { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.barra input[type="text"] { width: 190px; padding: 4px 7px; }
+.barra .filas { display: flex; gap: 6px; align-items: center; font-size: 0.86rem; color: var(--muted); }
+.barra .filas b { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: center; }
+.lienzo { overflow-x: auto; padding: 14px 12px 22px; background: var(--lienzo); border-radius: 0 0 var(--radio) var(--radio); }
+.diagrama { display: grid; grid-template-columns: 30px auto 220px auto; width: max-content; margin: 0 auto; }
+.hosts { position: relative; height: 54px; }
+.host { position: absolute; bottom: 4px; width: 84px; height: 36px; background: var(--trama); color: var(--lienzo); border: 0; border-radius: 3px; text-align: center; font: 600 0.92rem var(--body); padding: 0 4px; }
+#hostA { left: -60px; }
+#hostB { right: -60px; }
+.col { display: flex; flex-direction: column; }
+.tic { height: 60px; font: 0.74rem var(--mono); color: var(--muted); padding-top: 14px; text-align: right; padding-right: 8px; }
+.campos { display: grid; grid-template-columns: 58px 58px 82px 52px 52px 64px; grid-template-rows: 19px 1fr; gap: 1px; background: var(--rejilla); border: 1px solid var(--rejilla); height: 48px; margin-bottom: 12px; }
+.campos > span { background: var(--suave); font-size: 0.7rem; color: var(--muted); display: flex; align-items: center; justify-content: center; user-select: none; }
+.campos input { border: 0; border-radius: 0; width: 100%; height: 100%; text-align: center; font: 500 0.84rem var(--mono); color: var(--fg); padding: 0 2px; background: var(--lienzo); min-width: 0; }
+.campos input:focus-visible { outline: 2px solid var(--trama); outline-offset: -2px; }
+.campos input::-webkit-calendar-picker-indicator { display: none !important; }
+.campos.hl { background: var(--sel); border-color: var(--sel); }
+.campos.hl input { background: var(--camino); }
+#medio { display: block; touch-action: manipulation; }
+#medio .tl { stroke: var(--trama); stroke-width: 2; }
+#medio .ticl { stroke: var(--trama); stroke-width: 1; stroke-dasharray: 1.5 3; opacity: .55; }
+#medio .punto { cursor: pointer; }
+#medio .punto .hit { fill: transparent; }
+#medio .punto .vis { fill: var(--lienzo); stroke: var(--trama); stroke-width: 1.5; opacity: 0; transition: opacity .1s; }
+#medio:hover .punto .vis { opacity: .5; }
+#medio .punto:hover .vis, #medio .punto:focus-visible .vis { opacity: 1; fill: var(--trama); }
+#medio .punto:focus { outline: none; }
+#medio .flecha { cursor: pointer; }
+#medio .flecha .hit { stroke: transparent; stroke-width: 14; }
+#medio .flecha .ln { stroke: var(--fg); stroke-width: 1.8; }
+#medio .flecha.perdido .ln { stroke: var(--aviso); stroke-dasharray: 6 4; }
+#medio .flecha:hover .ln { stroke: var(--trama); }
+#medio .flecha.sel .ln { stroke: var(--sel); stroke-width: 2.6; }
+#medio .flecha .eti { font: 500 11px var(--body); fill: var(--fg); paint-order: stroke; stroke: var(--lienzo); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
+#medio .cruz { stroke: var(--aviso); stroke-width: 2.6; stroke-linecap: round; }
+#medio .pta { fill: var(--fg); }
+#medio .pta.sel { fill: var(--sel); }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 5; }
+#toast.vis { opacity: 1; }
+
+/* Impresión: solo nombre, anotaciones y diagrama, en claro */
+.impresion { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  :root:not(#_) { --bg: #fff; --panel: #fff; --lienzo: #fff; --fg: #000; --muted: #444; --line: #bbb; --suave: #fff; --trama: #1f5fbf; --rejilla: #333; --aviso: #b4482a; color-scheme: light; }
+  body { background: #fff; }
+  header.cab, .panel, .barra, #toast { display: none !important; }
+  .envoltura { padding: 0; max-width: none; }
+  .rejilla { display: block; }
+  .tarjeta { border: 0; }
+  .impresion { display: block; margin: 0 0 8px; }
+  .impresion h2 { font: 700 15px var(--display); color: #000; text-transform: none; letter-spacing: 0; margin: 0 0 4px; }
+  .impresion p { margin: 0; white-space: pre-wrap; font-size: 11px; }
+  .lienzo { padding: 0; overflow: visible; }
+  .diagrama { zoom: .7; }
+  #medio .punto { display: none; }
+  .campos.hl { background: var(--rejilla); border-color: var(--rejilla); }
+  .campos.hl input { background: #fff; }
+  #medio .flecha.sel .ln { stroke: var(--fg); stroke-width: 1.8; }
+  #medio .pta.sel { fill: var(--fg); }
+}
+</style>
+</head>
+<body>
+
+<div class="envoltura">
+  <header class="cab">
+    <h1><span>TCP</span> diagram template</h1>
+    <div class="cab-der">
+      <p class="sub">Draw the segments of a TCP connection and fill in their fields. Each row is one tick; a segment reaches the other end half a tick after it leaves. Save your exercises in the browser or export them.</p>
+      <div class="seg" id="tema" role="group" aria-label="Theme"><button type="button" data-v="auto">Auto</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div>
+    </div>
+  </header>
+
+  <div class="rejilla">
+    <aside class="panel">
+      <section>
+        <h2>Exercise</h2>
+        <input type="text" id="nombre" placeholder="Exercise name" aria-label="Exercise name" autocomplete="off">
+        <textarea id="notas" placeholder="Statement and notes: ISN, MSS, windows, losses, timers…" aria-label="Statement and notes"></textarea>
+        <div class="fila">
+          <button type="button" class="btn prim" id="bGuardar">Save</button>
+          <button type="button" class="btn" id="bCopia">Save a copy</button>
+        </div>
+        <p class="estado" id="estado" aria-live="polite"></p>
+      </section>
+      <section>
+        <h2>My exercises</h2>
+        <div class="fila">
+          <button type="button" class="btn" id="bNuevo">+ New</button>
+          <button type="button" class="btn" id="bImportar">Import…</button>
+          <button type="button" class="btn" id="bEjemplo">See an example</button>
+        </div>
+        <input type="file" id="fichero" accept=".json,application/json" hidden>
+        <div class="lista" id="lista"></div>
+        <p class="nota">They are saved in this browser only. To move them to another computer or hand them in, use Export.</p>
+      </section>
+      <section>
+        <h2>File</h2>
+        <div class="fila">
+          <button type="button" class="btn" id="bExportar">Export</button>
+          <button type="button" class="btn" id="bImprimir">Print / PDF</button>
+        </div>
+      </section>
+      <section>
+        <h2>How to use it</h2>
+        <ul class="ayuda">
+          <li>Click a point on the <b>sender's</b> time line to send a segment in that tick.</li>
+          <li>Fill in the fields in the sender's table, in the row of the tick it leaves.</li>
+          <li>Click an arrow to mark it as lost, label it, reverse it or delete it (Del).</li>
+          <li>Enter and the ↑ ↓ arrows move between rows; Ctrl/⌘ + S saves.</li>
+        </ul>
+      </section>
+    </aside>
+
+    <div class="zona">
+      <div class="tarjeta">
+        <div class="barra" id="barra"></div>
+        <div class="impresion"><h2 id="impNombre"></h2><p id="impNotas"></p></div>
+        <div class="lienzo">
+          <div class="diagrama">
+            <div></div>
+            <div class="hosts"></div>
+            <div class="hosts">
+              <input class="host" id="hostA" aria-label="Name of the left host" autocomplete="off">
+              <input class="host" id="hostB" aria-label="Name of the right host" autocomplete="off">
+            </div>
+            <div class="hosts"></div>
+            <div class="col" id="tics" aria-hidden="true"></div>
+            <div class="col" id="colA"></div>
+            <svg id="medio" width="220" role="group" aria-label="Time lines and segments"></svg>
+            <div class="col" id="colB"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<datalist id="listaFlags">
+  <option value="SYN"><option value="SYN, ACK"><option value="ACK"><option value="PSH, ACK">
+  <option value="FIN"><option value="FIN, ACK"><option value="RST"><option value="RST, ACK">
+</datalist>
+
+<script>
+(() => {
+  'use strict';
+  const CLAVE = 'plantilla-tcp:v1', CLAVE_TEMA = 'plantilla-tcp:tema';
+  const CAMPOS = ['SN', 'AN', 'Flags', 'W', 'MSS', 'Datos'];
+  const ROTULO = { SN: 'SN', AN: 'AN', Flags: 'Flags', W: 'W', MSS: 'MSS', Datos: 'Data' };
+  const LOCALE = 'en-GB';
+  const FILA = 60, Y0 = 24, ANCHO = 220, XA = 6, XB = ANCHO - 6;
+  const FILAS = 18, MIN_FILAS = 4, MAX_FILAS = 60;
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+
+  let cur, sucio = false, sel = null;
+
+  // ---------- almacenamiento ----------
+  let hayAlmacen = true;
+  function leerTodos() {
+    try { const v = JSON.parse(localStorage.getItem(CLAVE) || '[]'); return Array.isArray(v) ? v : []; }
+    catch { hayAlmacen = false; return []; }
+  }
+  function escribirTodos(lista) {
+    try { localStorage.setItem(CLAVE, JSON.stringify(lista)); return true; }
+    catch { hayAlmacen = false; return false; }
+  }
+  const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const filaVacia = () => Object.fromEntries(CAMPOS.map(c => [c, '']));
+
+  function enBlanco() {
+    return { id: null, name: '', notes: '', hostA: 'Host A', hostB: 'Host B', rows: FILAS,
+             cells: { A: Array.from({ length: FILAS }, filaVacia), B: Array.from({ length: FILAS }, filaVacia) },
+             arrows: [], created: null, updated: null };
+  }
+  // Acepta lo guardado o importado y lo deja en la forma esperada.
+  function normalizar(x) {
+    if (!x || typeof x !== 'object') throw new Error('formato');
+    const e = enBlanco();
+    e.id = typeof x.id === 'string' ? x.id : null;
+    e.name = String(x.name ?? ''); e.notes = String(x.notes ?? '');
+    e.hostA = String(x.hostA ?? 'Host A'); e.hostB = String(x.hostB ?? 'Host B');
+    e.rows = Math.min(MAX_FILAS, Math.max(MIN_FILAS, parseInt(x.rows, 10) || FILAS));
+    for (const s of ['A', 'B']) {
+      const src = x.cells && Array.isArray(x.cells[s]) ? x.cells[s] : [];
+      e.cells[s] = Array.from({ length: e.rows }, (_, i) => Object.fromEntries(CAMPOS.map(c => [c, String(src[i]?.[c] ?? '')])));
+    }
+    const vistos = new Set();
+    e.arrows = (Array.isArray(x.arrows) ? x.arrows : [])
+      .filter(a => a && (a.from === 'A' || a.from === 'B') && Number.isInteger(+a.r1) && +a.r1 >= 0 && +a.r1 < e.rows)
+      .filter(a => { const k = a.from + (+a.r1); if (vistos.has(k)) return false; vistos.add(k); return true; })
+      .map(a => ({ id: typeof a.id === 'string' ? a.id : nuevoId(), from: a.from, r1: +a.r1, lost: !!a.lost, label: String(a.label ?? '') }));
+    e.created = x.created || null; e.updated = x.updated || null;
+    return e;
+  }
+
+  // ---------- estado y avisos ----------
+  function marcar(v = true) {
+    sucio = v;
+    const st = $('estado');
+    st.className = 'estado' + (v ? ' sucio' : '');
+    st.textContent = v ? '● Unsaved changes' : cur.id ? '✓ Saved' : 'New exercise, not saved yet';
+  }
+  const descartar = () => !sucio || confirm('The current exercise has unsaved changes. Discard them?');
+  window.addEventListener('beforeunload', e => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
+  function aviso(m) {
+    const t = $('toast'); t.textContent = m; t.classList.add('vis');
+    clearTimeout(aviso.t); aviso.t = setTimeout(() => t.classList.remove('vis'), 2400);
+  }
+
+  // ---------- lista de ejercicios ----------
+  const fecha = ts => ts ? new Date(ts).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  function pintarLista() {
+    const lista = leerTodos().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    const el = $('lista'); el.textContent = '';
+    if (!hayAlmacen) { el.innerHTML = '<p class="vacio">This browser does not allow saving here. Use Export to keep your work.</p>'; return; }
+    if (!lista.length) { el.innerHTML = '<p class="vacio">You have not saved any exercise yet.</p>'; return; }
+    for (const ex of lista) {
+      const it = document.createElement('div');
+      it.className = 'item' + (cur && ex.id === cur.id ? ' activo' : '');
+      it.innerHTML = '<button type="button" class="abrir"><b></b><small></small></button>'
+        + '<button type="button" class="acc" data-a="dup" title="Duplicate" aria-label="Duplicate">⧉</button>'
+        + '<button type="button" class="acc borrar" data-a="del" title="Delete" aria-label="Delete">✕</button>';
+      it.querySelector('b').textContent = ex.name || '(untitled)';
+      it.querySelector('small').textContent = fecha(ex.updated);
+      it.querySelector('.abrir').onclick = () => {
+        if (ex.id === cur.id && !sucio) return;
+        if (descartar()) abrir(normalizar(ex));
+      };
+      it.querySelector('[data-a="dup"]').onclick = () => {
+        const todos = leerTodos(), c = JSON.parse(JSON.stringify(ex));
+        c.id = nuevoId(); c.name = (ex.name || 'Exercise') + ' (copy)'; c.created = c.updated = Date.now();
+        todos.push(c); escribirTodos(todos); pintarLista(); aviso('Copy created');
+      };
+      it.querySelector('[data-a="del"]').onclick = () => {
+        if (!confirm('Delete “' + (ex.name || 'untitled') + '”? This cannot be undone.')) return;
+        escribirTodos(leerTodos().filter(x => x.id !== ex.id));
+        if (cur.id === ex.id) { cur.id = null; marcar(true); }
+        pintarLista(); aviso('Exercise deleted');
+      };
+      el.appendChild(it);
+    }
+  }
+
+  // ---------- abrir, guardar, exportar, importar ----------
+  function abrir(ex) {
+    cur = ex; sel = null;
+    $('nombre').value = cur.name; $('notas').value = cur.notes;
+    $('hostA').value = cur.hostA; $('hostB').value = cur.hostB;
+    pintarTablas(); pintarMedio(); pintarBarra(); pintarLista(); marcar(false);
+  }
+  function guardar(copia) {
+    cur.name = $('nombre').value.trim();
+    if (!cur.name) {
+      const n = prompt('Exercise name:', 'Exercise ' + new Date().toLocaleDateString(LOCALE));
+      if (n === null) return;
+      cur.name = n.trim() || 'Untitled exercise';
+    }
+    const todos = leerTodos(), ahora = Date.now();
+    if (copia || !cur.id) {
+      if (copia && cur.id) cur.name += ' (copy)';
+      cur.id = nuevoId(); cur.created = ahora;
+    }
+    cur.updated = ahora;
+    const i = todos.findIndex(x => x.id === cur.id), foto = JSON.parse(JSON.stringify(cur));
+    if (i >= 0) todos[i] = foto; else todos.push(foto);
+    $('nombre').value = cur.name;
+    if (!escribirTodos(todos)) { pintarLista(); aviso('Could not save in the browser. Use Export.'); return; }
+    marcar(false); pintarLista(); aviso(copia ? 'Copy saved' : 'Exercise saved');
+  }
+  function exportar() {
+    cur.name = $('nombre').value.trim();
+    const datos = JSON.stringify({ format: 'plantilla-tcp', version: 1, ...cur }, null, 2);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([datos], { type: 'application/json' }));
+    a.download = (cur.name || 'tcp-exercise').replace(/[\\/:*?"<>|]+/g, '_') + '.tcp.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function importar(f) {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const ex = normalizar(JSON.parse(r.result));
+        ex.id = null; if (!ex.name) ex.name = f.name.replace(/(\.tcp)?\.json$/i, '');
+        abrir(ex); marcar(true); aviso('Imported. Click Save to keep it here.');
+      } catch { aviso('The file is not a valid exercise'); }
+    };
+    r.readAsText(f);
+  }
+  // Ejemplo: establecimiento en tres pasos y un segmento de datos con su ACK.
+  function ejemplo() {
+    const ex = enBlanco();
+    ex.name = 'Example: handshake and one data segment';
+    ex.notes = 'A opens a connection to B. A’s ISN = 100, B’s ISN = 300, MSS = 1000 B. A sends 1000 B of data. Each segment takes half a tick to arrive.';
+    const pon = (s, r, v) => Object.assign(ex.cells[s][r], v);
+    pon('A', 0, { SN: '100', Flags: 'SYN', W: '4000', MSS: '1000' });
+    pon('B', 1, { SN: '300', AN: '101', Flags: 'SYN, ACK', W: '3000', MSS: '1000' });
+    pon('A', 2, { SN: '101', AN: '301', Flags: 'ACK', W: '4000' });
+    pon('A', 3, { SN: '101', AN: '301', Flags: 'PSH, ACK', W: '4000', Datos: '1000' });
+    pon('B', 4, { SN: '301', AN: '1101', Flags: 'ACK', W: '2000' });
+    ex.arrows = [['A', 0], ['B', 1], ['A', 2], ['A', 3], ['B', 4]].map(([f, r]) => ({ id: nuevoId(), from: f, r1: r, lost: false, label: '' }));
+    abrir(ex); marcar(true);
+  }
+
+  // ---------- tablas ----------
+  function tabla(s, i) {
+    const t = document.createElement('div');
+    t.className = 'campos'; t.dataset.s = s; t.dataset.r = i;
+    for (const c of CAMPOS) { const h = document.createElement('span'); h.textContent = ROTULO[c]; t.appendChild(h); }
+    for (const c of CAMPOS) {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = cur.cells[s][i][c]; inp.dataset.c = c;
+      inp.autocomplete = 'off'; inp.spellcheck = false;
+      inp.setAttribute('aria-label', `${s === 'A' ? cur.hostA : cur.hostB}, tick ${i + 1}, ${ROTULO[c]}`);
+      if (c === 'Flags') inp.setAttribute('list', 'listaFlags');
+      inp.addEventListener('input', () => { cur.cells[s][i][c] = inp.value; marcar(); });
+      inp.addEventListener('keydown', e => moverse(e, s, i, c));
+      t.appendChild(inp);
+    }
+    return t;
+  }
+  function pintarTablas() {
+    for (const s of ['A', 'B']) {
+      const col = $('col' + s); col.textContent = '';
+      for (let i = 0; i < cur.rows; i++) col.appendChild(tabla(s, i));
+    }
+    const tics = $('tics'); tics.textContent = '';
+    for (let i = 0; i < cur.rows; i++) { const d = document.createElement('div'); d.className = 'tic'; d.textContent = i + 1; tics.appendChild(d); }
+    resaltar();
+  }
+  const celda = (s, i, c) => document.querySelector(`.campos[data-s="${s}"][data-r="${i}"] input[data-c="${c}"]`);
+  function moverse(e, s, i, c) {
+    let d = 0;
+    if (e.key === 'Enter' || e.key === 'ArrowDown') d = 1; else if (e.key === 'ArrowUp') d = -1;
+    if (!d) return;
+    const t = celda(s, Math.max(0, Math.min(cur.rows - 1, i + d)), c);
+    if (t) { e.preventDefault(); t.focus(); t.select(); }
+  }
+  function resaltar() {
+    document.querySelectorAll('.campos.hl').forEach(t => t.classList.remove('hl'));
+    const a = cur.arrows.find(x => x.id === sel);
+    if (a) document.querySelector(`.campos[data-s="${a.from}"][data-r="${a.r1}"]`)?.classList.add('hl');
+  }
+
+  // ---------- líneas de tiempo y flechas ----------
+  const yDe = t => Y0 + t * FILA;
+  const xDe = s => s === 'A' ? XA : XB;
+  function svg(tag, attrs, padre) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (padre) padre.appendChild(e);
+    return e;
+  }
+  function pintarMedio() {
+    const m = $('medio'), H = cur.rows * FILA;
+    m.setAttribute('height', H); m.setAttribute('viewBox', `0 0 ${ANCHO} ${H}`);
+    m.textContent = '';
+    const defs = svg('defs', {}, m);
+    for (const [id, cls] of [['pta', 'pta'], ['ptaSel', 'pta sel']]) {
+      const mk = svg('marker', { id, viewBox: '0 0 10 10', refX: 10, refY: 5, markerWidth: 9, markerHeight: 9, orient: 'auto', markerUnits: 'userSpaceOnUse' }, defs);
+      svg('path', { d: 'M0,0 L10,5 L0,10 z', class: cls }, mk);
+    }
+    for (let i = 0; i < cur.rows; i++) svg('line', { class: 'ticl', x1: XA, x2: XB, y1: yDe(i), y2: yDe(i) }, m);
+    for (const s of ['A', 'B']) svg('line', { class: 'tl', x1: xDe(s), x2: xDe(s), y1: 0, y2: H }, m);
+    for (const a of cur.arrows) {
+      const otro = a.from === 'A' ? 'B' : 'A';
+      const x1 = xDe(a.from), y1 = yDe(a.r1), xf = xDe(otro), yf = yDe(a.r1 + 0.5);  // llega medio tic después
+      const k = a.lost ? 0.62 : 1, x2 = x1 + (xf - x1) * k, y2 = y1 + (yf - y1) * k;
+      const g = svg('g', { class: 'flecha' + (a.lost ? ' perdido' : '') + (a.id === sel ? ' sel' : ''), 'data-id': a.id }, m);
+      svg('line', { class: 'hit', x1, y1, x2, y2 }, g);
+      const ln = svg('line', { class: 'ln', x1, y1, x2, y2 }, g);
+      if (a.lost) {
+        const c = 7;
+        svg('line', { class: 'cruz', x1: x2 - c, y1: y2 - c, x2: x2 + c, y2: y2 + c }, g);
+        svg('line', { class: 'cruz', x1: x2 - c, y1: y2 + c, x2: x2 + c, y2: y2 - c }, g);
+      } else ln.setAttribute('marker-end', `url(#${a.id === sel ? 'ptaSel' : 'pta'})`);
+      if (a.label) {
+        const mx = (x1 + xf) / 2, my = (y1 + yf) / 2;
+        let ang = Math.atan2(yf - y1, xf - x1) * 180 / Math.PI;
+        if (ang > 90 || ang < -90) ang += 180;
+        svg('text', { class: 'eti', x: mx, y: my - 6, 'text-anchor': 'middle', transform: `rotate(${ang.toFixed(2)} ${mx} ${my})` }, g).textContent = a.label;
+      }
+    }
+    for (const s of ['A', 'B']) for (let i = 0; i < cur.rows; i++) {
+      const g = svg('g', { class: 'punto', 'data-s': s, 'data-r': i, tabindex: 0, role: 'button',
+        'aria-label': `Send a segment from ${s === 'A' ? cur.hostA : cur.hostB}, tick ${i + 1}` }, m);
+      svg('circle', { class: 'hit', cx: xDe(s), cy: yDe(i), r: 13 }, g);
+      svg('circle', { class: 'vis', cx: xDe(s), cy: yDe(i), r: 5 }, g);
+    }
+  }
+  function refrescar() { pintarMedio(); pintarBarra(); resaltar(); }
+  function enviar(s, r) {
+    const ya = cur.arrows.find(a => a.from === s && a.r1 === r);
+    if (ya) sel = ya.id;
+    else { const a = { id: nuevoId(), from: s, r1: r, lost: false, label: '' }; cur.arrows.push(a); sel = a.id; marcar(); }
+    refrescar();
+  }
+  $('medio').addEventListener('click', e => {
+    const p = e.target.closest('.punto'), f = e.target.closest('.flecha');
+    if (p) enviar(p.dataset.s, +p.dataset.r);
+    else if (f) { sel = f.dataset.id; refrescar(); }
+    else if (sel) { sel = null; refrescar(); }
+  });
+  $('medio').addEventListener('keydown', e => {
+    const p = e.target.closest('.punto');
+    if (p && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); enviar(p.dataset.s, +p.dataset.r); }
+  });
+  function borrarSel() { cur.arrows = cur.arrows.filter(a => a.id !== sel); sel = null; marcar(); refrescar(); }
+  document.addEventListener('keydown', e => {
+    const escribiendo = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);
+    if (e.key === 'Escape' && sel) { sel = null; refrescar(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !escribiendo) { e.preventDefault(); borrarSel(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); guardar(false); }
+  });
+
+  // ---------- barra del diagrama ----------
+  function pintarBarra() {
+    const b = $('barra'), a = cur.arrows.find(x => x.id === sel);
+    const nom = s => (s === 'A' ? cur.hostA : cur.hostB) || s;
+    const txt = document.createElement('div'); txt.className = 'txt';
+    if (a) {
+      const otro = a.from === 'A' ? 'B' : 'A';
+      txt.innerHTML = `<b></b><span class="pista"></span>
+        <label class="chk"><input type="checkbox" id="cPerdido"> Lost</label>
+        <input type="text" id="cEtiqueta" placeholder="Label (e.g. RTO)" aria-label="Label" autocomplete="off">
+        <button type="button" class="btn mini" id="cInvertir">⇄ Reverse</button>
+        <button type="button" class="btn mini peligro" id="cBorrar">Delete</button>`;
+      txt.querySelector('b').textContent = `${nom(a.from)} → ${nom(otro)}`;
+      txt.querySelector('.pista').textContent = `leaves in tick ${a.r1 + 1}, arrives at ${a.r1 + 1}${'.5'}`;
+      b.replaceChildren(txt);
+      $('cPerdido').checked = a.lost;
+      $('cPerdido').onchange = e => { a.lost = e.target.checked; marcar(); pintarMedio(); };
+      $('cEtiqueta').value = a.label;
+      $('cEtiqueta').oninput = e => { a.label = e.target.value; marcar(); pintarMedio(); };
+      $('cEtiqueta').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+      $('cInvertir').onclick = () => {
+        if (cur.arrows.some(x => x.from === otro && x.r1 === a.r1)) { aviso('There is already a segment from ' + nom(otro) + ' in that tick'); return; }
+        a.from = otro; marcar(); refrescar();
+      };
+      $('cBorrar').onclick = borrarSel;
+    } else {
+      txt.innerHTML = '<span class="pista">Click a point on the sender’s time line to send a segment in that tick; it arrives half a tick later. Click an arrow to edit it.</span>';
+      b.replaceChildren(txt);
+    }
+    const f = document.createElement('div'); f.className = 'filas';
+    f.innerHTML = 'Ticks <button type="button" class="btn mini" id="fMenos" aria-label="Remove the last tick">−</button><b></b><button type="button" class="btn mini" id="fMas" aria-label="Add a tick at the end">+</button>';
+    f.querySelector('b').textContent = cur.rows;
+    b.appendChild(f);
+    $('fMenos').disabled = cur.rows <= MIN_FILAS; $('fMas').disabled = cur.rows >= MAX_FILAS;
+    $('fMenos').onclick = () => filas(cur.rows - 1);
+    $('fMas').onclick = () => filas(cur.rows + 1);
+  }
+  function filas(n) {
+    n = Math.max(MIN_FILAS, Math.min(MAX_FILAS, n));
+    if (n < cur.rows) {
+      const u = cur.rows - 1;
+      const usada = CAMPOS.some(c => cur.cells.A[u][c] || cur.cells.B[u][c]) || cur.arrows.some(a => a.r1 === u);
+      if (usada && !confirm('The last tick has data or segments. Remove it anyway?')) return;
+      cur.arrows = cur.arrows.filter(a => a.r1 < n);
+      if (!cur.arrows.some(a => a.id === sel)) sel = null;
+    }
+    for (const s of ['A', 'B']) {
+      cur.cells[s].length = Math.min(cur.cells[s].length, n);
+      while (cur.cells[s].length < n) cur.cells[s].push(filaVacia());
+    }
+    cur.rows = n; marcar(); pintarTablas(); refrescar();
+  }
+
+  // ---------- tema ----------
+  function tema(t) {
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    document.querySelectorAll('#tema button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === t)));
+    try { localStorage.setItem(CLAVE_TEMA, t); } catch { /* sin almacenamiento */ }
+  }
+  document.querySelectorAll('#tema button').forEach(b => b.onclick = () => tema(b.dataset.v));
+  let temaIni = 'auto';
+  try { temaIni = localStorage.getItem(CLAVE_TEMA) || 'auto'; } catch { /* sin almacenamiento */ }
+  tema(['auto', 'light', 'dark'].includes(temaIni) ? temaIni : 'auto');
+
+  // ---------- controles ----------
+  $('nombre').addEventListener('input', () => { cur.name = $('nombre').value; marcar(); });
+  $('nombre').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+  $('notas').addEventListener('input', () => { cur.notes = $('notas').value; marcar(); });
+  for (const s of ['A', 'B']) $('host' + s).addEventListener('input', e => { cur['host' + s] = e.target.value; marcar(); if (sel) pintarBarra(); });
+  $('bNuevo').onclick = () => { if (descartar()) { abrir(enBlanco()); $('nombre').focus(); } };
+  $('bEjemplo').onclick = () => { if (descartar()) ejemplo(); };
+  $('bGuardar').onclick = () => guardar(false);
+  $('bCopia').onclick = () => guardar(true);
+  $('bExportar').onclick = exportar;
+  $('bImportar').onclick = () => { if (descartar()) $('fichero').click(); };
+  $('fichero').onchange = e => { const f = e.target.files[0]; if (f) importar(f); e.target.value = ''; };
+  function prepararImpresion() {
+    $('impNombre').textContent = $('nombre').value || 'TCP exercise';
+    $('impNotas').textContent = $('notas').value;
+  }
+  window.addEventListener('beforeprint', prepararImpresion);
+  $('bImprimir').onclick = () => { sel = null; refrescar(); prepararImpresion(); window.print(); };
+
+  abrir(enBlanco());
+})();
+</script>
+</body>
+</html>

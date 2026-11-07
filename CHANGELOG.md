@@ -6,6 +6,11 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 ## [Unreleased]
 
 ### Added
+- TCP diagram template (`tcp-diagram-template`, session 3.3): the blank worksheet of the TCP
+  exercises in the browser, one row per tick with the segment fields (SN, AN, Flags, W, MSS, Data) on
+  each side and the two time lines. Segments arrive half a tick after they leave and can be marked as
+  lost, labelled, reversed or deleted; exercises are saved in the browser, exported and imported as
+  JSON and printed on A4. Source in `src/tcp-diagram-template`.
 - Reliable data transfer: rdt2.0, rdt2.1 and rdt2.2 (`reliable-data-transfer`, session 3.2), the
   stop-and-wait versions for a channel with bit errors and no losses (no timer): ACK/NAK, a corrupted
   reply that makes rdt2.0 deliver a duplicate, the one-bit sequence number of rdt2.1 and the duplicate
