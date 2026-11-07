@@ -1524,3 +1524,72 @@ visualizations:
   thumbnail: thumbnails/reliable-data-transfer.jpg
   source: src/reliable-data-transfer
   added: '2026-10-21'
+- id: tcp-diagram-template
+  topic: 3
+  session: '3.3'
+  title:
+    es: Plantilla para diagramas TCP
+    en: TCP diagram template
+  description:
+    es: >-
+      La plantilla de los ejercicios de TCP, en el navegador: una fila por tic, la tabla de campos de cada
+      segmento (SN, AN, Flags, W, MSS y Datos) a cada lado y las dos líneas de tiempo. Dibuja los segmentos,
+      que llegan medio tic después, marca los perdidos y guarda o exporta tus ejercicios.
+    en: >-
+      The worksheet for the TCP exercises, in the browser: one row per tick, the table of fields of each
+      segment (SN, AN, Flags, W, MSS and Data) on each side and the two time lines. Draw the segments, which
+      arrive half a tick later, mark the lost ones and save or export your exercises.
+  summary:
+    es: >-
+      Plantilla en blanco para resolver a mano los ejercicios de TCP (establecimiento y cierre de la
+      conexión, números de secuencia y de reconocimiento, ventana, MSS, pérdidas y retransmisiones). El tiempo
+      avanza hacia abajo en tics: cada fila tiene, a cada lado, la tabla de campos del segmento que envía ese
+      host en ese tic (SN, AN, Flags, W, MSS y Datos) y, en medio, las líneas de tiempo de los dos hosts. Al
+      pulsar un punto de la línea del emisor se dibuja el segmento, que llega al otro extremo medio tic
+      después; cada flecha se puede marcar como perdida (se corta con una cruz), etiquetar (por ejemplo, RTO
+      o ACK duplicado), invertir o borrar. Los nombres de los hosts y el número de tics se pueden cambiar, y
+      cada ejercicio lleva un nombre y un cuadro para el enunciado y las anotaciones. No corrige ni da la
+      solución: es el soporte en el que el estudiante razona. Los ejercicios se guardan en el navegador, se
+      exportan e importan como ficheros JSON para cambiar de equipo o entregarlos, y se imprimen en A4. Incluye
+      un ejemplo con el establecimiento en tres pasos y un segmento de datos con su ACK.
+    en: >-
+      A blank worksheet for solving TCP exercises by hand (connection establishment and teardown, sequence
+      and acknowledgment numbers, window, MSS, losses and retransmissions). Time runs downwards in ticks: each
+      row has, on each side, the table of fields of the segment that host sends in that tick (SN, AN, Flags,
+      W, MSS and Data) and, in the middle, the time lines of the two hosts. Clicking a point on the sender's
+      line draws the segment, which reaches the other end half a tick later; each arrow can be marked as lost
+      (it is cut with a cross), labelled (for example, RTO or duplicate ACK), reversed or deleted. The host
+      names and the number of ticks can be changed, and each exercise has a name and a box for the statement
+      and notes. It neither grades nor gives the solution: it is the medium in which the student reasons.
+      Exercises are saved in the browser, exported and imported as JSON files to move them to another
+      computer or hand them in, and printed on A4. It includes an example with the three-way handshake and
+      one data segment with its ACK.
+  concepts:
+    es:
+    - segmento TCP
+    - número de secuencia
+    - número de reconocimiento
+    - flags SYN, ACK, FIN y RST
+    - establecimiento en tres pasos
+    - cierre de la conexión
+    - ventana de recepción
+    - MSS
+    - pérdida y retransmisión
+    - diagrama de tiempos
+    en:
+    - TCP segment
+    - sequence number
+    - acknowledgment number
+    - SYN, ACK, FIN and RST flags
+    - three-way handshake
+    - connection teardown
+    - receive window
+    - MSS
+    - loss and retransmission
+    - timing diagram
+  files:
+    es: 03-transport-layer/tcp-diagram-template.es.html
+    en: 03-transport-layer/tcp-diagram-template.en.html
+  thumbnail: thumbnails/tcp-diagram-template.jpg
+  source: src/tcp-diagram-template
+  added: '2026-11-07'

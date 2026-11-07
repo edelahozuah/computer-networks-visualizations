@@ -44,6 +44,7 @@ are in use on [edelahozuah.github.io](https://edelahozuah.github.io/docencia/ar1
 | 3 · UDP | **UDP checksum step by step**<br>Checksum UDP paso a paso | Session 3.1 | [EN](03-transport-layer/udp-checksum.en.html) · [ES](03-transport-layer/udp-checksum.es.html) · [source](src/udp-checksum/) |
 | 3 · UDP | **The UDP datagram and its pseudo-header**<br>El datagrama UDP y su pseudocabecera | Session 3.1 | [EN](03-transport-layer/udp-datagram.en.html) · [ES](03-transport-layer/udp-datagram.es.html) · [source](src/udp-datagram/) |
 | 3 | **Reliable data transfer: stop-and-wait, GBN and SR**<br>Transferencia fiable: parada y espera, GBN y SR | Session 3.2 | [EN](03-transport-layer/reliable-data-transfer.en.html) · [ES](03-transport-layer/reliable-data-transfer.es.html) · [source](src/reliable-data-transfer/) |
+| 3 | **TCP diagram template**<br>Plantilla para diagramas TCP | Session 3.3 | [EN](03-transport-layer/tcp-diagram-template.en.html) · [ES](03-transport-layer/tcp-diagram-template.es.html) · [source](src/tcp-diagram-template/) |
 <!-- catalog:end -->
 
 Each visualization has a thumbnail in `thumbnails/` and an entry in
@@ -96,6 +97,7 @@ are larger and are developed from modular sources in `src/`, each with a
 | `src/udp-checksum/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/udp-checksum.{es,en}.html` |
 | `src/udp-datagram/` | bilingual, reuses the `udp-checksum` engine, tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/udp-datagram.{es,en}.html` |
 | `src/reliable-data-transfer/` | bilingual, engine `motor.js` tested by `test_motor.js`; `publicar.py` derives the two published files | `03-transport-layer/reliable-data-transfer.{es,en}.html` |
+| `src/tcp-diagram-template/` | one bilingual source with the texts as `⟦español‖english⟧`; `publicar.py` derives the two published files | `03-transport-layer/tcp-diagram-template.{es,en}.html` |
 
 The published files of the first two are derived from those builds with the
 language fixed and the language switch removed; those of DNS step by step are
