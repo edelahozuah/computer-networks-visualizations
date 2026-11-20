@@ -6,6 +6,12 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 ## [Unreleased]
 
 ### Added
+- TCP diagram template: timers (drawn on a host's time line in half-tick steps, created by clicking
+  the line between two ticks or from a segment's bar, with start, duration, label and colour;
+  overlapping timers get their own lane), a colour for each arrow or timer (a palette that adapts to
+  the dark theme, or any colour), labels that no longer overlap when two segments cross in the same
+  tick, and a button to hide the side panel. The example now includes the RTO of the data segment.
+  Based on changes by Marino Tejedor.
 - TCP diagram template (`tcp-diagram-template`, session 3.3): the blank worksheet of the TCP
   exercises in the browser, one row per tick with the segment fields (SN, AN, Flags, W, MSS, Data) on
   each side and the two time lines. Segments arrive half a tick after they leave and can be marked as
