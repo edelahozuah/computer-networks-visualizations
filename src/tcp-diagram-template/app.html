@@ -25,6 +25,8 @@
   --aviso: #b4482a;
   --bien: #17855a;
   --camino: #fff1d6;
+  /* Paleta para colorear flechas y temporizadores (cada tono tiene su versión oscura) */
+  --pal1: #c0392b; --pal2: #d35400; --pal3: #1e8449; --pal4: #2f5597; --pal5: #8e44ad;
   --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -34,12 +36,14 @@
   :root:not([data-theme="light"]) {
     --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
     --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --rejilla: #7d8b98; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+    --pal1: #f07a6a; --pal2: #f5a352; --pal3: #5fd08e; --pal4: #82adf2; --pal5: #c792ea;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
   --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --rejilla: #7d8b98; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d; --camino: #3a2f12;
+  --pal1: #f07a6a; --pal2: #f5a352; --pal3: #5fd08e; --pal4: #82adf2; --pal5: #c792ea;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -53,12 +57,14 @@ h1 span { color: var(--trama); }
 .cab-der { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .rejilla { display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr); gap: 18px; align-items: start; }
 @media (max-width: 1000px) { .rejilla { grid-template-columns: minmax(0, 1fr); } }
+.rejilla.plegada { grid-template-columns: minmax(0, 1fr); }
+.rejilla.plegada > .panel { display: none; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); display: flex; flex-direction: column; }
 .panel section { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
 .panel section:first-child { border-top: 0; }
 h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
 .fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-input[type="text"], textarea {
+input[type="text"], input[type="number"], textarea {
   font: inherit; color: var(--fg); background: var(--bg);
   border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; min-width: 0; width: 100%;
 }
@@ -100,6 +106,12 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
 .barra .txt b { color: var(--sel); }
 .barra label.chk { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
 .barra input[type="text"] { width: 190px; padding: 4px 7px; }
+.barra label.num { display: inline-flex; gap: 6px; align-items: center; }
+.barra input[type="number"] { width: 72px; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+.colores { display: inline-flex; gap: 4px; align-items: center; }
+.colores .mues { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); padding: 0; cursor: pointer; }
+.colores .mues[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--fg); }
+.colores input[type="color"] { width: 28px; height: 24px; padding: 0 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer; }
 .barra .filas { display: flex; gap: 6px; align-items: center; font-size: 0.86rem; color: var(--muted); }
 .barra .filas b { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: center; }
 .lienzo { overflow-x: auto; padding: 14px 12px 22px; background: var(--lienzo); border-radius: 0 0 var(--radio) var(--radio); }
@@ -128,12 +140,22 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
 #medio .punto:focus { outline: none; }
 #medio .flecha { cursor: pointer; }
 #medio .flecha .hit { stroke: transparent; stroke-width: 14; }
-#medio .flecha .ln { stroke: var(--fg); stroke-width: 1.8; }
-#medio .flecha.perdido .ln { stroke: var(--aviso); stroke-dasharray: 6 4; }
-#medio .flecha:hover .ln { stroke: var(--trama); }
-#medio .flecha.sel .ln { stroke: var(--sel); stroke-width: 2.6; }
-#medio .flecha .eti { font: 500 11px var(--body); fill: var(--fg); paint-order: stroke; stroke: var(--lienzo); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
-#medio .cruz { stroke: var(--aviso); stroke-width: 2.6; stroke-linecap: round; }
+/* --c es el color elegido por el alumno (si no hay, el de siempre) */
+#medio .flecha .ln { stroke: var(--c, var(--fg)); stroke-width: 1.8; }
+#medio .flecha.perdido .ln { stroke: var(--c, var(--aviso)); stroke-dasharray: 6 4; }
+#medio .flecha:hover .ln { stroke: var(--c, var(--trama)); }
+#medio .flecha.sel .ln { stroke: var(--c, var(--sel)); stroke-width: 2.6; }
+#medio .eti { font: 500 11px var(--body); fill: var(--c, var(--fg)); paint-order: stroke; stroke: var(--lienzo); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
+#medio .cruz { stroke: var(--c, var(--aviso)); stroke-width: 2.6; stroke-linecap: round; }
+#medio .linea-t { fill: transparent; cursor: cell; }
+#medio .fantasma { fill: var(--trama); opacity: .6; pointer-events: none; }
+#medio .temp { cursor: pointer; }
+#medio .temp .hit { stroke: transparent; stroke-width: 14; }
+#medio .temp .tln { stroke: var(--c, var(--fg)); stroke-width: 1.8; stroke-dasharray: 5 4; }
+#medio .temp .tope { stroke: var(--c, var(--fg)); stroke-width: 1.8; }
+#medio .temp:hover .tln, #medio .temp:hover .tope { stroke: var(--c, var(--trama)); }
+#medio .temp.sel .tln, #medio .temp.sel .tope { stroke: var(--c, var(--sel)); stroke-width: 2.6; }
+#medio .color.sel { filter: drop-shadow(0 0 3px var(--sel)); }
 #medio .pta { fill: var(--fg); }
 #medio .pta.sel { fill: var(--sel); }
 #toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--panel); padding: 7px 14px; border-radius: 4px; font-size: 0.85rem; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 5; }
@@ -143,7 +165,8 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
 .impresion { display: none; }
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
-  :root:not(#_) { --bg: #fff; --panel: #fff; --lienzo: #fff; --fg: #000; --muted: #444; --line: #bbb; --suave: #fff; --trama: #1f5fbf; --rejilla: #333; --aviso: #b4482a; color-scheme: light; }
+  :root:not(#_) { --bg: #fff; --panel: #fff; --lienzo: #fff; --fg: #000; --muted: #444; --line: #bbb; --suave: #fff; --trama: #1f5fbf; --rejilla: #333; --aviso: #b4482a;
+    --pal1: #c0392b; --pal2: #d35400; --pal3: #1e8449; --pal4: #2f5597; --pal5: #8e44ad; color-scheme: light; }
   body { background: #fff; }
   header.cab, .panel, .barra, #toast { display: none !important; }
   .envoltura { padding: 0; max-width: none; }
@@ -154,10 +177,12 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
   .impresion p { margin: 0; white-space: pre-wrap; font-size: 11px; }
   .lienzo { padding: 0; overflow: visible; }
   .diagrama { zoom: .7; }
-  #medio .punto { display: none; }
+  #medio .punto, #medio .fantasma { display: none; }
   .campos.hl { background: var(--rejilla); border-color: var(--rejilla); }
   .campos.hl input { background: #fff; }
-  #medio .flecha.sel .ln { stroke: var(--fg); stroke-width: 1.8; }
+  #medio .flecha.sel .ln { stroke: var(--c, var(--fg)); stroke-width: 1.8; }
+  #medio .temp.sel .tln, #medio .temp.sel .tope { stroke: var(--c, var(--fg)); stroke-width: 1.8; }
+  #medio .color.sel { filter: none; }
   #medio .pta.sel { fill: var(--fg); }
 }
 </style>
@@ -169,12 +194,13 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
     <h1>⟦Plantilla para diagramas <span>TCP</span>‖<span>TCP</span> diagram template⟧</h1>
     <div class="cab-der">
       <p class="sub">⟦Dibuja los segmentos de una conexión TCP y rellena sus campos. Cada fila es un tic; un segmento llega al otro extremo medio tic después de salir. Guarda tus ejercicios en el navegador o expórtalos.‖Draw the segments of a TCP connection and fill in their fields. Each row is one tick; a segment reaches the other end half a tick after it leaves. Save your exercises in the browser or export them.⟧</p>
+      <button type="button" class="btn" id="bPanel" aria-controls="panel" aria-expanded="true">⟦Ocultar panel‖Hide panel⟧</button>
       <div class="seg" id="tema" role="group" aria-label="⟦Tema‖Theme⟧"><button type="button" data-v="auto">Auto</button><button type="button" data-v="light">⟦Claro‖Light⟧</button><button type="button" data-v="dark">⟦Oscuro‖Dark⟧</button></div>
     </div>
   </header>
 
   <div class="rejilla">
-    <aside class="panel">
+    <aside class="panel" id="panel">
       <section>
         <h2>⟦Ejercicio‖Exercise⟧</h2>
         <input type="text" id="nombre" placeholder="⟦Nombre del ejercicio‖Exercise name⟧" aria-label="⟦Nombre del ejercicio‖Exercise name⟧" autocomplete="off">
@@ -208,7 +234,8 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
         <ul class="ayuda">
           <li>⟦Pulsa un punto de la línea de tiempo del <b>emisor</b> para enviar un segmento en ese tic.‖Click a point on the <b>sender's</b> time line to send a segment in that tick.⟧</li>
           <li>⟦Rellena los campos en la tabla del emisor, en la fila del tic en que sale.‖Fill in the fields in the sender's table, in the row of the tick it leaves.⟧</li>
-          <li>⟦Pulsa una flecha para marcarla como perdida, ponerle una etiqueta, invertirla o borrarla (Supr).‖Click an arrow to mark it as lost, label it, reverse it or delete it (Del).⟧</li>
+          <li>⟦Pulsa una flecha para marcarla como perdida, ponerle una etiqueta o un color, invertirla o borrarla (Supr).‖Click an arrow to mark it as lost, give it a label or a colour, reverse it or delete it (Del).⟧</li>
+          <li>⟦Para un <b>temporizador</b>, pulsa la línea de tiempo de un host entre dos tics, o «⏱ Temporizador» en la barra de un segmento para arrancarlo cuando sale. Se ajusta en medios tics.‖For a <b>timer</b>, click a host's time line between two ticks, or “⏱ Timer” in a segment's bar to start it when the segment leaves. It moves in half ticks.⟧</li>
           <li>⟦Intro y las flechas ↑ ↓ mueven entre filas; Ctrl/⌘ + S guarda.‖Enter and the ↑ ↓ arrows move between rows; Ctrl/⌘ + S saves.⟧</li>
         </ul>
       </section>
@@ -247,7 +274,7 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
 <script>
 (() => {
   'use strict';
-  const CLAVE = 'plantilla-tcp:v1', CLAVE_TEMA = 'plantilla-tcp:tema';
+  const CLAVE = 'plantilla-tcp:v1', CLAVE_TEMA = 'plantilla-tcp:tema', CLAVE_PANEL = 'plantilla-tcp:panel';
   const CAMPOS = ['SN', 'AN', 'Flags', 'W', 'MSS', 'Datos'];
   const ROTULO = { SN: 'SN', AN: 'AN', Flags: 'Flags', W: 'W', MSS: 'MSS', Datos: '⟦Datos‖Data⟧' };
   const LOCALE = '⟦es-ES‖en-GB⟧';
@@ -274,7 +301,19 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
   function enBlanco() {
     return { id: null, name: '', notes: '', hostA: 'Host A', hostB: 'Host B', rows: FILAS,
              cells: { A: Array.from({ length: FILAS }, filaVacia), B: Array.from({ length: FILAS }, filaVacia) },
-             arrows: [], created: null, updated: null };
+             arrows: [], timers: [], created: null, updated: null };
+  }
+  // Colores: los de la paleta se guardan con su código, pero se pintan con la variable del tema
+  // (así se ven bien en claro y en oscuro); los elegidos a mano se pintan tal cual.
+  const PALETA = ['#c0392b', '#e67e22', '#27ae60', '#2f5597', '#8e44ad'];
+  const okColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c.toLowerCase() : '';
+  const colorCss = c => PALETA.includes(c) ? `var(--pal${PALETA.indexOf(c) + 1})` : c;
+  // Un temporizador empieza y acaba en medios tics, dura al menos medio tic y no sale del diagrama.
+  function ajustarT(t, filas) {
+    const m = v => Math.round(v * 2) / 2, fin = filas - 0.5;
+    t.t1 = Math.max(0, Math.min(fin - 0.5, m(t.t1)));
+    t.dur = Math.max(0.5, Math.min(fin - t.t1, m(t.dur)));
+    return t;
   }
   // Acepta lo guardado o importado y lo deja en la forma esperada.
   function normalizar(x) {
@@ -292,7 +331,10 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
     e.arrows = (Array.isArray(x.arrows) ? x.arrows : [])
       .filter(a => a && (a.from === 'A' || a.from === 'B') && Number.isInteger(+a.r1) && +a.r1 >= 0 && +a.r1 < e.rows)
       .filter(a => { const k = a.from + (+a.r1); if (vistos.has(k)) return false; vistos.add(k); return true; })
-      .map(a => ({ id: typeof a.id === 'string' ? a.id : nuevoId(), from: a.from, r1: +a.r1, lost: !!a.lost, label: String(a.label ?? '') }));
+      .map(a => ({ id: typeof a.id === 'string' ? a.id : nuevoId(), from: a.from, r1: +a.r1, lost: !!a.lost, label: String(a.label ?? ''), color: okColor(a.color) }));
+    e.timers = (Array.isArray(x.timers) ? x.timers : [])
+      .filter(t => t && (t.side === 'A' || t.side === 'B') && isFinite(+t.t1) && isFinite(+t.dur))
+      .map(t => ajustarT({ id: typeof t.id === 'string' ? t.id : nuevoId(), side: t.side, t1: +t.t1, dur: +t.dur, label: String(t.label ?? ''), color: okColor(t.color) }, e.rows));
     e.created = x.created || null; e.updated = x.updated || null;
     return e;
   }
@@ -395,14 +437,15 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
   function ejemplo() {
     const ex = enBlanco();
     ex.name = '⟦Ejemplo: establecimiento y un segmento de datos‖Example: handshake and one data segment⟧';
-    ex.notes = '⟦A abre una conexión con B. ISN de A = 100, ISN de B = 300, MSS = 1000 B. A envía 1000 B de datos. Cada segmento tarda medio tic en llegar.‖A opens a connection to B. A’s ISN = 100, B’s ISN = 300, MSS = 1000 B. A sends 1000 B of data. Each segment takes half a tick to arrive.⟧';
+    ex.notes = '⟦A abre una conexión con B. ISN de A = 100, ISN de B = 300, MSS = 1000 B. A envía 1000 B de datos y arranca el RTO, que se detiene al llegar el ACK. Cada segmento tarda medio tic en llegar.‖A opens a connection to B. A’s ISN = 100, B’s ISN = 300, MSS = 1000 B. A sends 1000 B of data and starts the RTO, which stops when the ACK arrives. Each segment takes half a tick to arrive.⟧';
     const pon = (s, r, v) => Object.assign(ex.cells[s][r], v);
     pon('A', 0, { SN: '100', Flags: 'SYN', W: '4000', MSS: '1000' });
     pon('B', 1, { SN: '300', AN: '101', Flags: 'SYN, ACK', W: '3000', MSS: '1000' });
     pon('A', 2, { SN: '101', AN: '301', Flags: 'ACK', W: '4000' });
     pon('A', 3, { SN: '101', AN: '301', Flags: 'PSH, ACK', W: '4000', Datos: '1000' });
     pon('B', 4, { SN: '301', AN: '1101', Flags: 'ACK', W: '2000' });
-    ex.arrows = [['A', 0], ['B', 1], ['A', 2], ['A', 3], ['B', 4]].map(([f, r]) => ({ id: nuevoId(), from: f, r1: r, lost: false, label: '' }));
+    ex.arrows = [['A', 0], ['B', 1], ['A', 2], ['A', 3], ['B', 4]].map(([f, r]) => ({ id: nuevoId(), from: f, r1: r, lost: false, label: '', color: '' }));
+    ex.timers = [{ id: nuevoId(), side: 'A', t1: 3, dur: 1.5, label: 'RTO', color: '' }];
     abrir(ex); marcar(true);
   }
 
@@ -446,7 +489,7 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
     if (a) document.querySelector(`.campos[data-s="${a.from}"][data-r="${a.r1}"]`)?.classList.add('hl');
   }
 
-  // ---------- líneas de tiempo y flechas ----------
+  // ---------- líneas de tiempo, flechas y temporizadores ----------
   const yDe = t => Y0 + t * FILA;
   const xDe = s => s === 'A' ? XA : XB;
   function svg(tag, attrs, padre) {
@@ -455,34 +498,77 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
     if (padre) padre.appendChild(e);
     return e;
   }
+  // Temporizadores solapados del mismo host: cada uno en su carril, hacia el centro.
+  function carriles() {
+    const c = new Map();
+    for (const s of ['A', 'B']) {
+      const fin = [];
+      for (const t of cur.timers.filter(x => x.side === s).sort((a, b) => a.t1 - b.t1)) {
+        let k = fin.findIndex(f => f <= t.t1);
+        if (k < 0) k = fin.length;
+        fin[k] = t.t1 + t.dur; c.set(t.id, k);
+      }
+    }
+    return c;
+  }
   function pintarMedio() {
     const m = $('medio'), H = cur.rows * FILA;
     m.setAttribute('height', H); m.setAttribute('viewBox', `0 0 ${ANCHO} ${H}`);
     m.textContent = '';
     const defs = svg('defs', {}, m);
-    for (const [id, cls] of [['pta', 'pta'], ['ptaSel', 'pta sel']]) {
+    const usados = [...new Set(cur.arrows.map(a => a.color).filter(Boolean))];
+    for (const [id, cls, c] of [['pta', 'pta', ''], ['ptaSel', 'pta sel', ''], ...usados.map(c => ['pta' + c.slice(1), 'pta', c])]) {
       const mk = svg('marker', { id, viewBox: '0 0 10 10', refX: 10, refY: 5, markerWidth: 9, markerHeight: 9, orient: 'auto', markerUnits: 'userSpaceOnUse' }, defs);
-      svg('path', { d: 'M0,0 L10,5 L0,10 z', class: cls }, mk);
+      const p = svg('path', { d: 'M0,0 L10,5 L0,10 z', class: cls }, mk);
+      if (c) p.style.fill = colorCss(c);
     }
     for (let i = 0; i < cur.rows; i++) svg('line', { class: 'ticl', x1: XA, x2: XB, y1: yDe(i), y2: yDe(i) }, m);
     for (const s of ['A', 'B']) svg('line', { class: 'tl', x1: xDe(s), x2: xDe(s), y1: 0, y2: H }, m);
+    // Franja sobre cada línea de tiempo: pulsarla entre dos tics crea un temporizador.
+    for (const s of ['A', 'B']) svg('rect', { class: 'linea-t', 'data-s': s, x: xDe(s) - 8, y: 0, width: 16, height: H }, m);
+
+    const carril = carriles();
+    for (const t of cur.timers) {
+      const x0 = xDe(t.side), d = 10 + 16 * carril.get(t.id), x = t.side === 'A' ? x0 + d : x0 - d;
+      const y1 = yDe(t.t1), y2 = yDe(t.t1 + t.dur);
+      const g = svg('g', { class: 'temp' + (t.id === sel ? ' sel' : '') + (t.color ? ' color' : ''), 'data-id': t.id }, m);
+      if (t.color) g.style.setProperty('--c', colorCss(t.color));
+      svg('line', { class: 'hit', x1: x, y1, x2: x, y2 }, g);
+      svg('line', { class: 'tln', x1: x, y1, x2: x, y2 }, g);
+      svg('line', { class: 'tope', x1: x0, y1, x2: x, y2: y1 }, g);
+      svg('line', { class: 'tope', x1: x0, y1: y2, x2: x, y2 }, g);
+      if (t.label) {
+        const tx = t.side === 'A' ? x + 4 : x - 12, my = (y1 + y2) / 2;
+        svg('text', { class: 'eti', x: tx, y: my, 'text-anchor': 'middle', transform: `rotate(90 ${tx} ${my})` }, g).textContent = t.label;
+      }
+    }
+
     for (const a of cur.arrows) {
       const otro = a.from === 'A' ? 'B' : 'A';
       const x1 = xDe(a.from), y1 = yDe(a.r1), xf = xDe(otro), yf = yDe(a.r1 + 0.5);  // llega medio tic después
       const k = a.lost ? 0.62 : 1, x2 = x1 + (xf - x1) * k, y2 = y1 + (yf - y1) * k;
-      const g = svg('g', { class: 'flecha' + (a.lost ? ' perdido' : '') + (a.id === sel ? ' sel' : ''), 'data-id': a.id }, m);
+      const g = svg('g', { class: 'flecha' + (a.lost ? ' perdido' : '') + (a.id === sel ? ' sel' : '') + (a.color ? ' color' : ''), 'data-id': a.id }, m);
+      if (a.color) g.style.setProperty('--c', colorCss(a.color));
       svg('line', { class: 'hit', x1, y1, x2, y2 }, g);
       const ln = svg('line', { class: 'ln', x1, y1, x2, y2 }, g);
       if (a.lost) {
         const c = 7;
         svg('line', { class: 'cruz', x1: x2 - c, y1: y2 - c, x2: x2 + c, y2: y2 + c }, g);
         svg('line', { class: 'cruz', x1: x2 - c, y1: y2 + c, x2: x2 + c, y2: y2 - c }, g);
-      } else ln.setAttribute('marker-end', `url(#${a.id === sel ? 'ptaSel' : 'pta'})`);
+      } else ln.setAttribute('marker-end', `url(#${a.color ? 'pta' + a.color.slice(1) : a.id === sel ? 'ptaSel' : 'pta'})`);
       if (a.label) {
-        const mx = (x1 + xf) / 2, my = (y1 + yf) / 2;
         let ang = Math.atan2(yf - y1, xf - x1) * 180 / Math.PI;
-        if (ang > 90 || ang < -90) ang += 180;
-        svg('text', { class: 'eti', x: mx, y: my - 6, 'text-anchor': 'middle', transform: `rotate(${ang.toFixed(2)} ${mx} ${my})` }, g).textContent = a.label;
+        const gira = ang > 90 || ang < -90;
+        if (gira) ang += 180;
+        let mx = (x1 + xf) / 2, my = (y1 + yf) / 2, ancla = 'middle';
+        // Si sale otro segmento en el mismo tic en sentido contrario, las flechas se cruzan y las
+        // etiquetas centradas se pisarían: cada una empieza entonces al principio de su flecha.
+        if (cur.arrows.some(o => o !== a && o.r1 === a.r1)) {
+          const l = Math.hypot(xf - x1, yf - y1);
+          mx = x1 + (xf - x1) / l * 16; my = y1 + (yf - y1) / l * 16;
+          ancla = gira ? 'end' : 'start';
+        }
+        svg('text', { class: 'eti', x: mx, y: my - 6, 'text-anchor': ancla, transform: `rotate(${ang.toFixed(2)} ${mx} ${my})` }, g).textContent = a.label;
       }
     }
     for (const s of ['A', 'B']) for (let i = 0; i < cur.rows; i++) {
@@ -496,20 +582,48 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
   function enviar(s, r) {
     const ya = cur.arrows.find(a => a.from === s && a.r1 === r);
     if (ya) sel = ya.id;
-    else { const a = { id: nuevoId(), from: s, r1: r, lost: false, label: '' }; cur.arrows.push(a); sel = a.id; marcar(); }
+    else { const a = { id: nuevoId(), from: s, r1: r, lost: false, label: '', color: '' }; cur.arrows.push(a); sel = a.id; marcar(); }
     refrescar();
   }
+  // Instante (en medios tics) bajo el puntero.
+  function instante(e) {
+    const r = $('medio').getBoundingClientRect(), y = (e.clientY - r.top) * (cur.rows * FILA / r.height);
+    return Math.max(0, Math.min(cur.rows - 1, Math.round((y - Y0) / FILA * 2) / 2));
+  }
+  const tempEn = (s, t) => cur.timers.find(x => x.side === s && x.t1 <= t && t < x.t1 + x.dur);
+  function nuevoTemp(s, t1, dur) {
+    const tm = ajustarT({ id: nuevoId(), side: s, t1, dur, label: '', color: '' }, cur.rows);
+    cur.timers.push(tm); sel = tm.id; marcar(); refrescar();
+  }
   $('medio').addEventListener('click', e => {
-    const p = e.target.closest('.punto'), f = e.target.closest('.flecha');
+    const p = e.target.closest('.punto'), f = e.target.closest('.flecha'), t = e.target.closest('.temp'), l = e.target.closest('.linea-t');
     if (p) enviar(p.dataset.s, +p.dataset.r);
-    else if (f) { sel = f.dataset.id; refrescar(); }
+    else if (f || t) { sel = (f || t).dataset.id; refrescar(); }
+    else if (l) {
+      const s = l.dataset.s, t1 = instante(e), ya = tempEn(s, t1);
+      if (ya) { sel = ya.id; refrescar(); return; }
+      // Por defecto dura un tic, o lo que quede hasta el siguiente temporizador de ese host.
+      const sig = Math.min(...cur.timers.filter(x => x.side === s && x.t1 > t1).map(x => x.t1));
+      nuevoTemp(s, t1, Math.min(1, sig - t1));
+    }
     else if (sel) { sel = null; refrescar(); }
   });
+  $('medio').addEventListener('pointermove', e => {
+    const l = e.target.closest('.linea-t');
+    let g = $('medio').querySelector('.fantasma');
+    if (!l || tempEn(l.dataset.s, instante(e))) { if (g) g.setAttribute('display', 'none'); return; }
+    if (!g) g = svg('circle', { class: 'fantasma', r: 4 }, $('medio'));
+    g.setAttribute('cx', xDe(l.dataset.s)); g.setAttribute('cy', yDe(instante(e))); g.removeAttribute('display');
+  });
+  $('medio').addEventListener('pointerleave', () => $('medio').querySelector('.fantasma')?.setAttribute('display', 'none'));
   $('medio').addEventListener('keydown', e => {
     const p = e.target.closest('.punto');
     if (p && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); enviar(p.dataset.s, +p.dataset.r); }
   });
-  function borrarSel() { cur.arrows = cur.arrows.filter(a => a.id !== sel); sel = null; marcar(); refrescar(); }
+  function borrarSel() {
+    cur.arrows = cur.arrows.filter(a => a.id !== sel); cur.timers = cur.timers.filter(t => t.id !== sel);
+    sel = null; marcar(); refrescar();
+  }
   document.addEventListener('keydown', e => {
     const escribiendo = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);
     if (e.key === 'Escape' && sel) { sel = null; refrescar(); }
@@ -518,32 +632,74 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
   });
 
   // ---------- barra del diagrama ----------
+  const NOMBRES_PAL = ['⟦rojo‖red⟧', '⟦naranja‖orange⟧', '⟦verde‖green⟧', '⟦azul‖blue⟧', '⟦morado‖purple⟧'];
+  function selectorColor(item) {
+    const w = document.createElement('span'); w.className = 'colores';
+    w.setAttribute('role', 'group'); w.setAttribute('aria-label', '⟦Color‖Colour⟧');
+    w.innerHTML = '<span class="pista">⟦Color‖Colour⟧</span>'
+      + ['', ...PALETA].map((c, i) => `<button type="button" class="mues" data-c="${c}" title="${i ? NOMBRES_PAL[i - 1] : '⟦por defecto‖default⟧'}" aria-label="${i ? NOMBRES_PAL[i - 1] : '⟦por defecto‖default⟧'}" style="background:${c ? colorCss(c) : 'var(--fg)'}"></button>`).join('')
+      + '<input type="color" title="⟦Otro color‖Another colour⟧" aria-label="⟦Otro color‖Another colour⟧">';
+    const pick = w.querySelector('input');
+    const sync = () => {
+      w.querySelectorAll('.mues').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.c === (item.color || ''))));
+      pick.value = item.color || '#000000';
+    };
+    const pon = c => { item.color = okColor(c); marcar(); pintarMedio(); sync(); };
+    w.querySelectorAll('.mues').forEach(b => b.onclick = () => pon(b.dataset.c));
+    pick.oninput = () => pon(pick.value);
+    sync();
+    return w;
+  }
   function pintarBarra() {
-    const b = $('barra'), a = cur.arrows.find(x => x.id === sel);
+    const b = $('barra'), a = cur.arrows.find(x => x.id === sel), tm = cur.timers.find(x => x.id === sel);
     const nom = s => (s === 'A' ? cur.hostA : cur.hostB) || s;
+    const num = n => String(n).replace('.', '⟦,‖.⟧');
     const txt = document.createElement('div'); txt.className = 'txt';
-    if (a) {
+    if (tm) {
+      txt.innerHTML = `<b></b><span class="pista" id="tPista"></span>
+        <label class="num">⟦Inicio (tic)‖Start (tick)⟧ <input type="number" id="tIni" step="0.5" min="1" max="${cur.rows}"></label>
+        <label class="num">⟦Duración (tics)‖Duration (ticks)⟧ <input type="number" id="tDur" step="0.5" min="0.5"></label>
+        <input type="text" id="tEtiqueta" placeholder="⟦Etiqueta (p. ej. RTO)‖Label (e.g. RTO)⟧" aria-label="⟦Etiqueta‖Label⟧" autocomplete="off">
+        <button type="button" class="btn mini peligro" id="tBorrar">⟦Eliminar‖Delete⟧</button>`;
+      txt.querySelector('b').textContent = `⟦Temporizador de‖Timer at⟧ ${nom(tm.side)}`;
+      txt.insertBefore(selectorColor(tm), txt.querySelector('#tBorrar'));
+      b.replaceChildren(txt);
+      const pista = () => { $('tPista').textContent = `⟦del tic‖from tick⟧ ${num(tm.t1 + 1)} ⟦al‖to⟧ ${num(tm.t1 + tm.dur + 1)}`; };
+      const valores = () => { $('tIni').value = tm.t1 + 1; $('tDur').value = tm.dur; $('tDur').max = cur.rows - 0.5 - tm.t1; pista(); };
+      valores();
+      $('tIni').oninput = e => { const v = parseFloat(e.target.value); if (isNaN(v)) return; tm.t1 = v - 1; ajustarT(tm, cur.rows); marcar(); pintarMedio(); pista(); };
+      $('tDur').oninput = e => { const v = parseFloat(e.target.value); if (isNaN(v)) return; tm.dur = v; ajustarT(tm, cur.rows); marcar(); pintarMedio(); pista(); };
+      // Al terminar de escribir, el campo muestra el valor ya ajustado (sin rehacer la barra, para no perder el foco).
+      $('tIni').onchange = $('tDur').onchange = valores;
+      $('tEtiqueta').value = tm.label;
+      $('tEtiqueta').oninput = e => { tm.label = e.target.value; marcar(); pintarMedio(); };
+      $('tEtiqueta').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+      $('tBorrar').onclick = borrarSel;
+    } else if (a) {
       const otro = a.from === 'A' ? 'B' : 'A';
       txt.innerHTML = `<b></b><span class="pista"></span>
         <label class="chk"><input type="checkbox" id="cPerdido"> ⟦Perdido‖Lost⟧</label>
         <input type="text" id="cEtiqueta" placeholder="⟦Etiqueta (p. ej. RTO)‖Label (e.g. RTO)⟧" aria-label="⟦Etiqueta‖Label⟧" autocomplete="off">
+        <button type="button" class="btn mini" id="cTemp" title="⟦Arrancar un temporizador en el emisor cuando sale este segmento‖Start a timer at the sender when this segment leaves⟧">⟦⏱ Temporizador‖⏱ Timer⟧</button>
         <button type="button" class="btn mini" id="cInvertir">⟦⇄ Invertir‖⇄ Reverse⟧</button>
         <button type="button" class="btn mini peligro" id="cBorrar">⟦Eliminar‖Delete⟧</button>`;
       txt.querySelector('b').textContent = `${nom(a.from)} → ${nom(otro)}`;
       txt.querySelector('.pista').textContent = `⟦sale en el tic‖leaves in tick⟧ ${a.r1 + 1}, ⟦llega en el‖arrives at⟧ ${a.r1 + 1}${'⟦,5‖.5⟧'}`;
+      txt.insertBefore(selectorColor(a), txt.querySelector('#cTemp'));
       b.replaceChildren(txt);
       $('cPerdido').checked = a.lost;
       $('cPerdido').onchange = e => { a.lost = e.target.checked; marcar(); pintarMedio(); };
       $('cEtiqueta').value = a.label;
       $('cEtiqueta').oninput = e => { a.label = e.target.value; marcar(); pintarMedio(); };
       $('cEtiqueta').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+      $('cTemp').onclick = () => nuevoTemp(a.from, a.r1, 1);
       $('cInvertir').onclick = () => {
         if (cur.arrows.some(x => x.from === otro && x.r1 === a.r1)) { aviso('⟦Ya sale un segmento de‖There is already a segment from⟧ ' + nom(otro) + ' ⟦en ese tic‖in that tick⟧'); return; }
         a.from = otro; marcar(); refrescar();
       };
       $('cBorrar').onclick = borrarSel;
     } else {
-      txt.innerHTML = '<span class="pista">⟦Pulsa un punto de la línea de tiempo del emisor para enviar un segmento en ese tic; llega medio tic después. Pulsa una flecha para editarla.‖Click a point on the sender’s time line to send a segment in that tick; it arrives half a tick later. Click an arrow to edit it.⟧</span>';
+      txt.innerHTML = '<span class="pista">⟦Pulsa un punto de la línea de tiempo del emisor para enviar un segmento en ese tic; llega medio tic después. Pulsa la línea de un host entre dos tics para crear un temporizador. Pulsa una flecha o un temporizador para editarlo.‖Click a point on the sender’s time line to send a segment in that tick; it arrives half a tick later. Click a host’s line between two ticks to create a timer. Click an arrow or a timer to edit it.⟧</span>';
       b.replaceChildren(txt);
     }
     const f = document.createElement('div'); f.className = 'filas';
@@ -558,10 +714,13 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
     n = Math.max(MIN_FILAS, Math.min(MAX_FILAS, n));
     if (n < cur.rows) {
       const u = cur.rows - 1;
-      const usada = CAMPOS.some(c => cur.cells.A[u][c] || cur.cells.B[u][c]) || cur.arrows.some(a => a.r1 === u);
-      if (usada && !confirm('⟦El último tic tiene datos o segmentos. ¿Quitarlo igualmente?‖The last tick has data or segments. Remove it anyway?⟧')) return;
+      const usada = CAMPOS.some(c => cur.cells.A[u][c] || cur.cells.B[u][c]) || cur.arrows.some(a => a.r1 === u)
+        || cur.timers.some(t => t.t1 + t.dur > u - 0.5);
+      if (usada && !confirm('⟦El último tic tiene datos, segmentos o temporizadores. ¿Quitarlo igualmente?‖The last tick has data, segments or timers. Remove it anyway?⟧')) return;
       cur.arrows = cur.arrows.filter(a => a.r1 < n);
-      if (!cur.arrows.some(a => a.id === sel)) sel = null;
+      cur.timers = cur.timers.filter(t => t.t1 <= n - 1);
+      cur.timers.forEach(t => ajustarT(t, n));
+      if (![...cur.arrows, ...cur.timers].some(x => x.id === sel)) sel = null;
     }
     for (const s of ['A', 'B']) {
       cur.cells[s].length = Math.min(cur.cells[s].length, n);
@@ -569,6 +728,16 @@ button.btn.mini { padding: 2px 8px; font-size: 0.82rem; min-width: 28px; }
     }
     cur.rows = n; marcar(); pintarTablas(); refrescar();
   }
+
+  // ---------- panel plegable ----------
+  function plegar(p) {
+    $('panel').closest('.rejilla').classList.toggle('plegada', p);
+    $('bPanel').textContent = p ? '⟦Mostrar panel‖Show panel⟧' : '⟦Ocultar panel‖Hide panel⟧';
+    $('bPanel').setAttribute('aria-expanded', String(!p));
+    try { localStorage.setItem(CLAVE_PANEL, p ? '0' : '1'); } catch { /* sin almacenamiento */ }
+  }
+  $('bPanel').onclick = () => plegar(!$('panel').closest('.rejilla').classList.contains('plegada'));
+  try { if (localStorage.getItem(CLAVE_PANEL) === '0') plegar(true); } catch { /* sin almacenamiento */ }
 
   // ---------- tema ----------
   function tema(t) {
