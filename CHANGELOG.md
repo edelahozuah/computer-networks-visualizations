@@ -6,6 +6,13 @@ own DOI on Zenodo; the concept DOI in the README always points to the latest.
 ## [Unreleased]
 
 ### Added
+- TCP: the byte stream and its windows (`tcp-byte-stream`, sessions 3.3 and 3.4): a step-by-step
+  simulation where the file, the sender window, the network, the receive buffer and the receiving
+  application share one byte axis, with Kurose's state variables explained at every step, the
+  sequence diagram in ticks and the table of segments. Nine scenarios: sliding window, zero window,
+  retransmission timer, fast retransmit, lost ACK, slow start and congestion avoidance,
+  min{cwnd, rwnd}, fast recovery and timeout under congestion control. Source in
+  `src/tcp-byte-stream` (engine tested by `test_motor.js`).
 - TCP diagram template: timers (drawn on a host's time line in half-tick steps, created by clicking
   the line between two ticks or from a segment's bar, with start, duration, label and colour;
   overlapping timers get their own lane), a colour for each arrow or timer (a palette that adapts to
