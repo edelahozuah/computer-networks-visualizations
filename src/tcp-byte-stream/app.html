@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="@@LANG@@">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>⟦TCP: el flujo de octetos y sus ventanas‖TCP: the byte stream and its windows⟧</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Fuente bilingüe de tcp-byte-stream: los textos fijos van como ⟦español‖english⟧ y publicar.py
+   deja cada copia con su idioma; los textos que compone el motor llevan las dos lenguas (tx/t) y
+   el idioma lo fija la constante lang.
+   TCP como flujo de octetos: el fichero de la aplicación, la ventana del emisor, la red, el búfer
+   del receptor y lo que recoge la aplicación comparten un mismo eje de octetos. Un motor determinista
+   (un segmento por tic y lado, medio tic de propagación, política de ACK de clase) calcula todos los
+   pasos por adelantado; la página solo pinta el paso elegido. Mismas variables de estilo que la
+   plantilla de diagramas TCP (AuxWeb). */
+:root {
+  --bg: #f3f6f8; --panel: #ffffff; --lienzo: #ffffff; --fg: #16202a; --muted: #5a6876;
+  --line: #c8d1d9; --suave: #e7ecf0; --trama: #1f5fbf; --sel: #c97a00; --aviso: #b4482a; --bien: #17855a;
+  --camino: #fff1d6;
+  /* Zonas del flujo (las de las figuras de GG33: confirmado, en vuelo, usable) */
+  --z-rec: #c8c8c8; --z-env: #f2a33c; --z-usa: #5cbf6e; --z-usa2: #d5efda; --z-esp: #e3d9c4;
+  --z-buf: #7fb0ee; --z-ooo: #b79ae6; --z-lib: #d5efda; --z-fich: #dfe6ec;
+  --marco: #c0392b; --marcoB: #1f5fbf; --vc: #8e44ad; --tinta: #16202a;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --radio: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+    --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d;
+    --camino: #3a2f12;
+    --z-rec: #5b6672; --z-env: #d98a22; --z-usa: #3f9d55; --z-usa2: #1f3a27; --z-esp: #4a4233;
+    --z-buf: #4a7fc4; --z-ooo: #8b6cc4; --z-lib: #1f3a27; --z-fich: #26313c;
+    --marco: #f07a6a; --marcoB: #82adf2; --vc: #c792ea;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1318; --panel: #151c23; --lienzo: #121920; --fg: #e2e8ee; --muted: #93a1ae;
+  --line: #34414e; --suave: #1e2730; --trama: #6ea3f0; --sel: #f2b63c; --aviso: #f08a5d; --bien: #4cc28d;
+  --camino: #3a2f12;
+  --z-rec: #5b6672; --z-env: #d98a22; --z-usa: #3f9d55; --z-usa2: #1f3a27; --z-esp: #4a4233;
+  --z-buf: #4a7fc4; --z-ooo: #8b6cc4; --z-lib: #1f3a27; --z-fich: #26313c;
+  --marco: #f07a6a; --marcoB: #82adf2; --vc: #c792ea;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; margin: 0; }
+.envoltura { max-width: 1500px; margin: 0 auto; padding: 18px 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+header.cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--trama); }
+.sub { color: var(--muted); margin: 2px 0 0; max-width: 90ch; }
+.cab-der { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radio); min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: var(--bg); color: var(--fg); padding: 4px 10px; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); font-weight: 600; }
+button.btn { font: inherit; font-size: 0.9rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 4px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+button.btn:hover:not(:disabled) { border-color: var(--fg); }
+button.btn:disabled { opacity: .4; cursor: default; }
+button.btn.prim { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+select, input[type="number"], input[type="text"] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; min-width: 0; }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+
+/* Barra de control y relato del paso */
+.mando { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.mando .grupo { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.mando label { color: var(--muted); font-size: 0.86rem; display: inline-flex; gap: 6px; align-items: center; }
+.mando input[type="range"] { flex: 1 1 160px; min-width: 120px; accent-color: var(--trama); }
+.cuenta { font: 500 0.86rem var(--mono); color: var(--muted); white-space: nowrap; }
+.relato { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: start; padding: 12px 14px; min-height: 76px; }
+.reloj { font: 600 1.05rem var(--mono); color: var(--panel); background: var(--trama); border-radius: 4px; padding: 3px 10px; white-space: nowrap; }
+.quien { grid-column: 1; font-size: 0.78rem; color: var(--muted); text-align: center; }
+#texto { grid-column: 2; grid-row: 1 / span 2; margin: 0; font-size: 1.02rem; max-width: 110ch; }
+#texto code, .vars code, .leyenda code { font: 500 0.92em var(--mono); background: var(--suave); padding: 0 4px; border-radius: 3px; }
+
+/* Escena: filas con un margen para los rótulos y una pista que es el eje de octetos */
+.lienzo { overflow-x: auto; padding: 14px 18px 16px 6px; background: var(--lienzo); border-radius: var(--radio); }
+.escena { display: grid; grid-template-columns: 196px minmax(0, 1fr); }
+.rot { font: 600 0.84rem var(--body); color: var(--muted); padding-right: 14px; text-align: right; align-self: center; line-height: 1.2; }
+.rot small { display: block; font-weight: 400; font-size: 0.74rem; }
+.rot.activo { color: var(--sel); }
+.pista { position: relative; min-width: 0; }
+.pista.eje { height: 20px; }
+.pista.eje span { position: absolute; top: 2px; font: 0.7rem var(--mono); color: var(--muted); padding-left: 3px; border-left: 1px solid var(--line); height: 18px; }
+.pista.banda { height: 40px; border: 1px solid var(--line); background: var(--lienzo); }
+.pista.banda.app { height: 32px; }
+.pista.banda::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--fg) 28%, transparent) 1px, transparent 1px); background-size: var(--celda) 100%; }
+.zona { position: absolute; top: 0; bottom: 0; transition: left .45s ease, width .45s ease; }
+.z-fich { background: var(--z-fich); } .z-rec { background: var(--z-rec); } .z-env { background: var(--z-env); }
+.z-usa { background: var(--z-usa); } .z-usa2 { background: var(--z-usa2); }
+.z-esp { background: repeating-linear-gradient(135deg, var(--z-esp) 0 6px, transparent 6px 10px); }
+.z-buf { background: var(--z-buf); } .z-lib { background: var(--z-lib); }
+.z-ooo { background: repeating-linear-gradient(135deg, var(--z-ooo) 0 7px, color-mix(in srgb, var(--z-ooo) 55%, transparent) 7px 11px); }
+.z-fuera { background: repeating-linear-gradient(135deg, var(--suave) 0 3px, transparent 3px 9px); opacity: .9; }
+.numseg { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font: 500 0.74rem var(--mono); color: var(--muted); z-index: 2; }
+.marco { position: absolute; top: -4px; bottom: -4px; border: 3px solid var(--marco); border-radius: 3px; z-index: 4; pointer-events: none; transition: left .45s ease, width .45s ease; }
+.marco.b { border-color: var(--marcoB); border-style: dashed; }
+.pista.marcas { height: 20px; }
+.marca { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--fg); transition: left .45s ease; z-index: 5; }
+.marca span { position: absolute; top: 2px; white-space: nowrap; font: 500 0.74rem var(--mono); color: var(--fg); background: var(--lienzo); padding: 0 3px; }
+.marca.ini span { left: 2px; } .marca.fin span { right: 4px; }
+.marca.cambia span { background: var(--camino); color: var(--sel); font-weight: 600; }
+.pista.corch { height: 22px; }
+.corchete { position: absolute; top: 4px; height: 12px; border: 2px solid var(--c, var(--marco)); border-bottom: 0; transition: left .45s ease, width .45s ease; }
+.corchete.b { border: 2px dashed var(--marcoB); border-top: 0; top: 4px; }
+.corchete span { position: absolute; left: 50%; transform: translateX(-50%); top: -9px; white-space: nowrap; font: 600 0.74rem var(--mono); color: var(--c, var(--marco)); background: var(--lienzo); padding: 0 5px; }
+.corchete.vr { --c: var(--marcoB); } .corchete.vc { --c: var(--vc); }
+.corchete.b span { top: auto; bottom: -9px; color: var(--marcoB); }
+.crono { position: absolute; top: 2px; z-index: 6; font: 600 0.68rem var(--mono); color: var(--tinta); background: #fff; border: 1px solid var(--tinta); border-radius: 9px; padding: 0 5px; margin-left: 3px; transition: left .45s ease; white-space: nowrap; }
+.pista.red { height: 100px; background: linear-gradient(to bottom, transparent, var(--suave) 30%, var(--suave) 70%, transparent); }
+.chip { position: absolute; height: 22px; z-index: 6; border: 1.5px solid var(--tinta); border-radius: 3px; background: var(--z-env); color: var(--tinta); font: 600 0.72rem var(--mono); display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: visible; transition: top .5s ease, opacity .3s; }
+.chip.ack { background: #fff; border-color: var(--trama); color: #1f3f7a; padding: 0 6px; border-left-width: 4px; justify-content: flex-start; }
+.chip.llega { box-shadow: 0 0 0 3px var(--sel); }
+.chip.perdido { background: #fbe3dc; border-color: var(--aviso); color: #8a2f18; text-decoration: line-through; opacity: .85; }
+.chip.perdido::after { content: "✕"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 700 1.9rem var(--body); color: #c0392b; text-decoration: none; }
+.chip.retx { border-style: dashed; }
+@media (prefers-reduced-motion: reduce) { .zona, .marco, .marca, .corchete, .chip, .crono { transition: none; } }
+
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); }
+.leyenda i { display: inline-block; width: 18px; height: 12px; vertical-align: -1px; margin-right: 5px; border: 1px solid var(--line); }
+.leyenda i.m { background: transparent; border: 2px solid var(--marco); } .leyenda i.mb { background: transparent; border: 2px dashed var(--marcoB); }
+
+/* Variables de estado */
+.dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .dos { grid-template-columns: minmax(0, 1fr); } }
+.vars h2 { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.vars table { width: 100%; border-collapse: collapse; }
+.vars td { padding: 5px 14px; border-bottom: 1px solid var(--suave); vertical-align: baseline; }
+.vars tr:last-child td { border-bottom: 0; }
+.vars td.n { font: 500 0.86rem var(--mono); white-space: nowrap; }
+.vars td.v { font: 600 0.95rem var(--mono); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vars td.c { color: var(--muted); font-size: 0.84rem; }
+.vars tr.cambia td { background: var(--camino); }
+.vars tr.cambia td.v { color: var(--sel); }
+
+details.tarjeta > summary { cursor: pointer; padding: 10px 14px; font-family: var(--display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.param { display: flex; flex-wrap: wrap; gap: 10px 18px; padding: 4px 14px 14px; align-items: center; }
+.param label { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; }
+.param input[type="number"] { width: 64px; } .param input[type="text"] { width: 84px; }
+.nota { font-size: 0.8rem; color: var(--muted); margin: 0; padding: 0 14px 12px; max-width: 110ch; }
+.diag { overflow-x: auto; padding: 0 14px 14px; }
+.diag svg { display: block; margin: 0 auto; font-family: var(--mono); }
+.diag .host { fill: var(--trama); } .diag .hostT { fill: var(--lienzo); font: 600 13px var(--body); text-anchor: middle; }
+.diag .vida { stroke: var(--trama); stroke-width: 2; }
+.diag .tl { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+.diag .ticN { fill: var(--muted); font-size: 11px; text-anchor: end; }
+.diag .ahora { fill: var(--camino); }
+.diag .cab { fill: var(--muted); font: 500 11px var(--body); }
+.diag .fl line { stroke: var(--fg); stroke-width: 1.5; } .diag .fl polygon { fill: var(--fg); }
+.diag .fl text { fill: var(--fg); font-size: 11px; }
+.diag .fl.vuelo line { stroke-dasharray: 5 4; }
+.diag .fl.perd line { stroke: var(--aviso); } .diag .fl.perd text { fill: var(--aviso); } .diag .fl.perd .x { stroke: var(--aviso); stroke-width: 2.5; }
+.diag .fl.ult line { stroke: var(--sel); stroke-width: 2.5; } .diag .fl.ult polygon { fill: var(--sel); } .diag .fl.ult text { font-weight: 600; }
+.diag .fl text.vcx { fill: var(--vc); font-weight: 600; }
+.tabla { overflow-x: auto; padding: 0 14px 14px; }
+.tabla table { border-collapse: collapse; font: 0.84rem var(--mono); min-width: 620px; }
+.tabla th { font: 500 0.74rem var(--body); color: var(--muted); text-align: right; padding: 4px 12px; border-bottom: 1px solid var(--line); }
+.tabla td { text-align: right; padding: 3px 12px; border-bottom: 1px solid var(--suave); font-variant-numeric: tabular-nums; }
+.tabla th.t, .tabla td.t { text-align: left; font-family: var(--body); }
+.tabla tr.ult td { background: var(--camino); }
+.tabla tr.perd td { color: var(--aviso); }
+</style>
+</head>
+<body>
+<div class="envoltura">
+  <header class="cab">
+    <div>
+      <h1><span>TCP</span> · <span style="color:inherit">⟦el flujo de octetos y sus ventanas‖the byte stream and its windows⟧</span></h1>
+      <p class="sub">⟦TCP no envía «paquetes»: numera los octetos de la aplicación y desliza una ventana sobre ellos. Todas las bandas comparten el mismo eje de octetos; avanza paso a paso y observa las variables del emisor y del receptor.‖TCP does not send “packets”: it numbers the bytes of the application and slides a window over them. Every band shares the same byte axis; step through and watch the variables of the sender and the receiver.⟧</p>
+    </div>
+    <div class="cab-der">
+      <div class="seg" id="temas" role="group" aria-label="⟦Tema‖Theme⟧"><button data-t="auto" aria-pressed="true">Auto</button><button data-t="light" aria-pressed="false">⟦Claro‖Light⟧</button><button data-t="dark" aria-pressed="false">⟦Oscuro‖Dark⟧</button></div>
+    </div>
+  </header>
+
+  <div class="tarjeta">
+    <div class="mando">
+      <label><span>⟦Escenario‖Scenario⟧</span> <select id="escenario"></select></label>
+      <div class="grupo">
+        <button class="btn" id="bIni" title="⟦Inicio‖Start⟧ (Home)">⏮</button>
+        <button class="btn" id="bAnt" title="←">⟦◀ Paso‖◀ Step⟧</button>
+        <button class="btn prim" id="bSig" title="→">⟦Paso ▶‖Step ▶⟧</button>
+        <button class="btn" id="bTic" title="⟦Mayús‖Shift⟧ + →">⟦Tic siguiente ⏭‖Next tick ⏭⟧</button>
+        <button class="btn" id="bPlay" title="⟦Espacio‖Space⟧">⟦Reproducir‖Play⟧</button>
+        <label><span>⟦Velocidad‖Speed⟧</span>
+          <select id="vel"><option value="2200">×0,5</option><option value="1300" selected>×1</option><option value="700">×2</option><option value="350">×4</option></select></label>
+      </div>
+      <input type="range" id="barra" min="0" max="0" value="0" aria-label="⟦Paso‖Step⟧">
+      <span class="cuenta" id="cuenta"></span>
+    </div>
+    <div class="relato" aria-live="polite">
+      <span class="reloj" id="reloj"></span>
+      <p id="texto"></p>
+      <span class="quien" id="quien"></span>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <div class="lienzo"><div class="escena" id="escena"></div></div>
+    <div class="leyenda" id="leyenda"></div>
+  </div>
+
+  <div class="dos">
+    <div class="tarjeta vars"><h2>⟦Emisor TCP (A): variables de estado‖Sender TCP (A): state variables⟧</h2><table id="varsA"></table></div>
+    <div class="tarjeta vars"><h2>⟦Receptor TCP (B): variables de estado‖Receiver TCP (B): state variables⟧</h2><table id="varsB"></table></div>
+  </div>
+
+  <details class="tarjeta" open>
+    <summary>⟦Diagrama de secuencia (una fila por tic; los segmentos tardan medio tic)‖Sequence diagram (one row per tick; segments take half a tick)⟧</summary>
+    <div class="diag" id="diag"></div>
+  </details>
+
+  <details class="tarjeta" open>
+    <summary>⟦Segmentos intercambiados hasta este paso‖Segments exchanged so far⟧</summary>
+    <div class="tabla"><table><thead id="registroCab"></thead><tbody id="registro"></tbody></table></div>
+  </details>
+
+  <details class="tarjeta">
+    <summary>⟦Parámetros del escenario‖Scenario parameters⟧</summary>
+    <div class="param">
+      <label><span>⟦Fichero (segmentos)‖File (segments)⟧</span> <input type="number" id="pSegs" min="1" max="24"></label>
+      <label>MSS <input type="number" id="pMss" min="1" max="1460"></label>
+      <label><span>⟦Búfer de recepción (segmentos)‖Receive buffer (segments)⟧</span> <input type="number" id="pBuf" min="1" max="32"></label>
+      <label><span>⟦Temporizador (tics)‖Timer (ticks)⟧</span> <input type="number" id="pRto" min="2" max="30"></label>
+      <label><span>⟦Segmentos que se pierden (n.º)‖Lost segments (no.)⟧</span> <input type="text" id="pPA" placeholder="3, 7"></label>
+      <label><span>⟦ACK que se pierden (n.º)‖Lost ACKs (no.)⟧</span> <input type="text" id="pPB" placeholder="2"></label>
+    </div>
+    <div class="param">
+      <label><span>⟦Aplicación receptora‖Receiving application⟧</span>
+        <select id="pLee"><option value="inmediata">⟦lee enseguida‖reads at once⟧</option><option value="lenta">⟦lenta‖slow⟧</option></select></label>
+      <label><span>⟦empieza en el tic‖starts at tick⟧</span> <input type="number" id="pDesde" min="1" max="60"></label>
+      <label><span>⟦cada (tics)‖every (ticks)⟧</span> <input type="number" id="pCada" min="1" max="20"></label>
+      <label><span>⟦lee (segmentos)‖reads (segments)⟧</span> <input type="number" id="pOct" min="1" max="12"></label>
+      <label><input type="checkbox" id="pRet"> <span>⟦ACK retardado (espera un tic)‖Delayed ACK (waits one tick)⟧</span></label>
+      <label><input type="checkbox" id="pConv"> <span>⟦W descuenta lo guardado fuera de secuencia (convenio del curso)‖W discounts out-of-order data (course convention)⟧</span></label>
+    </div>
+    <div class="param">
+      <label><input type="checkbox" id="pCC"> <span>⟦Control de congestión (Reno)‖Congestion control (Reno)⟧</span></label>
+      <label><span>⟦VC inicial (MSS)‖Initial cwnd (MSS)⟧</span> <input type="number" id="pVc" min="1" max="32"></label>
+      <label><span>⟦Umbral inicial (MSS)‖Initial ssthresh (MSS)⟧</span> <input type="number" id="pUmb" min="1" max="64"></label>
+    </div>
+    <p class="nota">⟦Modelo de clase: tiempo en tics, un segmento por lado y tic, medio tic de propagación, un único temporizador de retransmisión, ACK acumulativos, retransmisión rápida al tercer ACK duplicado y sin sonda de ventana (el emisor espera la actualización). La conexión se supone abierta; los segmentos de A llevan AN=2048 y W=512. Con control de congestión: VC en MSS, arranque lento suma 1 por segmento reconocido hasta el umbral, evitación de la congestión cuenta N + c/N, recuperación rápida al tercer ACK duplicado (umbral = VC/2, VC = umbral + 3) y vuelta a arranque lento con VC = 1 si vence el temporizador.‖Model used in class: time in ticks, one segment per host and tick, half a tick of propagation, a single retransmission timer, cumulative ACKs, fast retransmit on the third duplicate ACK, no window probe (the sender waits for the window update). The connection is assumed open; A's segments carry AN=2048 and W=512. With congestion control: cwnd in MSS, slow start adds 1 per acknowledged segment up to ssthresh, congestion avoidance counts N + c/N, fast recovery on the third duplicate ACK (ssthresh = cwnd/2, cwnd = ssthresh + 3) and back to slow start with cwnd = 1 when the timer expires.⟧</p>
+  </details>
+</div>
+
+<script>
+'use strict';
+/* ---------- Nombres de las variables (Kurose ES / EN) ---------- */
+const NOM = {
+  es: { base: 'BaseEmision', sig: 'SigNumSec', env: 'UltimoByteEnviado', rec: 'UltimoByteReconocido', vr: 'VentRecepcion',
+        buf: 'BufferRecepcion', lei: 'UltimoByteLeido', rcb: 'UltimoByteRecibido',
+        vc: 'VC', um: 'umbral', cvc: 'Cvc', lim: 'VR', AL: 'AL', EC: 'EC', RR: 'RR' },
+  en: { base: 'SendBase', sig: 'NextSeqNum', env: 'LastByteSent', rec: 'LastByteAcked', vr: 'rwnd',
+        buf: 'RcvBuffer', lei: 'LastByteRead', rcb: 'LastByteRcvd',
+        vc: 'cwnd', um: 'ssthresh', cvc: 'Ccw', lim: 'rwnd', AL: 'SS', EC: 'CA', RR: 'FR' },
+};
+const tx = (es, en) => ({ es, en });
+const num = (x, l) => { const s = String(Math.round(x * 100) / 100); return l === 'es' ? s.replace('.', ',') : s; };
+/* La VC como se escribe en clase: N + c/N en evitación de la congestión; decimal si no es exacta */
+function vcTexto(a, l, menos) {
+  menos = menos || 0;
+  const v = (a.vcRr != null ? a.vcRr : a.vcN + a.vcC / a.vcN) - menos;
+  if (v <= 0) return '0';                       // Cvc no baja de 0: no se puede enviar
+  if (a.vcRr != null || !Number.isInteger(a.vcC) || a.vcN - menos < 0) return num(v, l);
+  return a.vcC === 0 ? String(a.vcN - menos) : (a.vcN - menos === 0 ? '' : (a.vcN - menos) + ' + ') + a.vcC + '/' + a.vcN;
+}
+
+/* ---------- Motor: devuelve la lista de pasos (fotos del estado) ---------- */
+function simular(c) {
+  const E = NOM.es, G = NOM.en;
+  const MSS = c.mss, ISN = c.isn, FIN = ISN + c.segs * MSS, BUF = c.buf * MSS;
+  const cc = c.cc || null;
+  const A = { escrito: ISN, base: ISN, sig: ISN, w: BUF, borde: ISN + BUF, dup: 0, timer: null, rapida: false, bloq: false,
+              vcN: cc ? Math.max(1, Math.floor(cc.vc)) : 1, vcC: 0, vcRr: null, umbral: cc ? cc.umbral : 0, modo: cc ? (cc.vc < cc.umbral ? 'AL' : 'EC') : null };
+  const vcV = () => A.vcRr != null ? A.vcRr : A.vcN + A.vcC / A.vcN;
+  const bordeVC = () => A.base + Math.floor(vcV() + 1e-9) * MSS;          // la VC solo deja salir segmentos enteros
+  const ef = () => cc ? Math.min(A.borde, bordeVC()) : A.borde;            // borde derecho efectivo: mín{VC, VR}
+  const vcT = (menos) => tx(vcTexto(A, 'es', menos), vcTexto(A, 'en', menos));
+  const pend = () => Math.ceil((A.sig - A.base) / MSS);
+  const sumarEc = () => {
+    A.vcC += 1;
+    while (A.vcC >= A.vcN - 1e-9) { A.vcC -= A.vcN; A.vcN++; }
+    const r = Math.round(A.vcC * 1e9) / 1e9; A.vcC = Math.abs(r - Math.round(r)) < 1e-9 ? Math.max(0, Math.round(r)) : r;
+  };
+  const fijarVc = (v) => { A.vcRr = null; A.vcN = Math.max(1, Math.floor(v + 1e-9)); const k = (v - A.vcN) * A.vcN; A.vcC = Math.abs(k - Math.round(k)) < 1e-9 ? Math.max(0, Math.round(k)) : k; };
+  const B = { leido: ISN, esp: ISN, ooo: [], ret: null, ackYa: null, wAnun: BUF };
+  let vuelo = [], uid = 0, nAck = 0;
+  const log = [], pasos = [], veces = {};
+  const pierdeA = new Set(c.pierdeA || []), pierdeB = new Set(c.pierdeB || []);
+  const nOoo = () => B.ooo.reduce((s, r) => s + r[1] - r[0], 0);
+  const wB = () => BUF - (B.esp - B.leido) - (c.convenio ? nOoo() : 0);
+  const foto = (t, medio, actor, texto, extra) => pasos.push(Object.assign({
+    t, medio, actor, texto,
+    A: Object.assign({}, A, { timer: A.timer && Object.assign({}, A.timer), ef: ef(), vc: cc ? vcV() : null, bordeVC: cc ? A.base + vcV() * MSS : null, vcT: cc ? vcT() : null, cvcT: cc ? vcT(pend()) : null, pend: pend() }),
+    B: Object.assign({}, B, { ooo: B.ooo.map(r => r.slice()), w: wB(), nOoo: nOoo() }),
+    vuelo: vuelo.map(v => Object.assign({}, v)), nlog: log.length,
+  }, extra || {}));
+  const fW = (n) => {      // la cuenta de W, escrita
+    const o = c.convenio && nOoo() ? ` − ${nOoo()}` : '';
+    return tx(`W = ${E.buf} − (${E.rcb} − ${E.lei})${o ? ' − fuera de secuencia' : ''} = ${BUF} − (${B.esp - 1} − ${B.leido - 1})${o} = ${n}`,
+              `W = ${G.buf} − (${G.rcb} − ${G.lei})${o ? ' − out-of-order' : ''} = ${BUF} − (${B.esp - 1} − ${B.leido - 1})${o} = ${n}`);
+  };
+
+  foto(0, false, 'ini', tx(
+    `Estado inicial. La conexión ya está abierta: A numerará sus octetos desde SN=${ISN} y B ha anunciado W=${BUF} (su búfer, vacío). El fichero ocupa ${c.segs} segmentos de ${MSS} octetos.` + (cc ? ` A empieza con ${E.vc} = ${vcT().es} MSS y ${E.um} = ${num(A.umbral, 'es')} (modo ${E[A.modo]}): su ventana es el menor de ${E.vc} y ${E.lim}.` : ''),
+    `Initial state. The connection is already open: A will number its bytes from SN=${ISN} and B has advertised W=${BUF} (its buffer, empty). The file takes ${c.segs} segments of ${MSS} bytes.` + (cc ? ` A starts with ${G.vc} = ${vcT().en} MSS and ${G.um} = ${num(A.umbral, 'en')} (${G[A.modo]} mode): its window is the smaller of ${G.vc} and ${G.lim}.` : '')));
+
+  const MAXT = 160;
+  for (let t = 1; t <= MAXT; t++) {
+    /* 1. La aplicación emisora escribe en el socket */
+    if (A.escrito < FIN) {
+      const n = c.escribe ? Math.min(c.escribe, FIN - A.escrito) : FIN - A.escrito;
+      const desde = A.escrito; A.escrito += n;
+      foto(t, false, 'appA', tx(
+        `La aplicación emisora entrega ${n} octetos a TCP (los octetos ${desde}–${A.escrito - 1}). TCP los ve como una secuencia numerada, no como mensajes: los irá troceando en segmentos de hasta ${MSS}.`,
+        `The sending application hands ${n} bytes to TCP (bytes ${desde}–${A.escrito - 1}). TCP sees them as a numbered stream, not as messages: it will cut them into segments of up to ${MSS}.`));
+    }
+    /* 2. La aplicación receptora lee del búfer */
+    const disp = B.esp - B.leido; let n = 0;
+    if (disp > 0) {
+      if (c.lee.modo === 'inmediata') n = disp;
+      else if (t >= c.lee.desde && (t - c.lee.desde) % c.lee.cada === 0) n = Math.min(disp, c.lee.octetos);
+    }
+    if (n > 0) {
+      B.leido += n; const w = wB();
+      const abre = B.wAnun < MSS && w >= MSS;
+      if (abre) B.ackYa = 'ventana';
+      foto(t, false, 'appB', tx(
+        `La aplicación receptora recoge ${n} octetos del búfer de TCP: ${E.lei} pasa a ${B.leido - 1} y quedan ${w} octetos libres.` + (abre ? ` La última ventana anunciada era ${B.wAnun}: B debe avisar de que vuelve a haber sitio.` : ''),
+        `The receiving application takes ${n} bytes from TCP's buffer: ${G.lei} becomes ${B.leido - 1} and ${w} bytes are free.` + (abre ? ` The last advertised window was ${B.wAnun}: B must tell A there is room again.` : '')));
+    }
+    /* 3. A envía (como mucho un segmento por tic) */
+    let s = null;
+    if (A.timer && t >= A.timer.vence && A.base < A.sig) {
+      const len = Math.min(MSS, A.sig - A.base);
+      A.dup = 0; A.rapida = false; A.timer = { sn: A.base, vence: t + c.rto };
+      s = { sn: A.base, len, retx: 'rto' };
+      if (cc) { s.antes = vcT(); A.umbral = vcV() / 2; A.vcRr = null; A.vcN = 1; A.vcC = 0; A.modo = 'AL'; }
+    } else if (A.rapida && A.base < A.sig) {
+      const len = Math.min(MSS, A.sig - A.base);
+      A.rapida = false; A.timer = { sn: A.base, vence: t + c.rto };
+      s = { sn: A.base, len, retx: 'rapida' };
+    } else {
+      const len = Math.min(MSS, A.escrito - A.sig);
+      if (len > 0 && A.sig + len <= ef()) {
+        s = { sn: A.sig, len, retx: null, arranca: !A.timer };
+        A.sig += len; A.bloq = false;
+        if (!A.timer) A.timer = { sn: s.sn, vence: t + c.rto };
+      } else if (len > 0 && !A.bloq) {
+        A.bloq = true;
+        if (cc && bordeVC() < A.borde) foto(t, false, 'A', tx(
+          `A tiene datos pendientes y el receptor admitiría más (hasta ${A.borde}), pero la congestión manda: ${E.vc} = ${vcT().es} y hay ${pend()} segmentos sin reconocer, así que ${E.cvc} = ${vcT(pend()).es} y no cabe otro. Tiene que esperar a un ACK.`,
+          `A has data waiting and the receiver would take more (up to ${A.borde}), but congestion rules: ${G.vc} = ${vcT().en} and ${pend()} segments are unacknowledged, so ${G.cvc} = ${vcT(pend()).en} and no other one fits. It must wait for an ACK.`));
+        else foto(t, false, 'A', tx(
+          `A tiene datos pendientes pero no puede enviarlos: ${E.sig} (${A.sig}) ha llegado al borde derecho de la ventana (${A.borde})` + (cc ? `, que aquí lo pone el receptor (${E.lim} ≤ ${E.vc})` : '') + `. Usable = ${A.borde} − ${A.sig} = ${A.borde - A.sig}. Tiene que esperar a que un ACK mueva la ventana.`,
+          `A has data waiting but cannot send it: ${G.sig} (${A.sig}) has reached the right edge of the window (${A.borde})` + (cc ? `, set here by the receiver (${G.lim} ≤ ${G.vc})` : '') + `. Usable = ${A.borde} − ${A.sig} = ${A.borde - A.sig}. It must wait for an ACK to move the window.`));
+      }
+    }
+    if (s) {
+      const k = (s.sn - ISN) / MSS + 1; veces[k] = (veces[k] || 0) + 1;
+      const seg = { id: ++uid, de: 'A', sn: s.sn, len: s.len, an: c.isnB, w: c.wA, t, retx: s.retx, perdido: veces[k] === 1 && pierdeA.has(k) };
+      if (cc) { seg.cvc = vcT(pend()); if (s.retx === 'rto') { seg.vcTras = vcT(); seg.modoTras = A.modo; seg.pasoLlegada = pasos.length; } }
+      vuelo.push(seg); log.push(seg);
+      let es, en;
+      const usab = Math.max(0, ef() - A.sig);
+      if (s.retx === 'rto') {
+        es = `Vence el temporizador sin que haya llegado el ACK: A retransmite el segmento más antiguo sin reconocer (SN=${s.sn}) y reinicia el temporizador, que ahora vence en el tic ${A.timer.vence}.`;
+        en = `The timer expires with no ACK received: A retransmits the oldest unacknowledged segment (SN=${s.sn}) and restarts the timer, which now expires at tick ${A.timer.vence}.`;
+        if (cc) {
+          es += ` Para TCP es señal de congestión grave: ${E.um} = ${E.vc}/2 = ${s.antes.es}/2 = ${num(A.umbral, 'es')}, ${E.vc} = 1 y vuelta a arranque lento (${E.AL}).`;
+          en += ` TCP reads it as serious congestion: ${G.um} = ${G.vc}/2 = ${s.antes.en}/2 = ${num(A.umbral, 'en')}, ${G.vc} = 1 and back to slow start (${G.AL}).`;
+        }
+      } else if (s.retx === 'rapida') {
+        es = `Retransmisión rápida: con tres ACK duplicados A da por perdido el segmento SN=${s.sn} y lo reenvía sin esperar al temporizador.`;
+        en = `Fast retransmit: after three duplicate ACKs A assumes segment SN=${s.sn} is lost and resends it without waiting for the timer.`;
+      } else {
+        es = `A envía el segmento SN=${s.sn} con ${s.len} octetos (${s.sn}–${s.sn + s.len - 1}). ${E.sig} pasa a ${A.sig}; en la ventana quedan ${usab} octetos usables` + (cc ? ` (${E.cvc} = ${vcT(pend()).es})` : '') + '.' + (s.arranca ? ` Arranca el temporizador (vence en el tic ${A.timer.vence}).` : '');
+        en = `A sends segment SN=${s.sn} with ${s.len} bytes (${s.sn}–${s.sn + s.len - 1}). ${G.sig} becomes ${A.sig}; ${usab} usable bytes remain in the window` + (cc ? ` (${G.cvc} = ${vcT(pend()).en})` : '') + '.' + (s.arranca ? ` The timer starts (it expires at tick ${A.timer.vence}).` : '');
+      }
+      foto(t, false, 'A', tx(es, en));
+    }
+    /* 4. B envía un ACK si le toca */
+    if (B.ackYa || (B.ret != null && t >= B.ret + 2)) {
+      const causa = B.ackYa || 'retardado', w = wB(); nAck++;
+      const seg = { id: ++uid, de: 'B', sn: c.isnB, an: B.esp, w, len: 0, t, causa, perdido: pierdeB.has(nAck) };
+      const f = fW(w);
+      B.ackYa = null; B.ret = null; B.wAnun = w;
+      vuelo.push(seg); log.push(seg);
+      const por = {
+        retardado: ['Ha pasado un tic sin que llegue otro segmento: B envía el ACK retardado', 'A tick has gone by with no other segment: B sends the delayed ACK'],
+        acumulativo: ['B envía un único ACK acumulativo por los dos segmentos', 'B sends a single cumulative ACK for both segments'],
+        orden: ['B reconoce el segmento', 'B acknowledges the segment'],
+        duplicado: ['Hay un hueco: B envía de inmediato un ACK duplicado, que repite el octeto que espera', 'There is a gap: B immediately sends a duplicate ACK, repeating the byte it expects'],
+        relleno: ['El hueco se ha rellenado: B reconoce de inmediato todo lo que ya tiene en secuencia', 'The gap has been filled: B immediately acknowledges everything it now has in sequence'],
+        repetido: ['B ya tenía esos octetos: repite su ACK', 'B already had those bytes: it repeats its ACK'],
+        nocabe: ['El segmento no cabía en el búfer: B repite su ACK', 'The segment did not fit in the buffer: B repeats its ACK'],
+        ventana: ['B envía una actualización de ventana', 'B sends a window update'],
+      }[causa];
+      foto(t, false, 'B', tx(`${por[0]}. AN=${seg.an} (= ${E.rcb} + 1) y ${f.es}.`, `${por[1]}. AN=${seg.an} (= ${G.rcb} + 1) and ${f.en}.`));
+    }
+    /* 5. Medio tic después: lo que salió de A llega a B (o se pierde) */
+    const sA = vuelo.find(v => v.de === 'A');
+    if (sA) {
+      vuelo = vuelo.filter(v => v !== sA);
+      const fin = sA.sn + sA.len;
+      if (sA.perdido) {
+        log.find(l => l.id === sA.id).pasoPerdida = pasos.length;
+        foto(t, true, 'red', tx(`El segmento SN=${sA.sn} se pierde en la red. B no sabe que existía; A tampoco sabe que se ha perdido.`,
+          `Segment SN=${sA.sn} is lost in the network. B does not know it existed; A does not know it was lost.`), { pierde: Object.assign({}, sA) });
+      } else {
+        let es, en;
+        if (fin <= B.esp) {
+          B.ackYa = 'repetido';
+          es = `Llega SN=${sA.sn}, pero B ya tenía esos octetos (espera el ${B.esp}): los descarta.`;
+          en = `SN=${sA.sn} arrives, but B already had those bytes (it expects ${B.esp}): it discards them.`;
+        } else if (fin > B.leido + BUF) {
+          B.ackYa = 'nocabe';
+          es = `Llega SN=${sA.sn}, pero no cabe en el búfer: B lo descarta.`;
+          en = `SN=${sA.sn} arrives, but it does not fit in the buffer: B discards it.`;
+        } else if (sA.sn === B.esp) {
+          const habia = B.ooo.length > 0;
+          B.esp = fin;
+          for (let m = true; m;) { m = false; for (const r of B.ooo) if (r[0] <= B.esp) { B.esp = Math.max(B.esp, r[1]); B.ooo = B.ooo.filter(x => x !== r); m = true; break; } }
+          if (habia) {
+            B.ackYa = 'relleno'; B.ret = null;
+            es = `Llega SN=${sA.sn}: es justo el que faltaba. Sumando lo guardado fuera de secuencia, ${E.rcb} salta a ${B.esp - 1}.`;
+            en = `SN=${sA.sn} arrives: exactly the missing one. Adding what was stored out of order, ${G.rcb} jumps to ${B.esp - 1}.`;
+          } else {
+            es = `Llega SN=${sA.sn} en secuencia y entra en el búfer: ${E.rcb} pasa a ${B.esp - 1}.`;
+            en = `SN=${sA.sn} arrives in sequence and enters the buffer: ${G.rcb} becomes ${B.esp - 1}.`;
+            if (!c.retardado) B.ackYa = 'orden';
+            else if (B.ret != null) { B.ackYa = 'acumulativo'; B.ret = null; es += ' Ya había otro segmento pendiente de reconocer: toca ACK acumulativo.'; en += ' Another segment was already awaiting its ACK: a cumulative ACK is due.'; }
+            else { B.ret = t; es += ' B espera un tic por si llega otro (ACK retardado).'; en += ' B waits one tick in case another one arrives (delayed ACK).'; }
+          }
+        } else {
+          if (!B.ooo.some(r => r[0] === sA.sn)) { B.ooo.push([sA.sn, fin]); B.ooo.sort((a, b) => a[0] - b[0]); }
+          B.ackYa = 'duplicado'; B.ret = null;
+          es = `Llega SN=${sA.sn}, pero B esperaba el ${B.esp}: hay un hueco. Lo guarda fuera de secuencia; ${E.rcb} no se mueve (${B.esp - 1}).`;
+          en = `SN=${sA.sn} arrives, but B expected ${B.esp}: there is a gap. It stores it out of order; ${G.rcb} does not move (${B.esp - 1}).`;
+        }
+        log.find(l => l.id === sA.id).pasoFin = pasos.length;
+        foto(t, true, 'B', tx(es, en), { llega: Object.assign({}, sA) });
+      }
+    }
+    /* 6. …y el ACK de B llega a A (o se pierde) */
+    const sB = vuelo.find(v => v.de === 'B');
+    if (sB) {
+      vuelo = vuelo.filter(v => v !== sB);
+      if (sB.perdido) {
+        log.find(l => l.id === sB.id).pasoPerdida = pasos.length;
+        foto(t, true, 'red', tx(`El ACK con AN=${sB.an} se pierde en la red: A no llega a verlo.`, `The ACK with AN=${sB.an} is lost in the network: A never sees it.`), { pierde: Object.assign({}, sB) });
+      } else {
+        let es, en;
+        const vc0 = cc ? vcT().es + A.modo : '';
+        const nuevoBorde = sB.an + sB.w, quieto = nuevoBorde < A.borde;
+        if (sB.an > A.base) {
+          const conf = sB.an - A.base;
+          A.base = sB.an; A.dup = 0; A.rapida = false; A.w = sB.w; A.borde = Math.max(A.borde, nuevoBorde);
+          A.timer = A.base < A.sig ? { sn: A.base, vence: t + 1 + c.rto } : null;
+          es = `Llega el ACK con AN=${sB.an}: reconoce ${conf} octetos. ${E.base} pasa a ${A.base} y el borde derecho a AN + W = ${sB.an} + ${sB.w} = ${nuevoBorde}` + (quieto ? ` (no retrocede: se queda en ${A.borde})` : '') + '.';
+          en = `The ACK with AN=${sB.an} arrives: it acknowledges ${conf} bytes. ${G.base} becomes ${A.base} and the right edge AN + W = ${sB.an} + ${sB.w} = ${nuevoBorde}` + (quieto ? ` (it does not move back: it stays at ${A.borde})` : '') + '.';
+          if (sB.w === 0) { es += ' W=0: la ventana se cierra.'; en += ' W=0: the window closes.'; }
+          if (A.timer) { es += ` Quedan octetos sin reconocer: el temporizador se reinicia (tic ${A.timer.vence}).`; en += ` Bytes remain unacknowledged: the timer restarts (tick ${A.timer.vence}).`; }
+          else { es += ' No queda nada pendiente: el temporizador se detiene.'; en += ' Nothing is pending: the timer stops.'; }
+          if (cc) {
+            const antes = vcT(), k = Math.ceil(conf / MSS), modo0 = A.modo;
+            if (A.modo === 'RR') {
+              fijarVc(A.umbral); A.modo = 'EC';
+              es += ` Es un ACK nuevo: termina la recuperación rápida. ${E.vc} se desinfla hasta el ${E.um} (${antes.es} → ${vcT().es}) y A pasa a ${E.EC}.`;
+              en += ` It is a new ACK: fast recovery ends. ${G.vc} deflates to ${G.um} (${antes.en} → ${vcT().en}) and A moves to ${G.EC}.`;
+            } else {
+              let nAL = 0;
+              for (let i = 0; i < k; i++) {
+                if (A.modo === 'AL') { A.vcN++; A.vcC = 0; nAL++; if (vcV() >= A.umbral - 1e-9) A.modo = 'EC'; }
+                else sumarEc();
+              }
+              const cruza = modo0 === 'AL' && A.modo === 'EC';
+              if (modo0 === 'AL' && nAL < k) {
+                es += ` El ACK reconoce ${k} segmentos y la ${E.vc} cruza el ${E.um} (${num(A.umbral, 'es')}) por tramos: ${nAL} en arranque lento (+1 MSS) y ${k - nAL} ya en evitación de la congestión (+1/N). ${E.vc}: ${antes.es} → ${vcT().es}, modo ${E.EC}.`;
+                en += ` The ACK acknowledges ${k} segments and ${G.vc} crosses ${G.um} (${num(A.umbral, 'en')}) in two stretches: ${nAL} in slow start (+1 MSS) and ${k - nAL} already in congestion avoidance (+1/N). ${G.vc}: ${antes.en} → ${vcT().en}, ${G.EC} mode.`;
+              } else if (modo0 === 'AL') {
+                es += ` Arranque lento: +1 MSS por cada segmento reconocido (${k}), ${E.vc}: ${antes.es} → ${vcT().es}.` + (cruza ? ` Ha alcanzado el ${E.um} (${num(A.umbral, 'es')}): pasa a evitación de la congestión (${E.EC}).` : '');
+                en += ` Slow start: +1 MSS per acknowledged segment (${k}), ${G.vc}: ${antes.en} → ${vcT().en}.` + (cruza ? ` It has reached ${G.um} (${num(A.umbral, 'en')}): it moves to congestion avoidance (${G.EC}).` : '');
+              } else {
+                es += ` Evitación de la congestión: cada segmento reconocido (${k}) suma 1/N, ${E.vc}: ${antes.es} → ${vcT().es}.`;
+                en += ` Congestion avoidance: each acknowledged segment (${k}) adds 1/N, ${G.vc}: ${antes.en} → ${vcT().en}.`;
+              }
+            }
+            es += ` Ventana del emisor = mín{${E.vc}, ${E.lim}}: llega hasta ${ef()}.`;
+            en += ` Sender window = min{${G.vc}, ${G.lim}}: it reaches ${ef()}.`;
+          }
+        } else if (sB.an === A.base && A.base < A.sig && sB.w <= A.w) {
+          A.dup++; A.w = sB.w; A.borde = Math.max(A.borde, nuevoBorde);
+          es = `Llega un ACK duplicado (el ${A.dup}.º): repite AN=${sB.an}, así que ${E.base} no se mueve.`;
+          en = `A duplicate ACK arrives (no. ${A.dup}): it repeats AN=${sB.an}, so ${G.base} does not move.`;
+          if (quieto) { es += ` Anuncia W=${sB.w}, pero el borde derecho no retrocede (${A.borde}).`; en += ` It advertises W=${sB.w}, but the right edge does not move back (${A.borde}).`; }
+          if (A.dup === 3) { A.rapida = true; es += ` Es el tercero: A retransmitirá SN=${A.base} en el tic siguiente.`; en += ` It is the third one: A will retransmit SN=${A.base} at the next tick.`; }
+          if (cc && A.dup === 3) {
+            const antes = vcT(); A.umbral = vcV() / 2; A.vcRr = A.umbral + 3; A.modo = 'RR';
+            es += ` Congestión leve (siguen llegando ACK): ${E.um} = ${E.vc}/2 = ${antes.es}/2 = ${num(A.umbral, 'es')}, ${E.vc} = ${E.um} + 3 = ${vcT().es} y modo recuperación rápida (${E.RR}).`;
+            en += ` Mild congestion (ACKs keep arriving): ${G.um} = ${G.vc}/2 = ${antes.en}/2 = ${num(A.umbral, 'en')}, ${G.vc} = ${G.um} + 3 = ${vcT().en} and fast recovery mode (${G.RR}).`;
+          } else if (cc && A.modo === 'RR') {
+            const antes = vcT(); A.vcRr += 1;
+            es += ` En ${E.RR} cada ACK duplicado significa que un segmento ha salido de la red: ${E.vc} se infla 1 MSS (${antes.es} → ${vcT().es}); ${E.cvc} = ${vcT(pend()).es}.`;
+            en += ` In ${G.RR} each duplicate ACK means a segment has left the network: ${G.vc} inflates by 1 MSS (${antes.en} → ${vcT().en}); ${G.cvc} = ${vcT(pend()).en}.`;
+          }
+        } else {
+          const antes = A.borde; A.w = sB.w; A.borde = Math.max(A.borde, nuevoBorde); A.bloq = false;
+          es = `Llega la actualización de ventana: AN=${sB.an}, W=${sB.w}. El borde derecho pasa de ${antes} a ${A.borde}` + (ef() > A.sig ? ': A puede volver a enviar.' : '.');
+          en = `The window update arrives: AN=${sB.an}, W=${sB.w}. The right edge moves from ${antes} to ${A.borde}` + (ef() > A.sig ? ': A can send again.' : '.');
+        }
+        if (cc && vcT().es + A.modo !== vc0) { const l = log.find(x => x.id === sB.id); l.pasoLlegada = pasos.length; l.vcTras = vcT(); l.modoTras = A.modo; }   // la VC se anota solo donde cambia
+        log.find(l => l.id === sB.id).pasoFin = pasos.length;
+        foto(t, true, 'A', tx(es, en), { llega: Object.assign({}, sB) });
+      }
+    }
+    /* ¿Hemos acabado? */
+    if (A.base === FIN && B.leido === FIN && !vuelo.length && !B.ackYa && B.ret == null) {
+      foto(t, true, 'fin', tx(
+        `Transferencia completa: los ${FIN - ISN} octetos están reconocidos (${E.base} = ${A.base}) y la aplicación receptora los ha leído todos.`,
+        `Transfer complete: all ${FIN - ISN} bytes are acknowledged (${G.base} = ${A.base}) and the receiving application has read them all.`));
+      break;
+    }
+  }
+  return { pasos, log, c, ISN, FIN, BUF, MSS, EJE: FIN + Math.min(BUF, 4 * MSS) };
+}
+/* ---------- fin del motor ---------- */
+
+const ESCENARIOS = [
+  { id: 'normal', nombre: tx('1 · Sin incidencias: la ventana se desliza', '1 · No incidents: the window slides'),
+    c: { segs: 10, buf: 4, rto: 6, pierdeA: [], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 } } },
+  { id: 'flujo', nombre: tx('2 · Aplicación receptora lenta: la ventana se cierra (W=0)', '2 · Slow receiving application: the window closes (W=0)'),
+    c: { segs: 12, buf: 4, rto: 6, pierdeA: [], pierdeB: [], lee: { modo: 'lenta', desde: 9, cada: 2, octetos: 2 } } },
+  { id: 'rto', nombre: tx('3 · Se pierde un segmento: vence el temporizador', '3 · A segment is lost: the timer expires'),
+    c: { segs: 6, buf: 4, rto: 5, pierdeA: [5], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 } } },
+  { id: 'rapida', nombre: tx('4 · Fuera de secuencia: tres ACK duplicados y retransmisión rápida', '4 · Out of order: three duplicate ACKs and fast retransmit'),
+    c: { segs: 10, buf: 4, rto: 12, pierdeA: [3], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 } } },
+  { id: 'ack', nombre: tx('5 · Se pierde un ACK: el siguiente, acumulativo, lo cubre', '5 · An ACK is lost: the next cumulative one covers it'),
+    c: { segs: 8, buf: 4, rto: 8, pierdeA: [], pierdeB: [2], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 } } },
+  { id: 'al', nombre: tx('6 · Congestión: arranque lento y evitación de la congestión', '6 · Congestion: slow start and congestion avoidance'),
+    c: { segs: 14, buf: 16, rto: 8, pierdeA: [], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 }, cc: { vc: 1, umbral: 4 } } },
+  { id: 'min', nombre: tx('7 · Congestión: el borde derecho lo pone mín{VC, VR}', '7 · Congestion: the right edge is set by min{cwnd, rwnd}'),
+    c: { segs: 12, buf: 2, rto: 8, pierdeA: [], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 }, cc: { vc: 1, umbral: 8 } } },
+  { id: 'rr', nombre: tx('8 · Congestión: tres ACK duplicados y recuperación rápida', '8 · Congestion: three duplicate ACKs and fast recovery'),
+    c: { segs: 14, buf: 16, rto: 14, pierdeA: [1], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 }, cc: { vc: 6, umbral: 4 } } },
+  { id: 'rtocc', nombre: tx('9 · Congestión: vence el temporizador y vuelta a arranque lento', '9 · Congestion: the timer expires, back to slow start'),
+    c: { segs: 10, buf: 16, rto: 6, pierdeA: [2], pierdeB: [], lee: { modo: 'inmediata', desde: 8, cada: 2, octetos: 2 }, cc: { vc: 2, umbral: 8 } } },
+];
+const BASE = { mss: 64, isn: 1024, isnB: 2048, wA: 512, escribe: 0, retardado: true, convenio: true, cc: null };
+
+if (typeof document !== 'undefined') (function () {
+  const $ = (id) => document.getElementById(id);
+  const lang = '@@LANG@@';     // lo fija publicar.py: un fichero por idioma
+  let sim = null, paso = 0, crono = null, el = {}, chips = new Map();
+  const t = (es, en) => lang === 'en' ? en : es;
+  const L = (o) => o[lang];
+  const V = (k) => NOM[lang][k];
+  const cod = (s) => s.replace(/\b([A-Z][A-Za-z]+[a-z][A-Z][A-Za-z]*|rwnd|cwnd|ssthresh|SigNumSec|BaseEmision|VentRecepcion|BufferRecepcion)\b/g, '<code>$1</code>');
+
+  /* ----- Parámetros ----- */
+  const lista = (s) => s.split(/[^0-9]+/).map(Number).filter(n => n > 0);
+  function cargarPreset(e) {
+    const c = e.c;
+    $('pSegs').value = c.segs; $('pMss').value = BASE.mss; $('pBuf').value = c.buf; $('pRto').value = c.rto;
+    $('pPA').value = c.pierdeA.join(', '); $('pPB').value = c.pierdeB.join(', ');
+    $('pLee').value = c.lee.modo; $('pDesde').value = c.lee.desde; $('pCada').value = c.lee.cada; $('pOct').value = c.lee.octetos;
+    $('pRet').checked = BASE.retardado; $('pConv').checked = BASE.convenio;
+    $('pCC').checked = !!c.cc; $('pVc').value = c.cc ? c.cc.vc : 1; $('pUmb').value = c.cc ? c.cc.umbral : 4;
+  }
+  function leerParam() {
+    const num = (id, min, max, d) => { const v = parseInt($(id).value, 10); return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : d; };
+    const mss = num('pMss', 1, 1460, 64);
+    return Object.assign({}, BASE, {
+      mss, segs: num('pSegs', 1, 24, 10), buf: num('pBuf', 1, 32, 4), rto: num('pRto', 2, 30, 6),
+      pierdeA: lista($('pPA').value), pierdeB: lista($('pPB').value),
+      lee: { modo: $('pLee').value, desde: num('pDesde', 1, 60, 8), cada: num('pCada', 1, 20, 2), octetos: num('pOct', 1, 12, 2) * mss },
+      retardado: $('pRet').checked, convenio: $('pConv').checked,
+      cc: $('pCC').checked ? { vc: num('pVc', 1, 32, 1), umbral: num('pUmb', 1, 64, 4) } : null,
+    });
+  }
+  function recalcular() {
+    parar();
+    sim = simular(leerParam());
+    paso = 0; construir(); pintar();
+  }
+
+  /* ----- Escena (se construye una vez por simulación) ----- */
+  const pct = (b) => (Math.min(sim.EJE, Math.max(sim.ISN, b)) - sim.ISN) / (sim.EJE - sim.ISN) * 100;
+  const poner = (e, a, b) => { a = Math.min(sim.EJE, Math.max(sim.ISN, a)); b = Math.max(a, Math.min(sim.EJE, b)); e.style.left = pct(a) + '%'; e.style.width = (pct(b) - pct(a)) + '%'; };
+  const crea = (padre, cls, html) => { const d = document.createElement('div'); d.className = cls; if (html != null) d.innerHTML = html; padre.appendChild(d); return d; };
+  function construir() {
+    const esc = $('escena'); esc.innerHTML = ''; chips = new Map(); el = { rot: {} };
+    const n = (sim.EJE - sim.ISN) / sim.MSS;
+    esc.style.minWidth = (196 + Math.ceil(n) * 58) + 'px';
+    esc.style.setProperty('--celda', (100 / n) + '%');
+    const fila = (clave, rot, cls) => {
+      const r = crea(esc, 'rot', rot || '');
+      if (clave) el.rot[clave] = r;
+      return crea(esc, 'pista ' + cls);
+    };
+    const fuera = (p) => poner(crea(p, 'zona z-fuera'), sim.FIN, sim.EJE);
+    /* eje */
+    const eje = fila(null, `<small>${t('n.º de secuencia del primer octeto', 'sequence number of the first byte')}</small>`, 'eje');
+    for (let b = sim.ISN; b < sim.EJE; b += sim.MSS) { const s = crea(eje, '', null); s.outerHTML = `<span style="left:${pct(b)}%">${b}</span>`; }
+    /* aplicación emisora */
+    const pa = fila('appA', t('Aplicación emisora', 'Sending application') + `<small>${t('el fichero, en trozos de un MSS', 'the file, in MSS-sized pieces')}</small>`, 'banda app');
+    el.escrito = crea(pa, 'zona z-fich'); fuera(pa);
+    for (let k = 0; k < sim.c.segs; k++) poner(crea(pa, 'numseg', String(k + 1)), sim.ISN + k * sim.MSS, sim.ISN + (k + 1) * sim.MSS);
+    /* emisor TCP */
+    if (sim.c.cc) {
+      el.corVR = crea(fila(null, `<small>${t('límite del receptor', 'receiver limit')}</small>`, 'corch'), 'corchete vr', '<span></span>');
+      el.corVC = crea(fila(null, `<small>${t('límite de la congestión', 'congestion limit')}</small>`, 'corch'), 'corchete vc', '<span></span>');
+    }
+    $('registroCab').innerHTML = `<tr><th>${t('Tic', 'Tick')}</th><th class="t">${t('Sentido', 'From → to')}</th><th>SN</th><th>AN</th><th>W</th><th>${t('Datos', 'Data')}</th>` +
+      (sim.c.cc ? `<th>${V('cvc')}</th><th>${V('vc')}</th><th class="t">${t('Modo', 'Mode')}</th>` : '') + `<th class="t">${t('Nota', 'Note')}</th></tr>`;
+    el.corA = crea(fila(null, sim.c.cc ? `<small>${t('el menor de los dos', 'the smaller of the two')}</small>` : '', 'corch'), 'corchete', '<span></span>');
+    el.mBase = crea(fila(null, '', 'marcas'), 'marca ini', '<span></span>');
+    const ba = fila('A', t('TCP emisor (A)', 'Sender TCP (A)') + `<small>${t('la ventana sobre el flujo', 'the window over the stream')}</small>`, 'banda');
+    el.aRec = crea(ba, 'zona z-rec'); el.aEnv = crea(ba, 'zona z-env'); el.aUsa = crea(ba, 'zona z-usa');
+    el.aUsa2 = crea(ba, 'zona z-usa2'); el.aEsp = crea(ba, 'zona z-esp'); fuera(ba);
+    el.marcoA = crea(ba, 'marco'); el.crono = crea(ba, 'crono');
+    el.mSig = crea(fila(null, '', 'marcas'), 'marca ini', '<span></span>');
+    /* red */
+    el.red = fila('red', t('Red', 'Network') + `<small>${t('segmentos ↓ y ACK ↑ en vuelo', 'segments ↓ and ACKs ↑ in flight')}</small>`, 'red');
+    /* receptor TCP */
+    el.mRcb = crea(fila(null, '', 'marcas'), 'marca fin', '<span></span>');
+    const bb = fila('B', t('TCP receptor (B)', 'Receiver TCP (B)') + `<small>${t('el búfer de recepción', 'the receive buffer')}</small>`, 'banda');
+    el.bLei = crea(bb, 'zona z-rec'); el.bLib = crea(bb, 'zona z-lib'); el.bBuf = crea(bb, 'zona z-buf'); fuera(bb);
+    el.bOoo = crea(bb, ''); el.marcoB = crea(bb, 'marco b');
+    el.mLei = crea(fila(null, '', 'marcas'), 'marca fin', '<span></span>');
+    el.corB = crea(fila(null, '', 'corch'), 'corchete b', '<span></span>');
+    /* aplicación receptora */
+    const pb = fila('appB', t('Aplicación receptora', 'Receiving application') + `<small>${t('lo que ya ha recogido', 'what it has already read')}</small>`, 'banda app');
+    el.entregado = crea(pb, 'zona z-fich'); fuera(pb);
+    for (let k = 0; k < sim.c.segs; k++) poner(crea(pb, 'numseg', String(k + 1)), sim.ISN + k * sim.MSS, sim.ISN + (k + 1) * sim.MSS);
+
+    $('leyenda').innerHTML = [
+      ['z-rec', t('reconocido / ya leído', 'acknowledged / already read')], ['z-env', t('enviado sin reconocer', 'sent, not yet ACKed')],
+      ['z-usa', t('usable: se puede enviar ya', 'usable: can be sent now')], ['z-esp', t('datos esperando ventana', 'data waiting for window')],
+      ['m', t('ventana del emisor', 'sender window')], ['z-buf', t('en el búfer, sin leer', 'in the buffer, unread')],
+      ['z-ooo', t('guardado fuera de secuencia', 'stored out of order')], ['z-lib', t('libre: lo que anuncia W', 'free: what W advertises')],
+      ['mb', V('buf')],
+    ].map(([c, s]) => `<span><i class="${c}"></i>${s}</span>`).join('');
+    $('barra').max = sim.pasos.length - 1;
+  }
+
+  /* ----- Pintar un paso ----- */
+  function marca(e, x, texto, cambia) { e.style.left = pct(x) + '%'; e.firstChild.textContent = texto; e.classList.toggle('cambia', !!cambia); }
+  function pintar() {
+    const p = sim.pasos[paso], ant = sim.pasos[Math.max(0, paso - 1)], A = p.A, B = p.B, ISN = sim.ISN;
+    $('reloj').textContent = t('Tic ', 'Tick ') + p.t + (p.medio ? ' ½' : '');
+    $('quien').textContent = { ini: '', fin: '', appA: t('aplicación emisora', 'sending app'), appB: t('aplicación receptora', 'receiving app'), A: t('emisor A', 'sender A'), B: t('receptor B', 'receiver B'), red: t('red', 'network') }[p.actor];
+    $('texto').innerHTML = cod(L(p.texto));
+    $('cuenta').textContent = t('paso ', 'step ') + paso + ' / ' + (sim.pasos.length - 1);
+    $('barra').value = paso;
+    $('bAnt').disabled = $('bIni').disabled = paso === 0;
+    $('bSig').disabled = $('bTic').disabled = paso === sim.pasos.length - 1;
+    for (const k in el.rot) el.rot[k].classList.toggle('activo', k === p.actor);
+
+    /* bandas */
+    poner(el.escrito, ISN, sim.FIN);            // el fichero existe entero en la aplicación emisora
+    poner(el.aRec, ISN, A.base); poner(el.aEnv, A.base, A.sig);
+    const cc = sim.c.cc, tope = Math.min(A.ef, A.escrito);
+    poner(el.aUsa, A.sig, Math.max(A.sig, tope));
+    poner(el.aUsa2, Math.max(A.sig, tope), Math.max(A.sig, A.ef));
+    poner(el.aEsp, Math.max(A.sig, A.ef), A.escrito);
+    poner(el.marcoA, A.base, A.ef); poner(el.corA, A.base, A.ef);
+    const anch = A.ef - A.base;
+    el.corA.firstChild.textContent = anch > 0 ? t(`ventana del emisor: ${anch} octetos [${A.base}, ${A.ef})`, `sender window: ${anch} bytes [${A.base}, ${A.ef})`) : t(`ventana cerrada en ${A.base}`, `window closed at ${A.base}`);
+    if (cc) {
+      poner(el.corVR, A.base, A.borde); poner(el.corVC, A.base, A.bordeVC);
+      el.corVR.firstChild.textContent = `${V('lim')} = ${A.borde - A.base} (${num((A.borde - A.base) / sim.MSS, lang)} MSS)`;
+      el.corVC.firstChild.textContent = `${V('vc')} = ${L(A.vcT)} MSS · ${V(A.modo)}`;
+    }
+    marca(el.mBase, A.base, `${V('base')} = ${A.base}`, A.base !== ant.A.base);
+    marca(el.mSig, A.sig, `${V('sig')} = ${A.sig}`, A.sig !== ant.A.sig);
+    el.crono.hidden = !A.timer;
+    if (A.timer) { el.crono.style.left = pct(A.timer.sn) + '%'; el.crono.textContent = t('⏱ tic ', '⏱ tick ') + A.timer.vence; }
+
+    poner(el.bLei, ISN, B.leido); poner(el.bBuf, B.leido, B.esp); poner(el.bLib, B.esp, B.esp + B.w);
+    el.bOoo.innerHTML = '';
+    for (const r of B.ooo) poner(crea(el.bOoo, 'zona z-ooo'), r[0], r[1]);
+    poner(el.marcoB, B.leido, B.leido + sim.BUF); poner(el.corB, B.leido, B.leido + sim.BUF);
+    el.corB.firstChild.textContent = `${V('buf')} = ${sim.BUF}`;
+    marca(el.mRcb, B.esp, `${V('rcb')} = ${B.esp - 1}`, B.esp !== ant.B.esp);
+    marca(el.mLei, B.leido, `${V('lei')} = ${B.leido - 1}`, B.leido !== ant.B.leido);
+    poner(el.entregado, ISN, B.leido);
+
+    /* red */
+    const quiero = p.vuelo.map(s => [s, 'vuelo']);
+    if (p.llega) quiero.push([p.llega, 'llega']);
+    if (p.pierde) quiero.push([p.pierde, 'perdido']);
+    const TOP = { A: { origen: 0, vuelo: 24, llega: 78, perdido: 24 }, B: { origen: 78, vuelo: 52, llega: 0, perdido: 52 } };
+    const vivos = new Set(quiero.map(q => q[0].id));
+    for (const [id, c] of chips) if (!vivos.has(id)) { c.remove(); chips.delete(id); }
+    for (const [s, estado] of quiero) {
+      let c = chips.get(s.id);
+      if (!c) {
+        c = crea(el.red, 'chip' + (s.de === 'B' ? ' ack' : '') + (s.retx ? ' retx' : ''));
+        if (s.de === 'A') { poner(c, s.sn, s.sn + s.len); c.textContent = '↓ SN=' + s.sn; c.title = `SN=${s.sn}, AN=${s.an}, W=${s.w}, ${t('Datos', 'Data')}=${s.len}`; }
+        else { c.style.left = pct(s.an) + '%'; c.textContent = `↑ ACK  AN=${s.an}  W=${s.w}`; }
+        c.style.top = TOP[s.de].origen + 'px'; c.style.opacity = 0;
+        void c.offsetHeight;                         // para que la entrada se anime desde el origen
+        chips.set(s.id, c);
+      }
+      c.style.opacity = 1; c.style.top = TOP[s.de][estado] + 'px';
+      c.classList.toggle('llega', estado === 'llega'); c.classList.toggle('perdido', estado === 'perdido');
+    }
+
+    /* variables: se resalta la fila cuyo valor cambia respecto al paso anterior */
+    const filas = (id, hoy, ayer) => {
+      $(id).innerHTML = hoy.map(([n, v, c], i) => `<tr class="${paso > 0 && String(v) !== String(ayer[i][1]) ? 'cambia' : ''}"><td class="n">${n}</td><td class="v">${v}</td><td class="c">${cod(c)}</td></tr>`).join('');
+    };
+    const largo = { AL: t('arranque lento', 'slow start'), EC: t('evitación de la congestión', 'congestion avoidance'), RR: t('recuperación rápida', 'fast recovery') };
+    const fA = (s) => {
+      const A = s.A, enV = A.sig - A.base, limite = cc ? Math.min(A.w, Math.floor(A.vc + 1e-9) * sim.MSS) : A.w;
+      const nomLim = cc ? t(`mín{${V('vc')}, ${V('lim')}}`, `min{${V('vc')}, ${V('lim')}}`) + ` = ${limite}` : V('vr');
+      const f = [
+        [V('base'), A.base, t('número de secuencia más antiguo sin reconocer: borde izquierdo de la ventana', 'oldest unacknowledged sequence number: left edge of the window')],
+        [V('rec'), A.base - 1, `= ${V('base')} − 1`],
+        [V('sig'), A.sig, t('número de secuencia del próximo segmento nuevo', 'sequence number of the next new segment')],
+        [V('env'), A.sig - 1, `= ${V('sig')} − 1`],
+        [t('En vuelo', 'In flight'), enV, `${V('env')} − ${V('rec')} = ${A.sig - 1} − ${A.base - 1} = ${enV} ` + (enV <= limite ? `≤ ${nomLim} ✓` : `> ${nomLim}: ` + (cc && A.ef < A.borde ? t('ya estaban en vuelo cuando la ventana se redujo', 'they were already in flight when the window shrank') : t('el borde derecho no retrocede', 'the right edge does not move back')))],
+        [V('vr') + (cc ? ` (${V('lim')})` : ''), A.w, t('el último W que ha anunciado B', 'the last W advertised by B')],
+      ];
+      if (cc) f.push(
+        [t('Modo', 'Mode'), V(A.modo), largo[A.modo]],
+        [V('vc'), L(A.vcT), t('ventana de congestión, en MSS', 'congestion window, in MSS') + (A.vcT.es.includes('/') || !Number.isInteger(A.vc) ? ` (= ${num(A.vc, lang)})` : '')],
+        [t('Umbral', 'ssthresh'), num(A.umbral, lang), t('por debajo, arranque lento; desde él, evitación de la congestión', 'below it, slow start; from it on, congestion avoidance')],
+        [V('cvc'), L(A.cvcT), t(`${V('vc')} − segmentos sin reconocer (${A.pend}): cuántos puede enviar la congestión`, `${V('vc')} − unacknowledged segments (${A.pend}): how many congestion allows`)]);
+      f.push(
+        [t('Borde derecho', 'Right edge'), A.ef, cc ? t(`${V('base')} + mín{${V('vc')}, ${V('lim')}}: congestión ${Math.round(A.bordeVC)}, receptor ${A.borde}`, `${V('base')} + min{${V('vc')}, ${V('lim')}}: congestion ${Math.round(A.bordeVC)}, receiver ${A.borde}`) : t('AN + W del último ACK (sin retroceder)', 'AN + W of the last ACK (never moving back)')],
+        [t('Usable', 'Usable'), Math.max(0, A.ef - A.sig), t(`borde derecho − ${V('sig')} = ${A.ef} − ${A.sig}: lo que A puede enviar ahora`, `right edge − ${V('sig')} = ${A.ef} − ${A.sig}: what A can send now`) + (A.ef < A.sig ? t(' (negativo: 0)', ' (negative: 0)') : '')],
+        [t('ACK duplicados', 'Duplicate ACKs'), A.dup, cc ? t('al tercero, retransmisión rápida y modo RR', 'on the third, fast retransmit and FR mode') : t('al tercero, retransmisión rápida', 'on the third, fast retransmit')],
+        [t('Temporizador', 'Timer'), A.timer ? t('tic ', 'tick ') + A.timer.vence : '—', A.timer ? t(`en marcha para SN=${A.timer.sn}; vence al comienzo de ese tic`, `running for SN=${A.timer.sn}; expires at the start of that tick`) : t('parado: no hay nada sin reconocer', 'stopped: nothing is unacknowledged')]);
+      return f;
+    };
+    const conv = sim.c.convenio;
+    const fB = (s) => {
+      const B = s.B;
+      return [
+        [V('buf'), sim.BUF, t('tamaño del búfer de recepción', 'size of the receive buffer')],
+        [V('rcb'), B.esp - 1, t(`último octeto recibido en secuencia; el próximo ACK llevará AN = ${B.esp}`, `last byte received in sequence; the next ACK will carry AN = ${B.esp}`)],
+        [V('lei'), B.leido - 1, t('último octeto que ha recogido la aplicación', 'last byte the application has read')],
+        [t('En el búfer, sin leer', 'In the buffer, unread'), B.esp - B.leido, `${V('rcb')} − ${V('lei')} = ${B.esp - 1} − ${B.leido - 1}`],
+        [t('Fuera de secuencia', 'Out of order'), B.nOoo, B.ooo.length ? B.ooo.map(r => `${r[0]}–${r[1] - 1}`).join(', ') + t(' (guardado, sin reconocer)', ' (stored, not acknowledged)') : t('nada guardado más allá de un hueco', 'nothing stored beyond a gap')],
+        [V('vr') + ' (W)', B.w, `${V('buf')} − (${V('rcb')} − ${V('lei')})` + (conv ? t(' − fuera de secuencia', ' − out of order') : '') + ` = ${sim.BUF} − ${B.esp - B.leido}` + (conv ? ` − ${B.nOoo}` : '')],
+        [t('Próximo AN', 'Next AN'), B.esp, `= ${V('rcb')} + 1`],
+        [t('ACK retardado', 'Delayed ACK'), B.ret == null ? '—' : t('pendiente', 'pending'), B.ret == null ? t('no hay ningún segmento esperando su ACK', 'no segment is awaiting its ACK') : t(`espera hasta el tic ${B.ret + 2} por si llega otro segmento`, `waiting until tick ${B.ret + 2} in case another segment arrives`)],
+      ];
+    };
+    filas('varsA', fA(p), fA(ant)); filas('varsB', fB(p), fB(ant));
+
+    diagrama(p);
+
+    /* registro */
+    $('registro').innerHTML = sim.log.slice(0, p.nlog).map((s, i) => {
+      const perd = s.pasoPerdida != null && paso >= s.pasoPerdida;
+      const ve = cc && s.pasoLlegada != null && paso >= s.pasoLlegada;
+      const nota = [];
+      if (s.retx === 'rto') nota.push(t('retransmisión (temporizador)', 'retransmission (timer)'));
+      if (s.retx === 'rapida') nota.push(t('retransmisión rápida', 'fast retransmit'));
+      if (s.de === 'B') nota.push({ retardado: t('ACK retardado', 'delayed ACK'), acumulativo: t('ACK acumulativo', 'cumulative ACK'), orden: 'ACK', duplicado: t('ACK duplicado', 'duplicate ACK'), relleno: t('ACK al rellenar el hueco', 'ACK on filling the gap'), repetido: t('ACK repetido', 'repeated ACK'), nocabe: t('ACK repetido', 'repeated ACK'), ventana: t('actualización de ventana', 'window update') }[s.causa]);
+      if (perd) nota.push(t('SE PIERDE', 'LOST'));
+      return `<tr class="${i === p.nlog - 1 ? 'ult' : ''}${perd ? ' perd' : ''}"><td>${s.t}</td><td class="t">${s.de === 'A' ? 'A → B' : 'B → A'}</td><td>${s.sn}</td><td>${s.an}</td><td>${s.w}</td><td>${s.len}</td>` + (cc ? `<td>${s.de === 'A' && s.cvc ? L(s.cvc) : ''}</td><td>${ve ? L(s.vcTras) : ''}</td><td class="t">${ve ? V(s.modoTras) : ''}</td>` : '') + `<td class="t">${nota.join(' · ')}</td></tr>`;
+    }).join('');
+  }
+
+  /* ----- Diagrama de secuencia: cada segmento sale al comienzo de su tic y llega a mitad de tic ----- */
+  function diagrama(p) {
+    const cc = sim.c.cc, H = 36, top = 44, xA = cc ? 400 : 340, xB = xA + 240, W = xB + 300;
+    const tmax = sim.pasos[sim.pasos.length - 1].t, alto = top + tmax * H + 16, D = t('Datos', 'Data');
+    const y = (tic) => top + (tic - 1) * H;
+    let s = `<svg viewBox="0 0 ${W} ${alto}" width="${W}" height="${alto}" role="img" aria-label="${t('Diagrama de secuencia de los segmentos intercambiados hasta este paso', 'Sequence diagram of the segments exchanged so far')}">`;
+    if (p.t >= 1) s += `<rect class="ahora" x="0" y="${y(p.t)}" width="${W}" height="${H}"/>`;
+    s += `<rect class="host" x="${xA - 36}" y="4" width="72" height="26" rx="3"/><text class="hostT" x="${xA}" y="22">A</text>` +
+         `<rect class="host" x="${xB - 36}" y="4" width="72" height="26" rx="3"/><text class="hostT" x="${xB}" y="22">B</text>` +
+         `<text class="cab" x="${xA - 46}" y="22" text-anchor="end">${t('emisor: lo que envía A', 'sender: what A sends')}${cc ? ' · ' + V('cvc') + ' · ' + V('vc') : ''}</text>` +
+         `<text class="cab" x="${xB + 46}" y="22">${t('receptor: los ACK de B', "receiver: B's ACKs")}</text>`;
+    for (let k = 1; k <= tmax + 1; k++) s += `<line class="tl" x1="34" y1="${y(k)}" x2="${W - 8}" y2="${y(k)}"/>` + (k <= tmax ? `<text class="ticN" x="28" y="${y(k) + 4}">${k}</text>` : '');
+    s += `<line class="vida" x1="${xA}" y1="30" x2="${xA}" y2="${alto - 6}"/><line class="vida" x1="${xB}" y1="30" x2="${xB}" y2="${alto - 6}"/>`;
+    sim.log.slice(0, p.nlog).forEach((g, i) => {
+      const perd = g.pasoPerdida != null && paso >= g.pasoPerdida, lleg = g.pasoFin != null && paso >= g.pasoFin;
+      const ve = cc && g.pasoLlegada != null && paso >= g.pasoLlegada;
+      const de = g.de === 'A' ? xA : xB, a = g.de === 'A' ? xB : xA, f = lleg ? 1 : 0.5, y0 = y(g.t);
+      const x1 = de + (a - de) * f, y1 = y0 + H / 2 * f, sg = a > de ? 1 : -1;
+      s += `<g class="fl${perd ? ' perd' : ''}${!lleg && !perd ? ' vuelo' : ''}${i === p.nlog - 1 ? ' ult' : ''}"><line x1="${de}" y1="${y0}" x2="${x1}" y2="${y1}"/>`;
+      if (lleg) s += `<polygon points="${x1},${y1} ${x1 - sg * 11},${y1 - 6.5} ${x1 - sg * 9.5},${y1 + 2.5}"/>`;
+      if (perd) s += `<line class="x" x1="${x1 - 7}" y1="${y1 - 7}" x2="${x1 + 7}" y2="${y1 + 7}"/><line class="x" x1="${x1 - 7}" y1="${y1 + 7}" x2="${x1 + 7}" y2="${y1 - 7}"/>`;
+      let r = `SN=${g.sn}, ACK, AN=${g.an}, W=${g.w}, ${D}=${g.len}`;
+      if (g.de === 'A') {
+        if (g.retx) r = (g.retx === 'rto' ? '⏱ ' : '3×ACK ') + r;
+        if (cc && g.cvc) r += ` (${V('cvc')}=${L(g.cvc)})`;
+        s += `<text x="${xA - 10}" y="${y0 + 4}" text-anchor="end">${r}</text>`;
+        if (ve) s += `<text class="vcx" x="${xA - 10}" y="${y0 + 17}" text-anchor="end">${V('vc')}=${L(g.vcTras)} · ${V(g.modoTras)}</text>`;
+      } else {
+        s += `<text x="${xB + 10}" y="${y0 + 4}">${r}</text>`;
+        if (ve) s += `<text class="vcx" x="${xA - 10}" y="${y0 + H / 2 + 4}" text-anchor="end">${V('vc')}=${L(g.vcTras)} · ${V(g.modoTras)}</text>`;
+      }
+      s += '</g>';
+    });
+    $('diag').innerHTML = s + '</svg>';
+  }
+
+  /* ----- Navegación ----- */
+  function ir(n) { paso = Math.min(sim.pasos.length - 1, Math.max(0, n)); pintar(); if (paso === sim.pasos.length - 1) parar(); }
+  function ticSiguiente() {
+    const a = sim.pasos[paso]; let n = paso + 1;
+    while (n < sim.pasos.length - 1 && sim.pasos[n].t === a.t) n++;
+    while (n < sim.pasos.length - 1 && sim.pasos[n + 1].t === sim.pasos[n].t) n++;
+    ir(n);
+  }
+  function parar() { if (crono) { clearInterval(crono); crono = null; } $('bPlay').textContent = t('Reproducir', 'Play'); }
+  function reproducir() {
+    if (crono) return parar();
+    if (paso === sim.pasos.length - 1) ir(0);
+    $('bPlay').textContent = t('Pausa', 'Pause');
+    crono = setInterval(() => ir(paso + 1), +$('vel').value);
+  }
+  $('bIni').onclick = () => { parar(); ir(0); };
+  $('bAnt').onclick = () => { parar(); ir(paso - 1); };
+  $('bSig').onclick = () => { parar(); ir(paso + 1); };
+  $('bTic').onclick = () => { parar(); ticSiguiente(); };
+  $('bPlay').onclick = reproducir;
+  $('vel').onchange = () => { if (crono) { parar(); reproducir(); } };
+  $('barra').oninput = (e) => { parar(); ir(+e.target.value); };
+  document.addEventListener('keydown', (e) => {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== 'range') return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); parar(); e.shiftKey ? ticSiguiente() : ir(paso + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); parar(); ir(paso - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); parar(); ir(0); }
+    else if (e.key === 'End') { e.preventDefault(); parar(); ir(sim.pasos.length - 1); }
+    else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); reproducir(); }
+  });
+
+  /* ----- Escenarios, idioma y tema ----- */
+  function opciones() {
+    const s = $('escenario'), v = s.value;
+    s.innerHTML = ESCENARIOS.map(e => `<option value="${e.id}">${L(e.nombre)}</option>`).join('');
+    if (v) s.value = v;
+  }
+  $('escenario').onchange = () => { cargarPreset(ESCENARIOS.find(e => e.id === $('escenario').value)); recalcular(); };
+  for (const id of ['pSegs', 'pMss', 'pBuf', 'pRto', 'pPA', 'pPB', 'pLee', 'pDesde', 'pCada', 'pOct', 'pRet', 'pConv', 'pCC', 'pVc', 'pUmb']) $(id).onchange = recalcular;
+
+  function tema(v) {
+    if (v === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v);
+    document.querySelectorAll('#temas button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === v));
+    try { localStorage.setItem('visualizatcp.tema', v); } catch (e) { /* sin almacenamiento */ }
+  }
+  document.querySelectorAll('#temas button').forEach(b => b.onclick = () => tema(b.dataset.t));
+
+  let t0 = 'auto';
+  try { t0 = localStorage.getItem('visualizatcp.tema') || 'auto'; } catch (e) { /* sin almacenamiento */ }
+  tema(t0);
+  /* Enlace directo a un escenario y un paso: …html#rapida/24 */
+  const [h0, h1] = decodeURIComponent(location.hash.slice(1)).split('/');
+  const e0 = ESCENARIOS.find(e => e.id === h0) || ESCENARIOS[0];
+  opciones(); $('escenario').value = e0.id; cargarPreset(e0);
+  sim = simular(leerParam());
+  paso = Math.min(sim.pasos.length - 1, Math.max(0, parseInt(h1, 10) || 0));
+  construir(); pintar();
+})();
+if (typeof module !== 'undefined') module.exports = { simular, ESCENARIOS, BASE };
+</script>
+</body>
+</html>
